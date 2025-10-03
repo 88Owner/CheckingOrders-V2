@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Order Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .welcome-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 2rem;
+        }
+
+        .welcome-section p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .dashboard-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            border-color: #667eea;
+        }
+
+        .dashboard-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .dashboard-card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #212529;
+        }
+
+        .stats-section {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .recent-orders {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 30px;
+        }
+
+        .recent-orders h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .dashboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .dashboard-table th,
+        .dashboard-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .dashboard-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .dashboard-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+            min-width: 80px;
+            display: inline-block;
+        }
+
+        .status-badge.verified {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.processing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align:right; margin-top:20px;">
+            <button id="logoutBtn" style="background:#e83e8c;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Đăng xuất</button>
+        </div>
+        
+        <div class="header">
+            <h1>Dashboard</h1>
+            <p>Trang chủ quản lý đơn hàng</p>
+        </div>
+
+        <div class="content">
+            <div class="welcome-section">
+                <h2>Chào mừng bạn đến với hệ thống quản lý đơn hàng</h2>
+                <p>Quản lý và theo dõi đơn hàng một cách hiệu quả</p>
+            </div>
+
+            <div class="stats-section">
+                <h3 style="color: #667eea; margin-bottom: 20px; text-align: center;">📊 Thống kê tổng quan</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>Tổng đơn hàng</h4>
+                        <div class="number" id="totalOrders">0</div>
+                        <div class="label">đơn hàng</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Đã xác nhận</h4>
+                        <div class="number" id="verifiedOrders">0</div>
+                        <div class="label">đơn hàng</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Đang xử lý</h4>
+                        <div class="number" id="processingOrders">0</div>
+                        <div class="label">đơn hàng</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Chờ xử lý</h4>
+                        <div class="number" id="pendingOrders">0</div>
+                        <div class="label">đơn hàng</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3>📁 Upload File Excel</h3>
+                    <p>Upload file Excel chứa danh sách đơn hàng để import vào hệ thống</p>
+                    <a href="/" class="btn btn-success">Truy cập Upload</a>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>🔍 Kiểm tra đơn hàng</h3>
+                    <p>Kiểm tra và xác nhận đơn hàng theo mã vận đơn</p>
+                    <a href="/check" class="btn btn-info">Bắt đầu kiểm tra</a>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>📊 Xem thống kê</h3>
+                    <p>Xem các báo cáo và thống kê chi tiết về đơn hàng</p>
+                    <button class="btn btn-warning" onclick="refreshStats()">Làm mới thống kê</button>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>⚙️ Quản trị hệ thống</h3>
+                    <p>Quản lý tài khoản và cấu hình hệ thống (chỉ Admin)</p>
+                    <a href="/admin" class="btn">Truy cập Admin</a>
+                </div>
+            </div>
+
+            <div class="recent-orders">
+                <h3>📋 Đơn hàng gần đây</h3>
+                <div class="table-responsive">
+                    <table class="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã vận đơn</th>
+                                <th>Mã đơn hàng</th>
+                                <th>Mã hàng</th>
+                                <th>Số lượng</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày import</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentOrdersTableBody">
+                            <!-- Dữ liệu sẽ được hiển thị ở đây -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecentOrders();
+            refreshStats();
+        });
+
+        // Handle logout
+        document.getElementById('logoutBtn').onclick = async function() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            }
+        };
+
+        // Load recent orders
+        async function loadRecentOrders() {
+            try {
+                const response = await fetch('/api/orders?limit=10');
+                const result = await response.json();
+
+                if (result.success) {
+                    displayRecentOrders(result.data.orders);
+                } else {
+                    console.error('Error loading orders:', result.message);
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        // Display recent orders
+        function displayRecentOrders(orders) {
+            const tbody = document.getElementById('recentOrdersTableBody');
+            tbody.innerHTML = '';
+
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Chưa có đơn hàng nào</td></tr>';
+                return;
+            }
+
+            orders.forEach(order => {
+                const row = document.createElement('tr');
+                const statusClass = order.verified ? 'verified' : 
+                                  (order.scannedQuantity > 0) ? 'processing' : 'pending';
+                const statusText = order.verified ? 'Đã xác nhận' : 
+                                  (order.scannedQuantity > 0) ? 'Đang xử lý' : 'Chờ xử lý';
+
+                row.innerHTML = `
+                    <td>${order.stt}</td>
+                    <td>${order.maVanDon}</td>
+                    <td>${order.maDonHang}</td>
+                    <td>${order.maHang}</td>
+                    <td>${order.soLuong}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>${new Date(order.importDate).toLocaleDateString('vi-VN')}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Refresh statistics
+        async function refreshStats() {
+            try {
+                const response = await fetch('/api/orders');
+                const result = await response.json();
+
+                if (result.success) {
+                    const orders = result.data.orders;
+                    
+                    document.getElementById('totalOrders').textContent = orders.length;
+                    document.getElementById('verifiedOrders').textContent = orders.filter(o => o.verified).length;
+                    document.getElementById('processingOrders').textContent = orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).length;
+                    document.getElementById('pendingOrders').textContent = orders.filter(o => !o.verified && (o.scannedQuantity || 0) === 0).length;
+                } else {
+                    console.error('Error loading stats:', result.message);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+    </script>
+</body>
+<script src="/userbar.js"></script>
+</html>

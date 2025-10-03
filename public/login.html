@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập hệ thống</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f6fa; }
+        .login-container { max-width: 500px; margin: 60px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 32px; }
+        h2 { text-align: center; margin-bottom: 24px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+        .btn { width: 100%; padding: 10px; background: #667eea; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+        .btn:hover { background: #5a6fd8; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .error { color: #dc3545; text-align: center; margin-bottom: 10px; }
+        .com-status { 
+            font-size: 12px; 
+            color: #666; 
+            text-align: center; 
+            margin-top: 10px; 
+            padding: 5px; 
+            background: #f8f9fa; 
+            border-radius: 4px; 
+        }
+        .serial-permission {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .serial-permission h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .serial-permission p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .serial-btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .serial-btn:hover {
+            background: #1976d2;
+        }
+        .serial-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .detected-ports {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .port-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .port-item:last-child {
+            border-bottom: none;
+        }
+        .port-name {
+            font-weight: bold;
+            color: #333;
+        }
+        .port-info {
+            color: #666;
+            font-size: 11px;
+        }
+        .help-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+        .help-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        .help-steps {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .help-steps li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .help-steps li:before {
+            content: "📌 ";
+            margin-right: 8px;
+        }
+        .help-steps li:last-child {
+            border-bottom: none;
+        }
+        .browser-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .warning-message {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .toggle-help {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 5px;
+        }
+        .toggle-help:hover {
+            background: #5a6268;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        /* Professional Login Success Animation */
+        .login-success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            backdrop-filter: blur(10px);
+        }
+        
+        .login-success-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .success-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px 50px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: scale(0.8) translateY(30px);
+            animation: cardEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards 0.1s;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            position: relative;
+            transform: scale(0);
+            animation: iconPulse 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards 0.3s;
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.3);
+        }
+        
+        .success-icon::before {
+            content: '✓';
+            font-size: 50px;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .success-icon::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            opacity: 0;
+            animation: ripple 0.8s ease-out 0.6s;
+            z-index: -1;
+        }
+        
+        .success-title {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideInUp 0.4s ease forwards 0.5s;
+            letter-spacing: -0.5px;
+        }
+        
+        .success-subtitle {
+            color: #7f8c8d;
+            font-size: 16px;
+            margin-bottom: 35px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideInUp 0.4s ease forwards 0.7s;
+            font-weight: 400;
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards 0.9s;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            border-radius: 2px;
+            width: 0%;
+            animation: progressFill 1s ease-in-out forwards 1.1s;
+        }
+        
+        .loading-text {
+            color: #95a5a6;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards 1.3s;
+        }
+        
+        @keyframes cardEntrance {
+            0% { 
+                transform: scale(0.8) translateY(30px);
+                opacity: 0;
+            }
+            100% { 
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes iconPulse {
+            0% { 
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% { 
+                transform: scale(1.1);
+            }
+            100% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes ripple {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.6;
+            }
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes slideInUp {
+            0% { 
+                opacity: 0; 
+                transform: translateY(20px); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        
+        @keyframes progressFill {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Professional Login Success Animation Overlay -->
+    <div id="loginSuccessOverlay" class="login-success-overlay">
+        <div class="success-card">
+            <div class="success-icon"></div>
+            <div class="success-title">Đăng nhập thành công!</div>
+            <div class="success-subtitle">Đang chuyển hướng đến trang chính...</div>
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+            <div class="loading-text">Vui lòng chờ trong giây lát</div>
+        </div>
+    </div>
+    
+    <div class="login-container">
+        <h2>Đăng nhập</h2>
+        
+        <!-- Serial Port Permission Section -->
+        <div class="serial-permission" id="serialPermission" style="display: none;">
+            <h4>🔌 Kết nối COM Port</h4>
+            <p>Chọn cổng COM để kết nối máy quét:</p>
+            
+            <!-- COM Port Selection -->
+            <div id="comPortSelection" style="margin: 15px 0;">
+                <label for="comPortSelect" style="display: block; margin-bottom: 8px; font-weight: bold;">
+                    Chọn cổng COM:
+                </label>
+                <select id="comPortSelect" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="">-- Chọn cổng COM --</option>
+                </select>
+                <div id="comPortInfo" style="font-size: 12px; color: #666; margin-top: 5px;"></div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div style="margin: 15px 0;">
+                <button class="serial-btn" id="connectComBtn" onclick="connectToSelectedPort()" disabled>
+                    🔌 Kết nối COM Port
+                </button>
+                <button class="serial-btn" id="disconnectComBtn" onclick="disconnectComPort()" disabled style="background: #dc3545;">
+                    ❌ Ngắt kết nối
+                </button>
+                <button class="serial-btn" id="testComBtn" onclick="testComInput()" style="background: #ff9800;">
+                    🧪 Test Input
+                </button>
+            </div>
+            
+            <!-- Connection Status -->
+            <div id="connectionStatus" style="margin: 15px 0; padding: 10px; border-radius: 4px; background: #f8f9fa; border: 1px solid #e9ecef;">
+                <div id="comStatus">Chưa kết nối COM port</div>
+                <div id="inputStatus" style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Chờ dữ liệu từ máy quét...
+                </div>
+            </div>
+            
+            <!-- Input Display -->
+            <div id="inputDisplay" style="margin: 15px 0; padding: 10px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; display: none;">
+                <h5 style="margin: 0 0 10px 0; color: #1976d2;">📱 Dữ liệu nhận được:</h5>
+                <div id="receivedData" style="font-family: monospace; background: white; padding: 8px; border-radius: 3px; border: 1px solid #ccc;"></div>
+                <div id="inputActions" style="margin-top: 10px;">
+                    <button class="serial-btn" onclick="copyToClipboard()" style="background: #28a745; font-size: 12px; padding: 5px 10px;">
+                        📋 Copy
+                    </button>
+                    <button class="serial-btn" onclick="clearInput()" style="background: #6c757d; font-size: 12px; padding: 5px 10px;">
+                        🗑️ Clear
+                    </button>
+                </div>
+            </div>
+            
+            <button class="toggle-help" onclick="toggleHelp()">
+                Hướng dẫn chi tiết
+            </button>
+        </div>
+        
+        <!-- Help Section -->
+        <div class="help-section" id="helpSection" style="display: none;">
+            <h4>Hướng dẫn sử dụng Serial Ports</h4>
+            <ul class="help-steps">
+                <li><strong>Bước 1:</strong> Kết nối máy quét vào cổng USB</li>
+                <li><strong>Bước 2:</strong> Click "Yêu cầu quyền truy cập"</li>
+                <li><strong>Bước 3:</strong> Chọn máy quét trong popup và click "Kết nối"</li>
+                <li><strong>Bước 4:</strong> Click "Quét COM Ports" để phát hiện thiết bị</li>
+                <li><strong>Bước 5:</strong> Thông tin sẽ được gửi lên server tự động</li>
+            </ul>
+            
+            <div class="browser-warning">
+                <strong>Lưu ý:</strong> Chỉ hoạt động trên Chrome/Edge mới nhất. Firefox/Safari chưa hỗ trợ.
+            </div>
+            
+            <h4>🔧 Xử lý sự cố:</h4>
+            <ul class="help-steps">
+                <li><strong>Không thấy nút:</strong> Kiểm tra trình duyệt Chrome/Edge</li>
+                <li><strong>Không tìm thấy máy quét:</strong> Rút ra cắm lại, kiểm tra driver</li>
+                <li><strong>Từ chối quyền:</strong> Click khóa ở thanh địa chỉ → Cho phép</li>
+                <li><strong>Lỗi kết nối:</strong> Refresh trang và thử lại</li>
+            </ul>
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Tên đăng nhập</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Mật khẩu</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="error" id="errorMsg"></div>
+            <button type="submit" class="btn">Đăng nhập</button>
+            <div class="com-status" id="comStatus">Chưa phát hiện COM ports</div>
+        </form>
+    </div>
+    
+    <script>
+        let serialPorts = [];
+        let hasSerialAccess = false;
+        let helpVisible = false;
+        let currentPort = null;
+        let isConnected = false;
+        let isListening = false;
+        let assignedComPort = null;
+        
+        // Hàm kiểm tra hỗ trợ Web Serial API một cách chính xác
+        function checkSerialSupport() {
+            try {
+                // Kiểm tra navigator.serial có tồn tại không
+                if (typeof navigator === 'undefined') {
+                    return { supported: false, reason: 'Navigator không tồn tại' };
+                }
+                
+                if (!('serial' in navigator)) {
+                    return { supported: false, reason: 'serial không có trong navigator' };
+                }
+                
+                // Kiểm tra các method cần thiết
+                if (typeof navigator.serial.requestPort !== 'function') {
+                    return { supported: false, reason: 'requestPort không phải function' };
+                }
+                
+                if (typeof navigator.serial.getPorts !== 'function') {
+                    return { supported: false, reason: 'getPorts không phải function' };
+                }
+                
+                // Kiểm tra user agent để xác định trình duyệt
+                const userAgent = navigator.userAgent.toLowerCase();
+                const isChrome = userAgent.includes('chrome') && !userAgent.includes('edg');
+                const isEdge = userAgent.includes('edg');
+                const isFirefox = userAgent.includes('firefox');
+                const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome');
+                
+                let browserInfo = 'Unknown';
+                if (isChrome) browserInfo = 'Chrome';
+                else if (isEdge) browserInfo = 'Edge';
+                else if (isFirefox) browserInfo = 'Firefox';
+                else if (isSafari) browserInfo = 'Safari';
+                
+                return { 
+                    supported: true, 
+                    browser: browserInfo,
+                    userAgent: userAgent
+                };
+                
+            } catch (error) {
+                return { supported: false, reason: 'Lỗi kiểm tra: ' + error.message };
+            }
+        }
+        
+        // Kiểm tra hỗ trợ Web Serial API khi trang load
+        function initSerialSupport() {
+            const serialPermission = document.getElementById('serialPermission');
+            const supportInfo = checkSerialSupport();
+            
+            console.log('Serial support check:', supportInfo);
+            
+            if (!supportInfo.supported) {
+                serialPermission.innerHTML = `
+                    <h4>❌ Không hỗ trợ Serial API</h4>
+                    <p>Trình duyệt của bạn không hỗ trợ Web Serial API.</p>
+                    <div class="browser-warning">
+                        <strong>Lý do:</strong> ${supportInfo.reason}<br>
+                        <strong>Yêu cầu:</strong> Chrome 89+ hoặc Edge 89+ để sử dụng tính năng này.
+                    </div>
+                    <div class="debug-info">
+                        <strong>Debug info:</strong><br>
+                        User Agent: ${navigator.userAgent}<br>
+                        Navigator: ${typeof navigator}<br>
+                        Serial in navigator: ${'serial' in navigator}<br>
+                        Serial type: ${typeof navigator.serial}
+                    </div>
+                `;
+            } else {
+                // Hiển thị thông tin debug nếu cần
+                const debugInfo = document.createElement('div');
+                debugInfo.className = 'debug-info';
+                debugInfo.innerHTML = `
+                    <strong>Debug info:</strong><br>
+                    Browser: ${supportInfo.browser}<br>
+                    Serial API: Supported<br>
+                    User Agent: ${supportInfo.userAgent}
+                `;
+                serialPermission.appendChild(debugInfo);
+            }
+        }
+        
+        // Toggle help section
+        function toggleHelp() {
+            const helpSection = document.getElementById('helpSection');
+            const toggleBtn = document.querySelector('.toggle-help');
+            
+            if (helpVisible) {
+                helpSection.style.display = 'none';
+                toggleBtn.textContent = 'Hướng dẫn chi tiết';
+                helpVisible = false;
+            } else {
+                helpSection.style.display = 'block';
+                toggleBtn.textContent = 'Ẩn hướng dẫn';
+                helpVisible = true;
+            }
+        }
+        
+        // Yêu cầu quyền truy cập serial ports
+        async function requestSerialAccess() {
+            try {
+                const requestBtn = document.getElementById('requestSerialBtn');
+                const scanBtn = document.getElementById('scanPortsBtn');
+                
+                requestBtn.disabled = true;
+                requestBtn.textContent = '⏳ Đang yêu cầu quyền...';
+                
+                // Yêu cầu quyền truy cập serial ports
+                const port = await navigator.serial.requestPort();
+                
+                hasSerialAccess = true;
+                requestBtn.textContent = 'Đã có quyền truy cập';
+                requestBtn.style.background = '#4caf50';
+                scanBtn.disabled = false;
+                
+                console.log('Serial access granted:', port);
+                
+                // Hiển thị thông báo thành công
+                showMessage('success', 'Đã cấp quyền truy cập serial ports! Bây giờ bạn có thể quét COM ports.');
+                
+            } catch (error) {
+                console.error('Serial access denied:', error);
+                document.getElementById('requestSerialBtn').textContent = 'Từ chối quyền truy cập';
+                document.getElementById('requestSerialBtn').style.background = '#f44336';
+                
+                let errorMsg = 'Lỗi khi yêu cầu quyền truy cập: ' + error.message;
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Bạn đã từ chối quyền truy cập. Vui lòng thử lại và chọn "Cho phép".';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = 'Không tìm thấy serial ports. Vui lòng kết nối thiết bị và thử lại.';
+                }
+                
+                showMessage('error', errorMsg);
+            }
+        }
+        
+        // Quét serial ports
+        async function scanSerialPorts() {
+            try {
+                const scanBtn = document.getElementById('scanPortsBtn');
+                const detectedPorts = document.getElementById('detectedPorts');
+                const portsList = document.getElementById('portsList');
+                
+                scanBtn.disabled = true;
+                scanBtn.textContent = '⏳ Đang quét...';
+                
+                // Lấy danh sách ports đã được cấp quyền
+                const ports = await navigator.serial.getPorts();
+                
+                serialPorts = [];
+                portsList.innerHTML = '';
+                
+                if (ports.length === 0) {
+                    portsList.innerHTML = '<div style="color: #999; font-style: italic;">Không có serial ports nào được cấp quyền</div>';
+                    showMessage('error', 'Không tìm thấy serial ports. Vui lòng yêu cầu quyền truy cập trước.');
+                } else {
+                    for (const port of ports) {
+                        try {
+                            const info = port.getInfo();
+                            const portData = {
+                                path: `COM${info.usbVendorId}-${info.usbProductId}` || 'Unknown',
+                                manufacturer: info.usbVendorId ? `Vendor: ${info.usbVendorId}` : 'Unknown',
+                                vendorId: info.usbVendorId || null,
+                                productId: info.usbProductId || null,
+                                isAvailable: true,
+                                isLikelyScanner: checkIfScanner(info),
+                                confidence: checkIfScanner(info) ? 'high' : 'medium',
+                                deviceType: checkIfScanner(info) ? 'Scanner Device' : 'Serial Device'
+                            };
+                            
+                            serialPorts.push(portData);
+                            
+                            // Hiển thị port
+                            const portDiv = document.createElement('div');
+                            portDiv.className = 'port-item';
+                            portDiv.innerHTML = `
+                                <div>
+                                    <div class="port-name">${portData.path}</div>
+                                    <div class="port-info">${portData.manufacturer}</div>
+                                </div>
+                                <div>
+                                    <span style="background: ${portData.isLikelyScanner ? '#4caf50' : '#ff9800'}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
+                                        ${portData.isLikelyScanner ? '📱 Scanner' : '🔌 Device'}
+                                    </span>
+                                </div>
+                            `;
+                            portsList.appendChild(portDiv);
+                        } catch (error) {
+                            console.error('Error getting port info:', error);
+                        }
+                    }
+                }
+                
+                detectedPorts.style.display = 'block';
+                scanBtn.disabled = false;
+                scanBtn.textContent = '🔍 Quét lại COM Ports';
+                
+                // Gửi dữ liệu lên server
+                await sendComPortsToServer();
+                
+            } catch (error) {
+                console.error('Error scanning serial ports:', error);
+                showMessage('error', 'Lỗi khi quét serial ports: ' + error.message);
+                
+                document.getElementById('scanPortsBtn').disabled = false;
+                document.getElementById('scanPortsBtn').textContent = '🔍 Quét COM Ports';
+            }
+        }
+        
+        // Kiểm tra xem có phải là máy quét không
+        function checkIfScanner(info) {
+            // Một số Vendor ID phổ biến của máy quét
+            const scannerVendors = [
+                '0x05e0', // Symbol Technologies
+                '0x0c2e', // Honeywell
+                '0x05e0', // Motorola
+                '0x0c2e', // Datalogic
+                '0x05e0', // Zebra
+                '0x0c2e'  // Generic Scanner
+            ];
+            
+            if (info.usbVendorId) {
+                const vendorId = '0x' + info.usbVendorId.toString(16).padStart(4, '0');
+                return scannerVendors.includes(vendorId.toLowerCase());
+            }
+            
+            return false;
+        }
+        
+        // Gửi COM ports lên server
+        async function sendComPortsToServer() {
+            try {
+                const hostname = window.location.hostname;
+                const platform = navigator.platform;
+                
+                console.log('Sending COM ports to server:', serialPorts);
+                
+                const response = await fetch('/api/machine/register-com-ports', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        comPorts: serialPorts,
+                        hostname,
+                        platform
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('COM ports registered successfully:', result.data);
+                    const comStatus = document.getElementById('comStatus');
+                    comStatus.textContent = `✅ Đã phát hiện ${serialPorts.length} COM ports`;
+                    comStatus.style.color = '#28a745';
+                    showMessage('success', `✅ Đã gửi ${serialPorts.length} COM ports lên server thành công!`);
+                } else {
+                    console.error('Failed to register COM ports:', result.message);
+                    const comStatus = document.getElementById('comStatus');
+                    comStatus.textContent = '❌ Lỗi gửi COM ports';
+                    comStatus.style.color = '#dc3545';
+                    showMessage('error', 'Lỗi gửi COM ports: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error sending COM ports:', error);
+                const comStatus = document.getElementById('comStatus');
+                comStatus.textContent = '❌ Lỗi kết nối';
+                comStatus.style.color = '#dc3545';
+                showMessage('error', 'Lỗi kết nối server: ' + error.message);
+            }
+        }
+        
+        // Hiển thị thông báo
+        function showMessage(type, message) {
+            // Xóa thông báo cũ
+            const oldMessage = document.querySelector('.success-message, .error-message, .warning-message');
+            if (oldMessage) {
+                oldMessage.remove();
+            }
+            
+            // Tạo thông báo mới
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success-message' : 
+                                  type === 'warning' ? 'warning-message' : 'error-message';
+            messageDiv.textContent = message;
+            
+            // Thêm vào sau serial permission section
+            const serialSection = document.getElementById('serialPermission');
+            serialSection.appendChild(messageDiv);
+            
+            // Tự động ẩn sau 5 giây
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // Tự động kết nối COM port
+        async function autoConnectToComPort(assignedPort) {
+            try {
+                console.log('Auto connecting to COM port:', assignedPort);
+                
+                // Kiểm tra hỗ trợ Web Serial API
+                const supportInfo = checkSerialSupport();
+                if (!supportInfo.supported) {
+                    throw new Error('Trình duyệt không hỗ trợ Web Serial API');
+                }
+                
+                // Yêu cầu quyền truy cập serial ports
+                const port = await navigator.serial.requestPort();
+                
+                // Lấy thông tin port (không cần kiểm tra khớp với assigned port)
+                const portInfo = port.getInfo();
+                console.log('Connected to port:', portInfo);
+                
+                // Cập nhật trạng thái
+                hasSerialAccess = true;
+                const requestBtn = document.getElementById('requestSerialBtn');
+                const scanBtn = document.getElementById('scanPortsBtn');
+                
+                if (requestBtn) {
+                    requestBtn.textContent = '✅ Đã kết nối COM';
+                    requestBtn.style.background = '#4caf50';
+                }
+                
+                if (scanBtn) {
+                    scanBtn.disabled = false;
+                    scanBtn.textContent = '🔍 Quét COM Ports';
+                }
+                
+                // Cập nhật COM status
+                const comStatus = document.getElementById('comStatus');
+                if (comStatus) {
+                    comStatus.textContent = `✅ Đã kết nối ${assignedPort}`;
+                    comStatus.style.color = '#28a745';
+                }
+                
+                // Hiển thị thông báo thành công
+                showMessage('success', `✅ Đã tự động kết nối COM port ${assignedPort}!`);
+                
+                // Test các cấu hình COM port khác nhau
+                await testComPortConfigurations(port, assignedPort);
+                
+                console.log('Auto connect successful:', portInfo);
+                return port;
+                
+            } catch (error) {
+                console.error('Auto connect failed:', error);
+                
+                let errorMsg = 'Lỗi tự động kết nối: ' + error.message;
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Bạn đã từ chối quyền truy cập. Vui lòng thử lại và chọn "Cho phép".';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = `Không tìm thấy COM port ${assignedPort}. Vui lòng kiểm tra kết nối thiết bị.`;
+                }
+                
+                // Cập nhật trạng thái lỗi
+                const comStatus = document.getElementById('comStatus');
+                if (comStatus) {
+                    comStatus.textContent = `❌ Lỗi kết nối ${assignedPort}`;
+                    comStatus.style.color = '#dc3545';
+                }
+                
+                throw new Error(errorMsg);
+            }
+        }
+        
+        // Bắt đầu lắng nghe input từ COM port
+        async function startListeningToComPort(port, comPort) {
+            try {
+                console.log(`🔌 Attempting to open COM port: ${comPort}`);
+                
+                // Mở port với cấu hình cơ bản
+                await port.open({ 
+                    baudRate: 9600,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none'
+                });
+                
+                console.log(`✅ COM port ${comPort} opened successfully`);
+                console.log(`🔌 Started listening to COM port: ${comPort}`);
+                
+                // Lấy reader để đọc dữ liệu
+                const reader = port.readable.getReader();
+                console.log(`📖 Reader created for ${comPort}`);
+                
+                // Lắng nghe dữ liệu liên tục
+                while (true) {
+                    try {
+                        console.log(`⏳ Waiting for data from ${comPort}...`);
+                        const { value, done } = await reader.read();
+                        
+                        if (done) {
+                            console.log('📱 COM port reader closed');
+                            break;
+                        }
+                        
+                        console.log(`📦 Raw data received from ${comPort}:`, value);
+                        
+                        // Chuyển đổi dữ liệu thành string
+                        const inputData = new TextDecoder().decode(value);
+                        console.log(`📝 Decoded data from ${comPort}:`, inputData);
+                        
+                        if (inputData.trim()) {
+                            console.log(`📱 Received from ${comPort}:`, inputData);
+                            
+                            // Gửi input lên server để in log
+                            await sendComInputToServer(comPort, inputData);
+                        } else {
+                            console.log(`⚠️ Empty data received from ${comPort}`);
+                        }
+                        
+                    } catch (readError) {
+                        console.error('❌ Error reading from COM port:', readError);
+                        break;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Error starting COM port listener:', error);
+                console.error('Error details:', error.message);
+            }
+        }
+        
+        // Gửi input từ COM port lên server
+        async function sendComInputToServer(comPort, inputData) {
+            try {
+                // Lấy thông tin user từ sessionStorage
+                const assignedComPort = sessionStorage.getItem('assignedComPort');
+                const username = getCurrentUsername(); // Cần implement function này
+                
+                const response = await fetch('/api/com-input', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: username || 'Unknown',
+                        comPort: comPort,
+                        inputData: inputData.trim(),
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Input logged to server successfully');
+                } else {
+                    console.error('❌ Failed to log input to server:', result.message);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error sending COM input to server:', error);
+            }
+        }
+        
+        // Lấy username hiện tại
+        function getCurrentUsername() {
+            try {
+                // Thử lấy từ sessionStorage
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                if (token) {
+                    // Decode JWT token để lấy username
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    return payload.username;
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting username:', error);
+                return null;
+            }
+        }
+        
+        // Test COM port với các cấu hình khác nhau
+        async function testComPortConfigurations(port, comPort) {
+            const configurations = [
+                { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none', name: 'Standard' },
+                { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none', name: 'High Speed' },
+                { baudRate: 4800, dataBits: 8, stopBits: 1, parity: 'none', name: 'Low Speed' },
+                { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', name: '7-bit Even' },
+                { baudRate: 9600, dataBits: 8, stopBits: 2, parity: 'none', name: '2 Stop Bits' }
+            ];
+            
+            for (const config of configurations) {
+                try {
+                    console.log(`🧪 Testing ${config.name} configuration...`);
+                    
+                    // Đóng port trước khi thử cấu hình mới
+                    if (port.readable) {
+                        await port.close();
+                        console.log(`🔒 Port ${comPort} closed`);
+                    }
+                    
+                    // Mở port với cấu hình mới
+                    await port.open(config);
+                    console.log(`✅ Port ${comPort} opened with ${config.name} config`);
+                    
+                    // Test đọc dữ liệu trong 5 giây
+                    const reader = port.readable.getReader();
+                    const timeout = setTimeout(() => {
+                        reader.cancel();
+                    }, 5000);
+                    
+                    try {
+                        const { value, done } = await reader.read();
+                        clearTimeout(timeout);
+                        
+                        if (!done && value && value.length > 0) {
+                            const inputData = new TextDecoder().decode(value);
+                            console.log(`🎉 SUCCESS with ${config.name}:`, inputData);
+                            
+                            // Gửi lên server
+                            await sendComInputToServer(comPort, inputData);
+                            
+                            // Bắt đầu listening với cấu hình này
+                            startListeningToComPort(port, comPort);
+                            return;
+                        }
+                    } catch (readError) {
+                        clearTimeout(timeout);
+                        console.log(`❌ ${config.name} failed:`, readError.message);
+                    }
+                    
+                } catch (error) {
+                    console.log(`❌ ${config.name} configuration failed:`, error.message);
+                }
+            }
+            
+            console.log('❌ All configurations failed. Please check device connection.');
+        }
+        
+        // Load COM ports vào dropdown
+        async function loadComPorts() {
+            try {
+                const select = document.getElementById('comPortSelect');
+                const comPortInfo = document.getElementById('comPortInfo');
+                
+                // Clear existing options
+                select.innerHTML = '<option value="">-- Chọn cổng COM --</option>';
+                
+                // Lấy danh sách COM ports từ server
+                const response = await fetch('/api/admin/all-com-ports', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.data.ports) {
+                        result.data.ports.forEach(port => {
+                            const option = document.createElement('option');
+                            option.value = port.path;
+                            option.textContent = `${port.path} - ${port.assignedToUser || 'Available'}`;
+                            select.appendChild(option);
+                        });
+                        
+                        comPortInfo.textContent = `Tìm thấy ${result.data.ports.length} COM ports`;
+                    } else {
+                        comPortInfo.textContent = 'Không tìm thấy COM ports';
+                    }
+                } else {
+                    // Fallback: sử dụng assigned COM port
+                    if (assignedComPort) {
+                        const option = document.createElement('option');
+                        option.value = assignedComPort;
+                        option.textContent = `${assignedComPort} - Đã phân quyền`;
+                        select.appendChild(option);
+                        select.value = assignedComPort;
+                        comPortInfo.textContent = `COM port đã phân quyền: ${assignedComPort}`;
+                    } else {
+                        comPortInfo.textContent = 'Chưa có COM port được phân quyền';
+                    }
+                }
+                
+                // Enable connect button if port selected
+                select.addEventListener('change', function() {
+                    const connectBtn = document.getElementById('connectComBtn');
+                    connectBtn.disabled = !this.value;
+                });
+                
+            } catch (error) {
+                console.error('Error loading COM ports:', error);
+                showMessage('error', 'Lỗi tải danh sách COM ports: ' + error.message);
+            }
+        }
+        
+        // Kết nối đến COM port đã chọn
+        async function connectToSelectedPort() {
+            try {
+                const selectedPort = document.getElementById('comPortSelect').value;
+                if (!selectedPort) {
+                    showMessage('error', 'Vui lòng chọn cổng COM!');
+                    return;
+                }
+                
+                console.log('🔌 Connecting to COM port:', selectedPort);
+                
+                // Kiểm tra hỗ trợ Web Serial API
+                const supportInfo = checkSerialSupport();
+                if (!supportInfo.supported) {
+                    throw new Error('Trình duyệt không hỗ trợ Web Serial API');
+                }
+                
+                // Yêu cầu quyền truy cập serial ports
+                const port = await navigator.serial.requestPort();
+                currentPort = port;
+                
+                // Mở port với cấu hình cơ bản
+                await port.open({ 
+                    baudRate: 9600,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none'
+                });
+                
+                console.log('✅ COM port opened successfully');
+                
+                // Cập nhật UI
+                updateConnectionStatus(true, selectedPort);
+                
+                // Bắt đầu listening
+                startListeningToComPort(port, selectedPort);
+                
+                showMessage('success', `✅ Đã kết nối COM port ${selectedPort}!`);
+                
+            } catch (error) {
+                console.error('❌ Error connecting to COM port:', error);
+                
+                let errorMsg = 'Lỗi kết nối COM port: ' + error.message;
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Bạn đã từ chối quyền truy cập. Vui lòng thử lại và chọn "Cho phép".';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = 'Không tìm thấy COM port. Vui lòng kiểm tra kết nối thiết bị.';
+                }
+                
+                showMessage('error', errorMsg);
+                updateConnectionStatus(false);
+            }
+        }
+        
+        // Ngắt kết nối COM port
+        async function disconnectComPort() {
+            try {
+                if (currentPort && isConnected) {
+                    await currentPort.close();
+                    console.log('🔌 COM port disconnected');
+                }
+                
+                currentPort = null;
+                isConnected = false;
+                isListening = false;
+                
+                updateConnectionStatus(false);
+                showMessage('info', 'Đã ngắt kết nối COM port');
+                
+            } catch (error) {
+                console.error('❌ Error disconnecting COM port:', error);
+                showMessage('error', 'Lỗi ngắt kết nối: ' + error.message);
+            }
+        }
+        
+        // Cập nhật trạng thái kết nối
+        function updateConnectionStatus(connected, portName = null) {
+            const comStatus = document.getElementById('comStatus');
+            const inputStatus = document.getElementById('inputStatus');
+            const connectBtn = document.getElementById('connectComBtn');
+            const disconnectBtn = document.getElementById('disconnectComBtn');
+            const select = document.getElementById('comPortSelect');
+            
+            isConnected = connected;
+            
+            if (connected) {
+                comStatus.textContent = `✅ Đã kết nối ${portName}`;
+                comStatus.style.color = '#28a745';
+                inputStatus.textContent = 'Đang lắng nghe dữ liệu từ máy quét...';
+                inputStatus.style.color = '#17a2b8';
+                
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                select.disabled = true;
+            } else {
+                comStatus.textContent = 'Chưa kết nối COM port';
+                comStatus.style.color = '#dc3545';
+                inputStatus.textContent = 'Chờ dữ liệu từ máy quét...';
+                inputStatus.style.color = '#6c757d';
+                
+                connectBtn.disabled = !select.value;
+                disconnectBtn.disabled = true;
+                select.disabled = false;
+            }
+        }
+        
+        // Bắt đầu lắng nghe input từ COM port
+        async function startListeningToComPort(port, comPort) {
+            try {
+                console.log(`🔌 Started listening to COM port: ${comPort}`);
+                
+                // Lấy reader để đọc dữ liệu
+                const reader = port.readable.getReader();
+                isListening = true;
+                
+                // Lắng nghe dữ liệu liên tục
+                while (isListening) {
+                    try {
+                        const { value, done } = await reader.read();
+                        
+                        if (done) {
+                            console.log('📱 COM port reader closed');
+                            break;
+                        }
+                        
+                        // Chuyển đổi dữ liệu thành string
+                        const inputData = new TextDecoder().decode(value);
+                        
+                        if (inputData.trim()) {
+                            console.log(`📱 Received from ${comPort}:`, inputData);
+                            
+                            // Hiển thị dữ liệu nhận được
+                            displayReceivedData(inputData.trim());
+                            
+                            // Gửi input lên server để in log
+                            await sendComInputToServer(comPort, inputData);
+                        }
+                        
+                    } catch (readError) {
+                        console.error('Error reading from COM port:', readError);
+                        break;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error starting COM port listener:', error);
+                showMessage('error', 'Lỗi lắng nghe COM port: ' + error.message);
+            }
+        }
+        
+        // Hiển thị dữ liệu nhận được
+        function displayReceivedData(data) {
+            const inputDisplay = document.getElementById('inputDisplay');
+            const receivedData = document.getElementById('receivedData');
+            const inputStatus = document.getElementById('inputStatus');
+            
+            // Hiển thị input display
+            inputDisplay.style.display = 'block';
+            
+            // Thêm dữ liệu mới
+            const timestamp = new Date().toLocaleTimeString();
+            const newData = `[${timestamp}] ${data}`;
+            
+            if (receivedData.textContent) {
+                receivedData.textContent += '\n' + newData;
+            } else {
+                receivedData.textContent = newData;
+            }
+            
+            // Scroll to bottom
+            receivedData.scrollTop = receivedData.scrollHeight;
+            
+            // Cập nhật status
+            inputStatus.textContent = `Nhận được dữ liệu lúc ${timestamp}`;
+            inputStatus.style.color = '#28a745';
+            
+            // Auto scroll to bottom
+            receivedData.scrollTop = receivedData.scrollHeight;
+        }
+        
+        // Copy dữ liệu vào clipboard
+        function copyToClipboard() {
+            const receivedData = document.getElementById('receivedData');
+            const text = receivedData.textContent;
+            
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showMessage('success', '✅ Đã copy dữ liệu vào clipboard!');
+                }).catch(err => {
+                    console.error('Copy failed:', err);
+                    showMessage('error', 'Lỗi copy dữ liệu');
+                });
+            } else {
+                showMessage('warning', 'Không có dữ liệu để copy');
+            }
+        }
+        
+        // Clear dữ liệu
+        function clearInput() {
+            const receivedData = document.getElementById('receivedData');
+            const inputDisplay = document.getElementById('inputDisplay');
+            
+            receivedData.textContent = '';
+            inputDisplay.style.display = 'none';
+            
+            const inputStatus = document.getElementById('inputStatus');
+            inputStatus.textContent = 'Chờ dữ liệu từ máy quét...';
+            inputStatus.style.color = '#6c757d';
+            
+            showMessage('info', 'Đã xóa dữ liệu');
+        }
+        
+        // Test gửi input giả lên server
+        async function testComInput() {
+            try {
+                const selectedPort = document.getElementById('comPortSelect').value;
+                const username = getCurrentUsername();
+                
+                if (!selectedPort) {
+                    showMessage('error', 'Vui lòng chọn cổng COM trước!');
+                    return;
+                }
+                
+                console.log('🧪 Testing COM input to server...');
+                
+                // Test data
+                const testData = [
+                    '1234567890',
+                    'ABC123DEF456',
+                    'QR_CODE_TEST_DATA',
+                    '9876543210'
+                ];
+                
+                for (let i = 0; i < testData.length; i++) {
+                    const inputData = testData[i];
+                    
+                    console.log(`📤 Sending test data ${i + 1}: ${inputData}`);
+                    
+                    // Hiển thị dữ liệu test
+                    displayReceivedData(`[TEST] ${inputData}`);
+                    
+                    const response = await fetch('/api/com-input', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: username || 'test_user',
+                            comPort: selectedPort,
+                            inputData: inputData,
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        console.log(`✅ Test data ${i + 1} sent successfully`);
+                    } else {
+                        console.error(`❌ Test data ${i + 1} failed:`, result.message);
+                    }
+                    
+                    // Wait 1 second between tests
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                
+                console.log('🎉 COM input test completed! Check server console for logs.');
+                showMessage('success', '🎉 COM input test completed! Check server console for logs.');
+                
+            } catch (error) {
+                console.error('❌ Error testing COM input:', error);
+                showMessage('error', '❌ Error testing COM input: ' + error.message);
+            }
+        }
+        
+        // Hàm hiển thị animation đăng nhập thành công
+        function showLoginSuccessAnimation(callback) {
+            const overlay = document.getElementById('loginSuccessOverlay');
+            overlay.classList.add('show');
+            
+            // Chờ animation hoàn thành rồi chuyển hướng
+            setTimeout(() => {
+                if (callback) callback();
+            }, 1800); // 1.8 giây để animation hoàn thành
+        }
+        
+        // LOGIN FORM - GIỮ NGUYÊN CHỨC NĂNG CŨ
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = '';
+            
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    const role = result.role;
+                    const assignedComPort = result.assignedComPort;
+                    const allowedPorts = result.allowedPorts || [];
+                    
+                    // Lưu token vào sessionStorage => phiên theo tab, không chia sẻ sang tab khác
+                    if (result.token) {
+                        try { 
+                            sessionStorage.setItem('auth_token', result.token);
+                            // Checker/packer UI expects checkerAuthToken key
+                            if (role === 'checker' || role === 'packer') sessionStorage.setItem('checkerAuthToken', result.token);
+                        } catch {}
+                    }
+                    
+                    // Lưu thông tin COM port vào sessionStorage
+                    if (assignedComPort) {
+                        try {
+                            sessionStorage.setItem('assignedComPort', assignedComPort);
+                            sessionStorage.setItem('allowedPorts', JSON.stringify(allowedPorts));
+                            console.log('Assigned COM Port:', assignedComPort);
+                            console.log('Allowed Ports:', allowedPorts);
+                        } catch (e) {
+                            console.error('Error saving COM port info:', e);
+                        }
+                    }
+                    
+                    // Không hiển thị COM port section ở trang login nữa
+                    // COM port sẽ được quản lý ở trang checker-home
+                    
+                    // Cả checker và packer đều vào trang một màn hình (checker-home)
+                    if (role === 'packer' || role === 'checker') {
+                        // Wait until server recognizes the session (cookie set) before navigating.
+                        // Some browsers may delay applying Set-Cookie from a fetch; poll /api/me until server returns success.
+                        const maxAttempts = 10;
+                        const delay = ms => new Promise(r => setTimeout(r, ms));
+                        for (let i = 0; i < maxAttempts; i++) {
+                            try {
+                                // Include Authorization header if token is present in sessionStorage
+                                const token = (() => { try { return sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken'); } catch (e) { return null; } })();
+                                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                                const check = await fetch('/api/me', { credentials: 'include', headers });
+                                const chk = await check.json();
+                                if (chk && chk.success) {
+                                    showLoginSuccessAnimation(() => {
+                                        window.location.href = '/checker-home';
+                                    });
+                                    return;
+                                }
+                            } catch (e) {}
+                            // small backoff
+                            await delay(100);
+                        }
+                        // fallback: navigate anyway (server also accepts JWT for checker-home if provided)
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = '/checker-home';
+                        });
+                        return;
+                    }
+                    // Các role khác: dùng redirect nếu server cung cấp
+                    if (result.redirect) {
+                        // Use a small delay to ensure cookie has been set in browser when credentials: 'include' is used
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = result.redirect;
+                        });
+                        return;
+                    }
+                    // Fallback theo role
+                    if (role === 'admin') {
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = '/admin';
+                        });
+                    } else if (role === 'packer') {
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = '/dashboard';
+                        });
+                    } else {
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = '/';
+                        });
+                    }
+                } else {
+                    errorMsg.textContent = result.message || 'Đăng nhập thất bại';
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Lỗi hệ thống';
+            }
+        });
+        
+        // Khởi tạo khi trang load
+        document.addEventListener('DOMContentLoaded', function() {
+            initSerialSupport();
+            checkAssignedComPort();
+            
+            // Load COM ports nếu đã đăng nhập
+            const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+            if (token) {
+                loadComPorts();
+            }
+        });
+        
+        // Kiểm tra COM port đã được phân quyền
+        function checkAssignedComPort() {
+            try {
+                const assignedComPort = sessionStorage.getItem('assignedComPort');
+                const allowedPorts = JSON.parse(sessionStorage.getItem('allowedPorts') || '[]');
+                
+                if (assignedComPort) {
+                    console.log('Found assigned COM port:', assignedComPort);
+                    console.log('Allowed ports:', allowedPorts);
+                    
+                    // Cập nhật giao diện để hiển thị COM port đã được phân quyền
+                    const comStatus = document.getElementById('comStatus');
+                    if (comStatus) {
+                        comStatus.textContent = `✅ COM port đã phân quyền: ${assignedComPort}`;
+                        comStatus.style.color = '#28a745';
+                    }
+                    
+                    // Cập nhật nút request
+                    const requestBtn = document.getElementById('requestSerialBtn');
+                    if (requestBtn) {
+                        requestBtn.textContent = '✅ Đã có COM port';
+                        requestBtn.style.background = '#4caf50';
+                        requestBtn.disabled = true;
+                    }
+                    
+                    // Enable scan button
+                    const scanBtn = document.getElementById('scanPortsBtn');
+                    if (scanBtn) {
+                        scanBtn.disabled = false;
+                        scanBtn.textContent = '🔍 Kết nối COM Port';
+                    }
+                    
+                    // Hiển thị thông báo
+                    showMessage('success', `✅ Bạn đã được phân quyền sử dụng COM port: ${assignedComPort}`);
+                }
+            } catch (error) {
+                console.error('Error checking assigned COM port:', error);
+            }
+        }
+    </script>
+</body>
+</html>

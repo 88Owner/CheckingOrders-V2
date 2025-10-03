@@ -1,0 +1,2032 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Đơn Hàng - Order Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .search-section {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .search-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input-field {
+            padding: 15px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            min-width: 300px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+        }
+
+        .orders-section {
+            display: none;
+        }
+
+        .orders-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.1rem;
+            font-weight: 700;
+        }
+
+        .orders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            font-size: 1.25rem;
+        }
+
+        .order-card {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .order-card.verified {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .order-card.verified::before {
+            content: "Hoàn thành";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.5rem;
+        }
+
+        .order-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .order-info {
+            margin-bottom: 10px;
+            font-size: 1.18rem;
+        }
+
+        .order-info strong {
+            color: #667eea;
+        }
+
+        .verify-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .scan-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .scan-input {
+            padding: 12px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 1rem;
+            min-width: 200px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .scan-input:focus {
+            outline: none;
+            border-color: #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+        }
+
+        .scan-btn {
+            padding: 12px 20px;
+            font-size: 1rem;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+
+        .scan-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .scan-status.pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .scan-status.progress {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .scan-status.completed {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .global-scan-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #667eea;
+        }
+
+        .global-scan-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .global-scan-inputs {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .global-scan-input {
+            padding: 15px 20px;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            min-width: 250px;
+            text-align: center;
+            font-weight: bold;
+            background: white;
+        }
+
+        .global-scan-input:focus {
+            outline: none;
+            border-color: #28a745;
+            box-shadow: 0 0 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .global-scan-btn {
+            padding: 15px 25px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            min-width: 120px;
+        }
+
+        .scan-mode-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-btn:hover {
+            background: #5a6fd8;
+            color: white;
+        }
+
+        .scan-instructions {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .scan-instructions p {
+            margin: 0;
+            color: #1565c0;
+            font-size: 0.9rem;
+        }
+
+        .scanner-mode .global-scan-input {
+            border-color: #4caf50;
+            background: #f1f8e9;
+        }
+
+        .scanner-mode .global-scan-input:focus {
+            border-color: #2e7d32;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .test-codes {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .test-codes h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 1rem;
+        }
+
+        .test-codes-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .test-code-item {
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 15px;
+            padding: 5px 12px;
+            font-size: 0.85rem;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .test-code-item:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .orders-table-container {
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .orders-table-container h3 {
+            background: #667eea;
+            color: white;
+            margin: 0;
+            padding: 15px 20px;
+            font-size: 1.2rem;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .orders-table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: bold;
+            padding: 16px 10px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            white-space: nowrap;
+            font-size: 1.18rem;
+        }
+
+        .orders-table td {
+            padding: 14px 10px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: middle;
+            font-size: 1.15rem;
+            font-size: 1.15rem !important;
+        }
+
+        .orders-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-completed {
+            background: #d4edda !important;
+            color: #155724;
+            font-weight: bold;
+        }
+
+        .status-progress {
+            background: #fff3cd !important;
+            color: #856404;
+            font-weight: bold;
+        }
+
+        .status-blocked {
+            background: #f8d7da !important;
+            color: #721c24;
+            font-weight: bold;
+        }
+
+        .status-error {
+            background: #f8d7da !important;
+            color: #721c24;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            background: #e2e3e5 !important;
+            color: #383d41;
+        }
+
+        .quantity-display {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .quantity-required {
+            color: #495057;
+        }
+
+        .quantity-scanned {
+            color: #28a745;
+        }
+
+        .quantity-excess {
+            color: #dc3545;
+        }
+
+        .quantity-insufficient {
+            color: #ffc107;
+        }
+
+        .scan-input-small {
+            width: 120px;
+            padding: 5px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .scan-btn-small {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-align: center;
+            min-width: 60px;
+            display: inline-block;
+        }
+
+        .status-badge.completed {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-badge.progress {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-badge.blocked {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-badge.pending {
+            background: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            max-width: 600px;
+            width: 95%;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            transform: scale(0.8);
+            animation: modalSlideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes modalSlideIn {
+            to {
+                transform: scale(1);
+            }
+        }
+
+        .modal-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .modal-icon.success {
+            color: #22c55e;
+        }
+
+        .modal-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+
+        .modal-message {
+            font-size: 1.5rem;
+            color: #374151;
+            line-height: 1.8;
+            margin-bottom: 35px;
+            font-weight: 500;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .modal-btn {
+            padding: 18px 36px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .modal-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .modal-btn.secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 2px solid #e5e7eb;
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .filter-section {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 5px 12px;
+            border: 1px solid #ced4da;
+            background: white;
+            color: #495057;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .filter-btn:hover {
+            background: #5a6fd8;
+            color: white;
+        }
+
+        .reset-btn {
+            background: #dc3545 !important;
+            color: white !important;
+            border-color: #dc3545 !important;
+        }
+
+        .reset-btn:hover {
+            background: #c82333 !important;
+            color: white !important;
+        }
+
+        .progress-section {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+            font-weight: 600;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .navigation {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .nav-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin: 0 10px;
+        }
+
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .input-field {
+                min-width: auto;
+            }
+            
+            .orders-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .verify-inputs {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align:right;margin-bottom:10px;">
+            <button id="cancelBtn" style="background:#6c757d;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;margin-right:10px;">Hủy</button>
+            <button id="logoutBtn" style="background:#e83e8c;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Đăng xuất</button>
+        </div>
+        <div class="header">
+            <h1>Check Đơn Hàng</h1>
+            <p>Kiểm tra và xác nhận đơn hàng theo mã vận đơn</p>
+        </div>
+
+        <div class="content">
+            <div class="navigation">
+                <!-- Nav links ẩn với checker -->
+            </div>
+
+            <div class="search-section">
+                <h2>Tìm kiếm đơn hàng</h2>
+                <div class="input-group">
+                    <input type="text" id="maVanDonInput" class="input-field" placeholder="Nhập mã vận đơn...">
+                    <button class="btn" id="searchBtn" onclick="searchOrders()">
+                        Tìm kiếm
+                    </button>
+                </div>
+                <div style="margin-top:30px;text-align:center;">
+                    <form id="uploadForm" enctype="multipart/form-data" style="display:inline-block;">
+                        <input type="file" id="xlsxFileInput" name="xlsxFile" accept=".xlsx,.xls" style="padding:10px;">
+                        <button type="submit" class="btn" id="uploadBtn">Tải lên file Excel</button>
+                    </form>
+                    <div id="uploadProcessing" style="display:none;margin-top:18px;">
+                        <div class="french-loader">
+                            <div class="french-spinner"></div>
+                            <div class="french-text">
+                                <span style="display:inline-block;vertical-align:middle;">
+                                    <svg id="svgLoadingIcon" width="48" height="48" viewBox="0 0 48 48" style="vertical-align:middle;">
+                                        <circle cx="24" cy="24" r="20" stroke="#667eea" stroke-width="6" fill="none" opacity="0.2"/>
+                                        <circle cx="24" cy="24" r="20" stroke="#667eea" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="31.4 94.2" stroke-dashoffset="0">
+                                            <animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="1s" repeatCount="indefinite"/>
+                                        </circle>
+                                    </svg>
+                                </span>
+                                <span style="margin-left:8px;" id="uploadStepText">Đang tải file lên...</span>
+                            </div>
+                            <div style="width:100%;margin-top:18px;position:relative;height:38px;">
+                                <div id="uploadProgressBar" style="height:12px;width:100%;background:#e9ecef;border-radius:8px;overflow:hidden;position:absolute;top:18px;left:0;">
+                                    <div id="uploadProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.4s;"></div>
+                                </div>
+                                <div id="truckIcon" style="position:absolute;top:0;left:0;width:38px;height:38px;pointer-events:none;transition:left 0.4s;">
+                                    <svg width="38" height="38" viewBox="0 0 38 38">
+                                        <rect x="4" y="16" width="20" height="10" rx="3" fill="#667eea"/>
+                                        <rect x="24" y="20" width="8" height="6" rx="2" fill="#764ba2"/>
+                                        <circle cx="10" cy="28" r="4" fill="#e9ecef" stroke="#667eea" stroke-width="2"/>
+                                        <circle cx="28" cy="28" r="4" fill="#e9ecef" stroke="#764ba2" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="uploadResultIcon" style="display:none;font-size:2.5rem;margin-top:10px;"></div>
+                    <div class="alert alert-success" id="uploadSuccessAlert" style="display:none;"></div>
+                    <div class="alert alert-error" id="uploadErrorAlert" style="display:none;"></div>
+        /* French loader style */
+        .french-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #f8f9ff 60%, #e3e3e3 100%);
+            border-radius: 18px;
+            box-shadow: 0 6px 24px rgba(102,126,234,0.12);
+            padding: 24px 32px;
+            font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+            font-size: 1.15rem;
+            color: #3a3a3a;
+            border: 2px solid #667eea;
+            margin-bottom: 10px;
+        }
+        .french-spinner {
+            width: 48px;
+            height: 48px;
+            border: 6px solid #667eea;
+            border-top: 6px solid #f8f9ff;
+            border-radius: 50%;
+            animation: french-spin 1s linear infinite;
+            box-shadow: 0 2px 8px rgba(102,126,234,0.18);
+        }
+        @keyframes french-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .french-text {
+            font-size: 1.18rem;
+            font-weight: 500;
+            color: #667eea;
+            letter-spacing: 0.02em;
+            font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+            margin-top: 8px;
+        }
+                </div>
+            </div>
+
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
+
+            <div class="orders-section" id="ordersSection">
+                <h2>Danh sách mặt hàng</h2>
+                <div class="progress-section" id="progressSection">
+                    <h3>Tiến độ xác nhận</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p id="progressText">0/0 mặt hàng đã xác nhận</p>
+                </div>
+
+                <!-- Danh sách mã hàng dạng bảng -->
+                <div class="orders-table-container" id="ordersTableContainer" style="display: none;">
+                    <h3>Danh sách mã hàng trong đơn vận đơn: <span id="tableMaVanDon"></span></h3>
+                    
+                    <!-- Filter Section -->
+                    <div class="filter-section">
+                        <span><strong>Lọc theo trạng thái:</strong></span>
+                        <button class="filter-btn active" onclick="filterOrders('all')" id="filterAll">Tất cả</button>
+                        <button class="filter-btn" onclick="filterOrders('pending')" id="filterPending">Chờ quét</button>
+                        <button class="filter-btn" onclick="filterOrders('progress')" id="filterProgress">Đang quét</button>
+                        <button class="filter-btn" onclick="filterOrders('completed')" id="filterCompleted">Hoàn thành</button>
+                        <button class="filter-btn" onclick="filterOrders('error')" id="filterError">Lỗi</button>
+                        <button class="filter-btn reset-btn" onclick="resetScanStatus()" id="resetBtn">Reset Quét</button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="orders-table" id="ordersTable">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Mã đóng gói</th>
+                                    <th>Mã vận đơn</th>
+                                    <th>Mã đơn hàng</th>
+                                    <th>Mã hàng</th>
+                                    <th>Số lượng yêu cầu</th>
+                                    <th>Đã quét</th>
+                                    <th>Trạng thái</th>
+                                    <th>Status</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody">
+                                <!-- Dữ liệu sẽ được hiển thị ở đây -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="orders-grid" id="ordersGrid">
+                    <!-- Danh sách đơn hàng sẽ được hiển thị ở đây -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Xử lý upload file Excel
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('xlsxFileInput');
+            const file = fileInput.files[0];
+            const resultIcon = document.getElementById('uploadResultIcon');
+            resultIcon.style.display = 'none';
+            const stepText = document.getElementById('uploadStepText');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressFill = document.getElementById('uploadProgressFill');
+            if (!file) {
+                showUploadError('Vui lòng chọn file Excel (.xlsx, .xls)');
+                return;
+            }
+            document.getElementById('uploadBtn').disabled = true;
+            document.getElementById('uploadProcessing').style.display = 'block';
+            hideUploadAlerts();
+            stepText.textContent = 'Đang tải file lên...';
+            progressFill.style.width = '10%';
+            try {
+                // Bước 1: Upload file
+                progressFill.style.width = '30%';
+                stepText.textContent = 'Đang gửi file lên server...';
+                moveTruck(30);
+                const formData = new FormData();
+                formData.append('file', file); // Sửa key thành 'file' cho backend checker
+                // Thêm JWT vào header nếu có
+                let token = sessionStorage.getItem('jwt');
+                const response = await fetch('/api/checker/upload', {
+                    method: 'POST',
+                    body: formData,
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+                progressFill.style.width = '60%';
+                stepText.textContent = 'Đang xử lý dữ liệu...';
+                moveTruck(60);
+                const result = await response.json();
+                progressFill.style.width = '100%';
+                stepText.textContent = 'Hoàn tất xử lý!';
+                moveTruck(100);
+                setTimeout(() => {
+                    document.getElementById('uploadProcessing').style.display = 'none';
+                    moveTruck(0);
+                }, 800);
+                if (result.success) {
+                    resultIcon.textContent = '✅';
+                    resultIcon.style.color = '#28a745';
+                    resultIcon.style.display = 'block';
+                    showUploadSuccess(result.message);
+                } else {
+                    resultIcon.textContent = '❌';
+                    resultIcon.style.color = '#dc3545';
+                    resultIcon.style.display = 'block';
+                    showUploadError(result.message || 'Tải lên thất bại');
+                }
+            } catch (error) {
+                document.getElementById('uploadProcessing').style.display = 'none';
+                moveTruck(0);
+                resultIcon.textContent = '❌';
+                resultIcon.style.color = '#dc3545';
+                resultIcon.style.display = 'block';
+                showUploadError('Lỗi tải lên: ' + error.message);
+            } finally {
+                document.getElementById('uploadBtn').disabled = false;
+                progressFill.style.width = '0%';
+                stepText.textContent = 'Đang tải file lên...';
+            }
+
+            // Hàm di chuyển xe tải theo %
+            function moveTruck(percent) {
+                const truck = document.getElementById('truckIcon');
+                const bar = document.getElementById('uploadProgressBar');
+                if (!truck || !bar) return;
+                const barWidth = bar.offsetWidth;
+                const maxLeft = barWidth - truck.offsetWidth;
+                const left = Math.max(0, Math.min(maxLeft, Math.round(barWidth * percent / 100)));
+                truck.style.left = left + 'px';
+            }
+        });
+
+        function showUploadSuccess(message) {
+            hideUploadAlerts();
+            const alert = document.getElementById('uploadSuccessAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideUploadAlerts, 6000);
+        }
+        function showUploadError(message) {
+            hideUploadAlerts();
+            const alert = document.getElementById('uploadErrorAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideUploadAlerts, 8000);
+        }
+        function hideUploadAlerts() {
+            document.getElementById('uploadSuccessAlert').style.display = 'none';
+            document.getElementById('uploadErrorAlert').style.display = 'none';
+        }
+        // Xử lý nút Hủy - unblock đơn hàng và quay lại trang trước
+        document.getElementById('cancelBtn').onclick = async function() {
+            if (confirm('Bạn có chắc chắn muốn hủy và quay lại trang trước? Tất cả đơn hàng đang kiểm tra sẽ được mở khóa.')) {
+                // Unblock đơn hàng trước khi rời khỏi
+                await unblockOrders();
+                // Quay lại trang trước đó
+                goBackToPreviousPage();
+            }
+        };
+
+        // Xử lý nút Đăng xuất
+        document.getElementById('logoutBtn').onclick = async function() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất? Tất cả đơn hàng đang kiểm tra sẽ được mở khóa.')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            }
+        };
+        let currentOrders = [];
+        let currentMaVanDon = '';
+        let scanMode = 'manual'; // 'manual' hoặc 'scanner'
+        
+        // Unblock đơn hàng khi user rời khỏi trang
+        let blockedOrders = new Set(); // Track các đơn hàng đang bị block bởi user hiện tại
+        let blockedVanDon = null; // Track đơn vận đơn đang bị block
+        
+        // Lưu trang trước đó để quay lại
+        let previousPage = null;
+
+        // Lưu trạng thái block khi tìm kiếm thành công
+        function trackBlockedVanDon(maVanDon) {
+            blockedVanDon = maVanDon;
+        }
+
+        // Function để quay lại trang trước đó
+        function goBackToPreviousPage() {
+            console.log(`🔄 Đang quay lại trang trước: ${previousPage}`);
+            
+            if (previousPage && previousPage !== window.location.href) {
+                // Kiểm tra xem trang trước có phải là trang hợp lệ không
+                const validPages = ['/checker-home', '/dashboard', '/admin'];
+                const isValidPage = validPages.some(page => previousPage.includes(page));
+                
+                if (isValidPage) {
+                    window.location.href = previousPage;
+                } else {
+                    // Nếu trang trước không hợp lệ, quay về trang mặc định theo role
+                    goBackToDefaultPageByRole();
+                }
+            } else {
+                // Nếu không có trang trước hoặc là cùng trang, quay về trang mặc định theo role
+                goBackToDefaultPageByRole();
+            }
+        }
+
+        // Function để quay về trang mặc định theo role
+        async function goBackToDefaultPageByRole() {
+            try {
+                const response = await fetch('/api/me');
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.role === 'packer') {
+                        window.location.href = '/dashboard';
+                    } else if (result.role === 'checker') {
+                        window.location.href = '/checker-home';
+                    } else {
+                        window.location.href = '/dashboard'; // admin và user khác
+                    }
+                } else {
+                    window.location.href = '/dashboard'; // fallback
+                }
+            } catch (error) {
+                window.location.href = '/dashboard'; // fallback nếu có lỗi
+            }
+        }
+
+        // Function để lưu trang trước đó
+        function savePreviousPage() {
+            // Kiểm tra sessionStorage trước
+            const savedPage = sessionStorage.getItem('previousPage');
+            if (savedPage && savedPage !== window.location.pathname) {
+                previousPage = savedPage;
+                console.log(`📄 Đã lưu trang trước từ sessionStorage: ${previousPage}`);
+                return;
+            }
+            
+            // Lưu referrer nếu có
+            if (document.referrer && document.referrer !== window.location.href) {
+                // Lấy path từ referrer URL
+                const referrerUrl = new URL(document.referrer);
+                previousPage = referrerUrl.pathname;
+                
+                // Nếu referrer là trang chủ hoặc không hợp lệ, mặc định theo role
+                if (previousPage === '/' || previousPage === '/index.html') {
+                    // Kiểm tra role của user để quyết định trang mặc định
+                    getUserRoleAndSetDefaultPage();
+                    return;
+                }
+            } else {
+                // Nếu không có referrer, mặc định theo role
+                getUserRoleAndSetDefaultPage();
+                return;
+            }
+            
+            // Lưu vào sessionStorage để sử dụng sau này
+            sessionStorage.setItem('previousPage', previousPage);
+            console.log(`📄 Đã lưu trang trước: ${previousPage}`);
+        }
+
+        // Function để lấy role và set trang mặc định
+        async function getUserRoleAndSetDefaultPage() {
+            try {
+                const response = await fetch('/api/me');
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.role === 'packer') {
+                        previousPage = '/dashboard';
+                    } else if (result.role === 'checker') {
+                        previousPage = '/checker-home';
+                    } else {
+                        previousPage = '/dashboard'; // admin và user khác
+                    }
+                } else {
+                    previousPage = '/dashboard'; // fallback
+                }
+            } catch (error) {
+                previousPage = '/dashboard'; // fallback nếu có lỗi
+            }
+            
+            // Lưu vào sessionStorage
+            sessionStorage.setItem('previousPage', previousPage);
+            console.log(`📄 Đã lưu trang trước theo role: ${previousPage}`);
+        }
+
+        async function searchOrders() {
+            const maVanDon = document.getElementById('maVanDonInput').value.trim();
+            
+            if (!maVanDon) {
+                showError('Vui lòng nhập mã vận đơn');
+                return;
+            }
+
+            // Clear tất cả timeout và modal cũ khi tìm kiếm mới
+            clearAllTimeouts();
+            const existingModal = document.querySelector('.modal-overlay');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            document.getElementById('searchBtn').disabled = true;
+            document.getElementById('searchBtn').textContent = '🔍 Đang tìm kiếm...';
+
+            try {
+                console.log(`🔍 Đang tìm kiếm đơn vận đơn: ${maVanDon}`);
+                const response = await fetch(`/api/orders/by-van-don/${maVanDon}`);
+                const result = await response.json();
+                console.log('📋 Kết quả tìm kiếm:', result);
+
+                if (result.success) {
+                    currentOrders = result.data.orders;
+                    currentMaVanDon = maVanDon;
+                    trackBlockedVanDon(maVanDon); // Track đơn vận đơn đã bị block
+                    console.log(`✅ Tìm thấy ${currentOrders.length} đơn hàng, đã block cho user hiện tại`);
+                    displayOrders(currentOrders);
+                    showSuccess(result.message);
+                    ensureInputFocus();
+                } else {
+                    // Xử lý trường hợp bị block khi tìm kiếm
+                    if (result.blocked) {
+                        console.log(`🚫 Đơn vận đơn bị block: ${result.message}`);
+                        showError(result.message, 'warning');
+                    } else if (result.data && result.data.allCompleted) {
+                        // Xử lý trường hợp tất cả đơn hàng đã hoàn thành
+                        console.log(`✅ Tất cả đơn hàng đã hoàn thành: ${result.message}`);
+                        
+                        // Đảm bảo không có modal nào khác được hiển thị
+                        const existingModal = document.querySelector('.modal-overlay');
+                        if (existingModal) {
+                            existingModal.remove();
+                        }
+                        
+                        // Clear tất cả timeout có thể đang chạy
+                        clearAllTimeouts();
+                        
+                        showSuccess(result.message);
+                        ensureInputFocus();
+                    ensureInputFocus();
+                    } else {
+                        console.log(`❌ Lỗi tìm kiếm: ${result.message}`);
+                        showError(result.message);
+                ensureInputFocus();
+                    ensureInputFocus();
+                    }
+                    hideOrdersSection();
+                }
+
+            } catch (error) {
+                showError('Lỗi tìm kiếm: ' + error.message);
+                ensureInputFocus();
+                hideOrdersSection();
+            } finally {
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('searchBtn').textContent = '🔍 Tìm kiếm';
+            }
+        }
+
+        function displayOrders(orders) {
+            console.log(`📦 Hiển thị ${orders.length} đơn hàng`);
+            const ordersGrid = document.getElementById('ordersGrid');
+            if (!ordersGrid) {
+                console.error('❌ Không tìm thấy element ordersGrid');
+                return;
+            }
+            ordersGrid.innerHTML = '';
+
+            orders.forEach((order, index) => {
+                const orderCard = document.createElement('div');
+                orderCard.className = `order-card ${order.verified ? 'verified' : ''}`;
+                orderCard.innerHTML = `
+                    <h3>Mặt hàng ${order.stt}</h3>
+                    <div class="order-info">
+                        <strong>Mã đóng gói:</strong> ${order.maDongGoi}
+                    </div>
+                    <div class="order-info">
+                        <strong>Mã đơn hàng:</strong> ${order.maDonHang}
+                    </div>
+                    <div class="order-info">
+                        <strong>Mã hàng:</strong> <span class="ma-hang">${order.maHang}</span>
+                    </div>
+                    <div class="order-info">
+                        <strong>Số lượng yêu cầu:</strong> ${order.soLuong}
+                    </div>
+                    <div class="order-info">
+                        <strong>Đã quét:</strong> ${order.scannedQuantity || 0}/${order.soLuong}
+                    </div>
+                    ${order.verified ? `
+                        <div class="order-info" style="color: #28a745; font-weight: bold;">
+                            Hoàn thành lúc: ${new Date(order.verifiedAt).toLocaleString('vi-VN')}
+                        </div>
+                    ` : `
+                        <div class="verify-section">
+                            <div class="scan-inputs">
+                                <input type="text" class="scan-input ma-hang-input" placeholder="Quét mã hàng..." data-order-index="${index}" autocomplete="off">
+                                <button class="btn scan-btn" onclick="scanOrder(${index})">Quét</button>
+                            </div>
+                            <div class="scan-status ${getScanStatusClass(order)}" id="scanStatus${index}">
+                                ${getScanStatusText(order)}
+                            </div>
+                        </div>
+                    `}
+                `;
+                ordersGrid.appendChild(orderCard);
+            });
+
+            updateProgress();
+            displayOrdersTable();
+            document.getElementById('ordersSection').style.display = 'block';
+            console.log('✅ Đã hiển thị ordersSection');
+        }
+
+        async function scanOrder(orderIndex) {
+            const order = currentOrders[orderIndex];
+            const maHangInput = document.querySelector(`.ma-hang-input[data-order-index="${orderIndex}"]`);
+            const maHangNhap = maHangInput.value.trim();
+
+            if (!maHangNhap) {
+                showError('Vui lòng nhập mã hàng để quét');
+                return;
+            }
+
+            // Kiểm tra mã hàng có đúng không
+            if (maHangNhap !== order.maHang) {
+                showError(`Mã hàng không đúng! Yêu cầu: ${order.maHang}, Nhập: ${maHangNhap}`);
+                maHangInput.value = '';
+                ensureInputFocus();
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/orders/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        maVanDon: currentMaVanDon,
+                        maHang: maHangNhap
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    ensureInputFocus();
+                    
+                    // Cập nhật trạng thái đơn hàng
+                    order.scannedQuantity = result.data.soLuongDaQuet;
+                    order.verified = result.data.verified;
+                    order.verifiedAt = result.data.verifiedAt;
+                    
+                    // Track blocked order nếu đơn hàng chưa hoàn thành
+                    if (!order.verified) {
+                        trackBlockedOrder(currentMaVanDon, order.maHang);
+                    }
+                    
+                    // Hiển thị lại danh sách
+                    displayOrders(currentOrders);
+                    displayOrdersTable();
+                    
+                    // Xóa input và focus lại
+                    maHangInput.value = '';
+                    ensureInputFocus();
+                    
+                    // Xóa global scan input nếu đang sử dụng
+                    document.getElementById('globalScanInput').value = '';
+                    
+                    // Nếu hoàn thành
+                    if (result.data.progress.isCompleted) {
+                        setTimeoutWrapper(() => {
+                            showVanDonConfirmDialog();
+                        }, 1000);
+                    }
+                } else {
+                    // Xử lý trường hợp bị block
+                    if (result.blocked) {
+                        showError(result.message, 'warning');
+                    } else {
+                        showError(result.message);
+                ensureInputFocus();
+                    ensureInputFocus();
+                    }
+                    maHangInput.value = '';
+                    ensureInputFocus();
+                }
+
+            } catch (error) {
+                showError('Lỗi quét mã: ' + error.message);
+                ensureInputFocus();
+                maHangInput.value = '';
+                ensureInputFocus();
+            }
+        }
+
+        function getScanStatusClass(order) {
+            if (order.verified) return 'completed';
+            if (order.block && order.checkingBy) return 'blocked';
+            if (order.scannedQuantity > 0) return 'progress';
+            return 'pending';
+        }
+
+        function getScanStatusText(order) {
+            if (order.verified) return 'Hoàn thành';
+            if (order.block && order.checkingBy) return `Đang quét bởi ${order.checkingBy}`;
+            if (order.scannedQuantity > 0) return `Đã quét ${order.scannedQuantity}/${order.soLuong}`;
+            return 'Chờ quét';
+        }
+
+        function switchScanMode(mode) {
+            scanMode = mode;
+            
+            // Cập nhật tabs
+            document.getElementById('manualTab').classList.toggle('active', mode === 'manual');
+            document.getElementById('scannerTab').classList.toggle('active', mode === 'scanner');
+            
+            // Cập nhật container class
+            const container = document.querySelector('.global-scan-section');
+            container.classList.toggle('scanner-mode', mode === 'scanner');
+            
+            // Cập nhật placeholder và instructions
+            const input = document.getElementById('globalScanInput');
+            const instructions = document.getElementById('scanInstructions');
+            
+            if (mode === 'manual') {
+                input.placeholder = 'Nhập mã hàng để test...';
+                instructions.innerHTML = '<p><strong>Hướng dẫn:</strong> Nhập mã hàng bất kỳ từ danh sách bên dưới để test chức năng</p>';
+                document.getElementById('testCodes').style.display = 'block';
+            } else {
+                input.placeholder = 'Quét mã hàng bằng máy quét...';
+                instructions.innerHTML = '<p><strong>Chế độ máy quét:</strong> Sử dụng máy quét để quét mã hàng, hệ thống sẽ tự động nhận diện và xử lý</p>';
+                document.getElementById('testCodes').style.display = 'none';
+            }
+            
+            // Focus vào input
+            ensureInputFocus();
+        }
+
+        async function globalScan() {
+            const maHangNhap = document.getElementById('globalScanInput').value.trim();
+
+            if (!maHangNhap) {
+                const message = scanMode === 'manual' ? 'Vui lòng nhập mã hàng để test' : 'Vui lòng quét mã hàng';
+                showError(message);
+                return;
+            }
+
+            // Tìm đơn hàng có mã hàng này
+            const orderIndex = currentOrders.findIndex(order => order.maHang === maHangNhap);
+
+            if (orderIndex === -1) {
+                const message = scanMode === 'manual' ? 
+                    `Không tìm thấy mã hàng "${maHangNhap}" trong đơn vận đơn này. Vui lòng kiểm tra lại danh sách bên dưới.` :
+                    `Mã hàng "${maHangNhap}" không có trong đơn vận đơn này. Vui lòng quét lại.`;
+                showError(message);
+                document.getElementById('globalScanInput').value = '';
+                ensureInputFocus();
+                return;
+            }
+
+            // Gọi hàm scanOrder với index tìm được
+            await scanOrder(orderIndex);
+            
+            // Xóa global scan input sau khi quét
+            document.getElementById('globalScanInput').value = '';
+            document.getElementById('globalScanInput').focus();
+        }
+
+        function updateProgress() {
+            const verifiedCount = currentOrders.filter(order => order.verified).length;
+            const totalCount = currentOrders.length;
+            const percentage = totalCount > 0 ? (verifiedCount / totalCount) * 100 : 0;
+
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = 
+                `${verifiedCount}/${totalCount} mặt hàng đã xác nhận (${percentage.toFixed(1)}%)`;
+        }
+
+        function updateTestCodes() {
+            const testCodesList = document.getElementById('testCodesList');
+            testCodesList.innerHTML = '';
+            
+            // Lấy 10 mã hàng đầu tiên để test
+            const testOrders = currentOrders.slice(0, 10);
+            
+            testOrders.forEach(order => {
+                const codeItem = document.createElement('div');
+                codeItem.className = 'test-code-item';
+                codeItem.textContent = order.maHang;
+                codeItem.onclick = () => {
+                    document.getElementById('globalScanInput').value = order.maHang;
+                    globalScan();
+                };
+                testCodesList.appendChild(codeItem);
+            });
+        }
+
+        function displayOrdersTable(filter = 'all') {
+            const tableBody = document.getElementById('ordersTableBody');
+            const tableContainer = document.getElementById('ordersTableContainer');
+            const tableMaVanDon = document.getElementById('tableMaVanDon');
+            
+            tableBody.innerHTML = '';
+            tableMaVanDon.textContent = currentMaVanDon;
+            
+            // Lọc đơn hàng theo filter
+            let filteredOrders = currentOrders;
+            if (filter !== 'all') {
+                filteredOrders = currentOrders.filter(order => {
+                    const scannedQuantity = order.scannedQuantity || 0;
+                    const requiredQuantity = order.soLuong;
+                    
+                    if (filter === 'completed') return order.verified;
+                    if (filter === 'progress') return !order.verified && scannedQuantity > 0 && scannedQuantity <= requiredQuantity;
+                    if (filter === 'error') return !order.verified && scannedQuantity > requiredQuantity;
+                    if (filter === 'pending') return !order.verified && scannedQuantity === 0;
+                    return true;
+                });
+            }
+            
+            filteredOrders.forEach((order, index) => {
+                const row = document.createElement('tr');
+                
+                // Xác định trạng thái và màu sắc
+                const scannedQuantity = order.scannedQuantity || 0;
+                const requiredQuantity = order.soLuong;
+                let statusClass = '';
+                let statusText = '';
+                let quantityClass = '';
+                let statusBadgeClass = '';
+                let statusBadgeText = '';
+                
+                if (order.verified) {
+                    statusClass = 'status-completed';
+                    statusText = 'Hoàn thành';
+                    quantityClass = 'quantity-scanned';
+                    statusBadgeClass = 'completed';
+                    statusBadgeText = 'DONE';
+                } else if (order.block && order.checkingBy) {
+                    statusClass = 'status-blocked';
+                    statusText = `Đang quét bởi ${order.checkingBy}`;
+                    quantityClass = 'quantity-insufficient';
+                    statusBadgeClass = 'blocked';
+                    statusBadgeText = 'BLOCK';
+                } else if (scannedQuantity > requiredQuantity) {
+                    statusClass = 'status-error';
+                    statusText = 'Thừa hàng';
+                    quantityClass = 'quantity-excess';
+                    statusBadgeClass = 'error';
+                    statusBadgeText = 'ERROR';
+                } else if (scannedQuantity > 0) {
+                    statusClass = 'status-progress';
+                    statusText = `Đang quét (${scannedQuantity}/${requiredQuantity})`;
+                    quantityClass = 'quantity-insufficient';
+                    statusBadgeClass = 'progress';
+                    statusBadgeText = 'SCAN';
+                } else {
+                    statusClass = 'status-pending';
+                    statusText = 'Chờ quét';
+                    quantityClass = 'quantity-required';
+                    statusBadgeClass = 'pending';
+                    statusBadgeText = 'WAIT';
+                }
+                
+                row.className = statusClass;
+                row.innerHTML = `
+                    <td>${order.stt}</td>
+                    <td>${order.maDongGoi}</td>
+                    <td>${order.maVanDon}</td>
+                    <td>${order.maDonHang}</td>
+                    <td><strong>${order.maHang}</strong></td>
+                    <td class="quantity-display quantity-required">${requiredQuantity}</td>
+                    <td class="quantity-display ${quantityClass}">${scannedQuantity}</td>
+                    <td>${statusText}</td>
+                    <td><span class="status-badge ${statusBadgeClass}">${statusBadgeText}</span></td>
+                    <td>
+                        ${!order.verified ? `
+                            <input type="text" class="scan-input-small" id="tableScanInput${index}" placeholder="Quét mã..." data-order-index="${index}">
+                            <button class="btn scan-btn-small" onclick="scanOrderFromTable(${index})">Quét</button>
+                        ` : ''}
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            tableContainer.style.display = 'block';
+        }
+
+        function filterOrders(filter) {
+            // Cập nhật active button
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`).classList.add('active');
+            
+            // Hiển thị lại bảng với filter
+            displayOrdersTable(filter);
+        }
+
+        async function resetScanStatus() {
+            if (!currentMaVanDon) {
+                showError('Vui lòng tìm đơn hàng trước.');
+                return;
+            }
+
+            if (!confirm(`Bạn có chắc chắn muốn reset trạng thái quét cho đơn vận đơn ${currentMaVanDon}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/reset-scan/${currentMaVanDon}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    ensureInputFocus();
+                    
+                    // Cập nhật lại danh sách
+                    await searchOrders();
+                } else {
+                    showError(result.message);
+                    ensureInputFocus();
+                }
+
+            } catch (error) {
+                showError('Lỗi reset trạng thái: ' + error.message);
+                ensureInputFocus();
+            }
+        }
+
+        async function scanOrderFromTable(orderIndex) {
+            const order = currentOrders[orderIndex];
+            const maHangInput = document.getElementById(`tableScanInput${orderIndex}`);
+            const maHangNhap = maHangInput.value.trim();
+
+            if (!maHangNhap) {
+                showError('Vui lòng nhập mã hàng để quét');
+                return;
+            }
+
+            // Kiểm tra mã hàng có đúng không
+            if (maHangNhap !== order.maHang) {
+                showError(`Mã hàng không đúng! Yêu cầu: ${order.maHang}, Nhập: ${maHangNhap}`);
+                maHangInput.value = '';
+                ensureInputFocus();
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/orders/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        maVanDon: currentMaVanDon,
+                        maHang: maHangNhap
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    ensureInputFocus();
+                    
+                    // Cập nhật trạng thái đơn hàng
+                    order.scannedQuantity = result.data.soLuongDaQuet;
+                    order.verified = result.data.verified;
+                    order.verifiedAt = result.data.verifiedAt;
+                    
+                    // Track blocked order nếu đơn hàng chưa hoàn thành
+                    if (!order.verified) {
+                        trackBlockedOrder(currentMaVanDon, order.maHang);
+                    }
+                    
+                    // Cập nhật progress
+                    updateProgress();
+                    
+                    // Hiển thị lại bảng và grid
+                    displayOrdersTable();
+                    displayOrders(currentOrders);
+                    
+                    // Xóa input và focus lại
+                    maHangInput.value = '';
+                    ensureInputFocus();
+                    
+                    // Thông báo quét thành công
+                    if (order.verified) {
+                        showSuccess(`Đã quét thành công mã hàng ${order.maHang}! (${order.scannedQuantity}/${order.soLuong})`);
+                    } else {
+                        showSuccess(`Đã quét mã hàng ${order.maHang}! (${order.scannedQuantity}/${order.soLuong})`);
+                    }
+                    
+                    // Nếu hoàn thành
+                    if (result.data.progress.isCompleted) {
+                        setTimeoutWrapper(() => {
+                            showVanDonConfirmDialog();
+                        }, 1000);
+                    }
+                } else {
+                    // Xử lý trường hợp bị block
+                    if (result.blocked) {
+                        showError(result.message, 'warning');
+                    } else {
+                        showError(result.message);
+                ensureInputFocus();
+                    ensureInputFocus();
+                    }
+                    maHangInput.value = '';
+                    ensureInputFocus();
+                }
+
+            } catch (error) {
+                showError('Lỗi quét mã: ' + error.message);
+                ensureInputFocus();
+                maHangInput.value = '';
+                ensureInputFocus();
+            }
+        }
+
+        function showSuccess(message) {
+            hideAlerts();
+            // Đảm bảo không có modal nào đang hiển thị
+            const existingModal = document.querySelector('.modal-overlay');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 5000);
+        }
+
+        function showError(message) {
+            hideAlerts();
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 8000);
+        }
+
+        // Function đảm bảo input luôn được focus
+        function ensureInputFocus() {
+            const maHangInput = document.getElementById('maHangInput');
+            const globalScanInput = document.getElementById('globalScanInput');
+            
+            if (maHangInput) {
+                // Clear value trước khi focus
+                maHangInput.value = '';
+                // Focus và click để đảm bảo sẵn sàng nhận input
+                maHangInput.focus();
+                maHangInput.click();
+                // Đảm bảo cursor ở cuối input
+                setTimeout(() => {
+                    maHangInput.setSelectionRange(0, 0);
+                }, 10);
+            }
+            
+            if (globalScanInput) {
+                // Clear value trước khi focus
+                globalScanInput.value = '';
+                // Focus và click để đảm bảo sẵn sàng nhận input
+                globalScanInput.focus();
+                globalScanInput.click();
+                // Đảm bảo cursor ở cuối input
+                setTimeout(() => {
+                    globalScanInput.setSelectionRange(0, 0);
+                }, 10);
+            }
+        }
+
+        function hideAlerts() {
+            document.getElementById('successAlert').style.display = 'none';
+            document.getElementById('errorAlert').style.display = 'none';
+        }
+
+        // Clear tất cả timeout có thể đang chạy
+        let timeoutIds = [];
+        function clearAllTimeouts() {
+            timeoutIds.forEach(id => clearTimeout(id));
+            timeoutIds = [];
+        }
+
+        // Wrapper cho setTimeout để track timeout IDs
+        function setTimeoutWrapper(callback, delay) {
+            const id = setTimeout(callback, delay);
+            timeoutIds.push(id);
+            return id;
+        }
+
+        function hideOrdersSection() {
+            document.getElementById('ordersSection').style.display = 'none';
+            currentOrders = [];
+            currentMaVanDon = '';
+        }
+
+        // Enter để tìm kiếm
+        document.getElementById('maVanDonInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchOrders();
+            }
+        });
+
+        // Tự động quét khi nhập mã hàng
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('ma-hang-input')) {
+                const orderIndex = parseInt(e.target.getAttribute('data-order-index'));
+                const maHangNhap = e.target.value.trim();
+                const order = currentOrders[orderIndex];
+                
+                if (order && maHangNhap === order.maHang) {
+                    // Tự động quét khi mã hàng đúng
+                    setTimeout(() => {
+                        scanOrder(orderIndex);
+                    }, 100);
+                }
+            }
+        });
+
+        // Tự động quét cho global scan input
+        document.getElementById('globalScanInput').addEventListener('input', function(e) {
+            const maHangNhap = e.target.value.trim();
+            if (maHangNhap) {
+                // Tìm đơn hàng có mã hàng này
+                const orderIndex = currentOrders.findIndex(order => order.maHang === maHangNhap);
+                if (orderIndex !== -1) {
+                    // Tự động quét khi tìm thấy mã hàng (chỉ trong chế độ scanner)
+                    if (scanMode === 'scanner') {
+                        setTimeout(() => {
+                            globalScan();
+                        }, 100);
+                    }
+                }
+            }
+        });
+
+        // Enter để quét global
+        document.getElementById('globalScanInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                globalScan();
+            }
+        });
+
+        // Tự động quét cho table scan inputs
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('scan-input-small')) {
+                const orderIndex = parseInt(e.target.getAttribute('data-order-index'));
+                const maHangNhap = e.target.value.trim();
+                const order = currentOrders[orderIndex];
+                
+                if (order && maHangNhap === order.maHang) {
+                    // Tự động quét khi mã hàng đúng (chỉ trong chế độ scanner)
+                    if (scanMode === 'scanner') {
+                        setTimeout(() => {
+                            scanOrderFromTable(orderIndex);
+                        }, 100);
+                    }
+                }
+            }
+        });
+
+        // Enter để quét table
+        document.addEventListener('keypress', function(e) {
+            if (e.target.classList.contains('scan-input-small') && e.key === 'Enter') {
+                const orderIndex = parseInt(e.target.getAttribute('data-order-index'));
+                scanOrderFromTable(orderIndex);
+            }
+        });
+
+        // Lưu trạng thái block khi quét thành công
+        function trackBlockedOrder(maVanDon, maHang) {
+            blockedOrders.add(`${maVanDon}-${maHang}`);
+        }
+        
+        // Unblock đơn hàng khi rời khỏi trang
+        async function unblockOrders() {
+            let unblockedCount = 0;
+            
+            // Unblock toàn bộ đơn vận đơn hiện tại nếu có
+            if (currentMaVanDon) {
+                try {
+                    const response = await fetch('/api/orders/unblock-van-don', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            maVanDon: currentMaVanDon
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log(`🔓 Đã unblock đơn vận đơn ${currentMaVanDon}`);
+                        unblockedCount++;
+                    }
+                } catch (error) {
+                    console.log('Lỗi unblock đơn vận đơn:', error);
+                }
+            }
+            
+            // Unblock từng đơn hàng riêng lẻ (backup)
+            for (const orderKey of blockedOrders) {
+                const [maVanDon, maHang] = orderKey.split('-');
+                try {
+                    const response = await fetch('/api/orders/unblock', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            maVanDon: maVanDon,
+                            maHang: maHang
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        unblockedCount++;
+                    }
+                } catch (error) {
+                    console.log('Lỗi unblock đơn hàng:', error);
+                }
+            }
+            
+            // Reset tracking
+            blockedOrders.clear();
+            blockedVanDon = null;
+            currentMaVanDon = '';
+            currentOrders = [];
+            
+            return unblockedCount;
+        }
+        
+        // Lưu trang trước khi trang load
+        document.addEventListener('DOMContentLoaded', function() {
+            savePreviousPage();
+        });
+
+        // Event listeners để unblock khi rời khỏi trang
+        window.addEventListener('beforeunload', unblockOrders);
+        window.addEventListener('pagehide', unblockOrders);
+        
+        // Unblock khi user đóng tab hoặc navigate
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                unblockOrders();
+            }
+        });
+
+        // Hiển thị dialog xác nhận mã vận đơn
+        function showVanDonConfirmDialog() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal">
+                    <div class="modal-icon success">✓</div>
+                    <div class="modal-title">Xác nhận hoàn thành</div>
+                    <div class="modal-message">
+                        Bạn đã quét đủ tất cả mã hàng trong đơn vận đơn <strong>${currentMaVanDon}</strong>.<br>
+                        Vui lòng quét lại mã vận đơn để xác nhận hoàn thành:
+                    </div>
+                    <div style="margin: 20px 0;">
+                        <input type="text" id="vanDonConfirmInput" class="scan-input" 
+                               placeholder="Quét lại mã vận đơn..." 
+                               style="width: 100%; text-align: center; font-size: 1.2rem; padding: 15px;">
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-btn primary" onclick="confirmVanDonComplete()">Xác nhận</button>
+                        <button class="modal-btn secondary" onclick="closeVanDonDialog()">Hủy</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Focus vào input và xử lý Enter
+            const input = document.getElementById('vanDonConfirmInput');
+            ensureInputFocus();
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    confirmVanDonComplete();
+                }
+            });
+        }
+
+        // Đóng dialog xác nhận mã vận đơn
+        function closeVanDonDialog() {
+            const modal = document.querySelector('.modal-overlay');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // Xác nhận hoàn thành đơn vận đơn
+        async function confirmVanDonComplete() {
+            const input = document.getElementById('vanDonConfirmInput');
+            const maVanDonInput = input.value.trim();
+            
+            if (!maVanDonInput) {
+                showError('Vui lòng nhập mã vận đơn để xác nhận');
+                return;
+            }
+            
+            if (maVanDonInput !== currentMaVanDon) {
+                showError(`Mã vận đơn không đúng! Yêu cầu: ${currentMaVanDon}, Nhập: ${maVanDonInput}`);
+                input.value = '';
+                ensureInputFocus();
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/orders/complete-van-don', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        maVanDon: currentMaVanDon
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeVanDonDialog();
+                    showSuccess(result.message);
+                    ensureInputFocus();
+                    
+                    // Cập nhật lại danh sách đơn hàng
+                    await searchOrders();
+                    
+                    // Hiển thị thông báo hoàn thành và hỏi có muốn quay lại không
+                    setTimeout(() => {
+                        alert('Đơn hàng đã được quét hoàn tất');
+                        if (confirm('Bạn có muốn quay lại trang trước không?')) {
+                            goBackToPreviousPage();
+                        }
+                    }, 1000);
+                } else {
+                    showError(result.message);
+                ensureInputFocus();
+                    ensureInputFocus();
+                    input.value = '';
+                    ensureInputFocus();
+                }
+                
+            } catch (error) {
+                showError('Lỗi xác nhận đơn vận đơn: ' + error.message);
+                ensureInputFocus();
+                input.value = '';
+            }
+        }
+    </script>
+</body>
+<script src="/userbar.js"></script>
+</html>

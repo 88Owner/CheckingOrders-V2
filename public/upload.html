@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Upload file đơn hàng (Checker)</title>
+	<style>
+		body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+		.container { max-width: 500px; margin: 60px auto; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(102,126,234,0.15); padding: 40px; text-align: center; }
+		h2 { color: #667eea; margin-bottom: 24px; }
+		.btn { padding: 12px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; margin-top: 18px; }
+		.btn:hover { background: #5a6fd8; }
+		.msg { margin-top: 18px; font-size: 1rem; }
+		.error { color: #dc3545; }
+		.success { color: #28a745; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h2>Upload file Excel đơn hàng</h2>
+		<form id="uploadForm">
+			<input type="file" id="fileInput" name="file" accept=".xlsx,.xls" required />
+			<br>
+			<button type="submit" class="btn">Tải lên & Import</button>
+		</form>
+		<div class="msg" id="msg"></div>
+		<button class="btn" onclick="location.href='/checker-home'" style="background:#e83e8c;margin-top:30px;">Quay lại Checker Home</button>
+	</div>
+	<script>
+		document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+			e.preventDefault();
+			const fileInput = document.getElementById('fileInput');
+			const msg = document.getElementById('msg');
+			msg.textContent = '';
+			msg.className = 'msg';
+			if (!fileInput.files.length) {
+				msg.textContent = 'Vui lòng chọn file Excel';
+				msg.className = 'msg error';
+				return;
+			}
+			const formData = new FormData();
+			formData.append('file', fileInput.files[0]);
+			msg.textContent = 'Đang load file...';
+			msg.className = 'msg';
+			try {
+				const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+				const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+				const res = await fetch('/api/checker/upload', {
+					method: 'POST',
+					credentials: 'include',
+					headers,
+					body: formData
+				});
+				const result = await res.json();
+				if (result.success) {
+					msg.textContent = 'Tải file thành công! ' + result.message;
+					msg.className = 'msg success';
+				} else {
+					msg.textContent = result.message || 'Lỗi import file';
+					msg.className = 'msg error';
+				}
+			} catch (err) {
+				msg.textContent = 'Lỗi hệ thống';
+				msg.className = 'msg error';
+			}
+		});
+	</script>
+</body>
+</html>

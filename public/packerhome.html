@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packer Home - Order Management</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 40px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align:right; margin-top:20px;">
+            <button id="logoutBtn" style="background:#e83e8c;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Đăng xuất</button>
+        </div>
+        
+        <div class="header">
+            <h1>Trang chủ Packer</h1>
+            <p>Đóng gói và kiểm tra đơn hàng</p>
+        </div>
+
+        <div class="content">
+            <div style="text-align: center; margin-bottom: 40px;">
+                <h2 style="color: #667eea;">Chào mừng Packer!</h2>
+                <p>Bạn đang ở trang dành riêng cho nhân viên đóng gói</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-bottom: 40px;">
+                <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center;">
+                    <h3 style="color: #667eea; margin-bottom: 20px;">🔍 Kiểm tra đơn hàng</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Bắt đầu kiểm tra và xác nhận đơn hàng theo mã vận đơn</p>
+                    <a href="/check" class="btn">Bắt đầu kiểm tra</a>
+                </div>
+                
+                <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center;">
+                    <h3 style="color: #667eea; margin-bottom: 20px;">🏠 Dashboard</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Quay lại trang dashboard chính</p>
+                    <a href="/dashboard" class="btn">Về Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('logoutBtn').onclick = async function() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            }
+        };
+    </script>
+</body>
+<script src="/userbar.js"></script>
+</html>

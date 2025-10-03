@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload XLSX - Order Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 2px solid #28a745;
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .orders-preview {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .orders-table th,
+        .orders-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .orders-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .orders-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .file-info {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .file-info h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .file-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .upload-area {
+                padding: 20px;
+            }
+            
+            .upload-icon {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align:right; margin-top:20px;">
+            <a href="/login" id="loginBtn" style="background:#667eea;color:#fff;padding:8px 18px;border-radius:5px;text-decoration:none;font-weight:600;">Đăng nhập</a>
+            <button id="logoutBtn" style="display:none;background:#e83e8c;color:#fff;padding:8px 18px;border-radius:5px;font-weight:600;border:none;cursor:pointer;">Đăng xuất</button>
+        </div>
+        <div class="header">
+            <div id="welcomeBanner" style="display:none;text-align:center;padding:60px 0;">
+                <h1 style="font-size:2.5rem;color:#667eea;margin-bottom:20px;">Xin chào bạn đến với Shisonson</h1>
+                <p style="font-size:1.2rem;color:#333;">Vui lòng đăng nhập để sử dụng các chức năng quản lý đơn hàng.</p>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Kéo thả file Excel vào đây hoặc click để chọn</div>
+                <div class="upload-subtext">Hỗ trợ file .xlsx và .xls (tối đa 10MB)</div>
+            </div>
+
+            <input type="file" id="fileInput" accept=".xlsx,.xls" />
+
+            <div class="file-info" id="fileInfo">
+                <h4>📄 Thông tin file</h4>
+                <p><strong>Tên file:</strong> <span id="fileName"></span></p>
+                <p><strong>Kích thước:</strong> <span id="fileSize"></span></p>
+                <p><strong>Loại file:</strong> <span id="fileType"></span></p>
+            </div>
+                <div id="mainFunction" style="display:none;">
+                    <div class="welcome-banner" style="text-align:center;padding:60px 0;">
+                        <h1 style="font-size:2.5rem;color:#667eea;margin-bottom:20px;">Xin chào bạn đến với Shisonson</h1>
+                        <p style="font-size:1.2rem;color:#333;">Vui lòng đăng nhập để sử dụng các chức năng quản lý đơn hàng.</p>
+                    </div>
+                </div>
+
+            <div style="text-align: center;">
+                <button class="btn" id="uploadBtn" onclick="uploadFile()" disabled>
+                    🚀 Upload và Import
+                </button>
+                <button class="btn" onclick="clearData()" style="background: #dc3545;">
+                    🗑️ Xóa tất cả dữ liệu
+                </button>
+                <button class="btn" onclick="viewOrders()" style="background: #28a745;">
+                    📋 Xem đơn hàng
+                </button>
+            </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p style="text-align: center; margin-top: 10px;" id="progressText">Đang xử lý...</p>
+            </div>
+
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
+
+            <div class="orders-preview" id="ordersPreview">
+                <h3>📋 Dữ liệu đã import</h3>
+                <table class="orders-table" id="ordersTable">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Mã đóng gói</th>
+                            <th>Mã vận đơn</th>
+                            <th>Mã đơn hàng</th>
+                            <th>Mã hàng</th>
+                            <th>Số lượng</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hiển thị nút đăng xuất nếu đã đăng nhập
+            // Ẩn toàn bộ chức năng nếu chưa đăng nhập
+            async function checkLogin() {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch('/api/me', { headers, credentials: 'include' });
+                const result = await res.json();
+                if (result.success) {
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = 'inline-block';
+                    document.getElementById('mainFunction').style.display = 'block';
+                    document.getElementById('welcomeBanner').style.display = 'none';
+                } else {
+                    document.getElementById('loginBtn').style.display = 'inline-block';
+                    document.getElementById('logoutBtn').style.display = 'none';
+                    document.getElementById('mainFunction').style.display = 'none';
+                    document.getElementById('welcomeBanner').style.display = 'block';
+                }
+            }
+            checkLogin();
+            document.getElementById('logoutBtn').onclick = async function() {
+                if (confirm('Bạn có chắc chắn muốn đăng xuất? Tất cả đơn hàng đang kiểm tra sẽ được mở khóa.')) {
+                    await fetch('/api/logout', { method: 'POST', credentials: 'include', headers: { 'Authorization': 'Bearer ' + (sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken')) } });
+                    window.location.href = '/login';
+                }
+            };
+        let selectedFile = null;
+
+        // Xử lý drag and drop
+        const uploadArea = document.querySelector('.upload-area');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            
+            // Hiển thị thông tin file
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('fileType').textContent = file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            
+            document.getElementById('fileInfo').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+            
+            // Ẩn các thông báo cũ
+            hideAlerts();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        async function uploadFile() {
+            if (!selectedFile) {
+                showError('Vui lòng chọn file trước khi upload');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('xlsxFile', selectedFile);
+
+            // Hiển thị progress
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = true;
+            updateProgress(0, 'Đang chuẩn bị upload...');
+
+            try {
+                updateProgress(25, 'Đang upload file...');
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                updateProgress(75, 'Đang xử lý dữ liệu...');
+
+                const result = await response.json();
+                
+                updateProgress(100, 'Hoàn thành!');
+
+                if (result.success) {
+                    showSuccess(result.message + 
+                        `\nFile: ${result.data.fileName}` +
+                        `\nTổng số bản ghi: ${result.data.totalRecords}` +
+                        `\nThời gian import: ${result.data.importTime}`);
+                    displayOrdersPreview(result.data.orders);
+                } else {
+                    showError(result.message);
+                }
+
+            } catch (error) {
+                showError('Lỗi upload: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    document.getElementById('progressContainer').style.display = 'none';
+                    document.getElementById('uploadBtn').disabled = false;
+                }, 2000);
+            }
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        async function clearData() {
+            if (!confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu đơn hàng?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers: { 'Authorization': 'Bearer ' + (sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken')) }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    document.getElementById('ordersPreview').style.display = 'none';
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Lỗi xóa dữ liệu: ' + error.message);
+            }
+        }
+
+        async function viewOrders() {
+            try {
+                const response = await fetch('/api/orders', { credentials: 'include', headers: { 'Authorization': 'Bearer ' + (sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken')) } });
+                const result = await response.json();
+
+                if (result.success && result.data.orders.length > 0) {
+                    displayOrdersPreview(result.data.orders);
+                    showSuccess(`Hiển thị ${result.data.orders.length} đơn hàng (trang ${result.data.pagination.currentPage}/${result.data.pagination.totalPages})`);
+                } else {
+                    showError('Không có dữ liệu đơn hàng nào');
+                }
+            } catch (error) {
+                showError('Lỗi lấy dữ liệu: ' + error.message);
+            }
+        }
+
+        function displayOrdersPreview(orders) {
+            const tbody = document.getElementById('ordersTableBody');
+            tbody.innerHTML = '';
+
+            orders.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.stt}</td>
+                    <td>${order.maDongGoi}</td>
+                    <td>${order.maVanDon}</td>
+                    <td>${order.maDonHang}</td>
+                    <td>${order.maHang}</td>
+                    <td>${order.soLuong}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('ordersPreview').style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            hideAlerts();
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 5000);
+        }
+
+        function showError(message) {
+            hideAlerts();
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 8000);
+        }
+
+        function hideAlerts() {
+            document.getElementById('successAlert').style.display = 'none';
+            document.getElementById('errorAlert').style.display = 'none';
+        }
+    </script>
+</body>
+<script src="/userbar.js"></script>
+</html>

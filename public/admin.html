@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản trị hệ thống - Order Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .admin-section {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+
+        .admin-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .table-container {
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .table-container h3 {
+            background: #667eea;
+            color: white;
+            margin: 0;
+            padding: 15px 20px;
+            font-size: 1.2rem;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .admin-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .admin-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .role-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+            min-width: 60px;
+            display: inline-block;
+        }
+
+        .role-badge.admin {
+            background: #dc3545;
+            color: white;
+        }
+
+        .role-badge.checker {
+            background: #28a745;
+            color: white;
+        }
+
+        .role-badge.packer {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .role-badge.user {
+            background: #6c757d;
+            color: white;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .admin-section {
+                padding: 20px;
+            }
+        }
+
+        .machines-list {
+            margin-top: 20px;
+        }
+
+        .machines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .machine-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .machine-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .machine-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .machine-info {
+            margin-bottom: 15px;
+        }
+
+        .machine-info p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .com-ports-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .port-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .port-item.available {
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+        }
+
+        .port-item.unavailable {
+            background: #f8d7da;
+            border-left: 3px solid #dc3545;
+        }
+
+        .port-path {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .port-manufacturer {
+            color: #666;
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .port-confidence {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .port-confidence.high {
+            background: #28a745;
+            color: white;
+        }
+
+        .port-confidence.medium {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .port-confidence.low {
+            background: #6c757d;
+            color: white;
+        }
+
+        .scanner-badge {
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+
+        .no-ports {
+            color: #999;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align:right; margin-top:20px;">
+            <button id="logoutBtn" style="background:#e83e8c;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Đăng xuất</button>
+        </div>
+        
+        <div class="header">
+            <h1>Quản trị hệ thống</h1>
+            <p>Quản lý tài khoản và cấu hình hệ thống</p>
+        </div>
+
+        <div class="content">
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
+
+            <!-- Statistics -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <h3>Tổng đơn hàng</h3>
+                    <div class="number" id="totalOrders">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Tổng tài khoản</h3>
+                    <div class="number" id="totalAccounts">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Đơn hàng đã xác nhận</h3>
+                    <div class="number" id="verifiedOrders">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Đơn hàng đang xử lý</h3>
+                    <div class="number" id="processingOrders">0</div>
+                </div>
+            </div>
+
+            <!-- Account Management -->
+            <div class="admin-section">
+                <h2>👥 Quản lý tài khoản</h2>
+                
+                <form id="registerForm">
+                <div class="form-group">
+                    <label for="username">Tên đăng nhập</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                        <label for="role">Quyền</label>
+                        <select id="role" name="role" required>
+                            <option value="">Chọn quyền</option>
+                            <option value="admin">Admin</option>
+                            <option value="checker">Checker</option>
+                            <option value="packer">Packer</option>
+                        <option value="user">User</option>
+                    </select>
+                </div>
+                    <button type="submit" class="btn btn-success">Tạo tài khoản</button>
+            </form>
+
+                <div class="table-container">
+                    <h3>Danh sách tài khoản</h3>
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Tên đăng nhập</th>
+                        <th>Quyền</th>
+                        <th>Ngày tạo</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountsTableBody">
+                                <!-- Dữ liệu sẽ được hiển thị ở đây -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COM Port Management -->
+            <div class="admin-section">
+                <h2>🔌 Quản lý phân quyền COM Port</h2>
+                <p>Phân quyền cổng COM cho user - Nhập thủ công tên COM port</p>
+                
+                <!-- Form nhập COM port thủ công -->
+                <div style="margin-bottom: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #e9ecef;">
+                    <h4>📝 Phân quyền COM Port cho User</h4>
+                    <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label for="newComPort">Tên COM Port:</label>
+                            <input type="text" id="newComPort" placeholder="VD: COM3, COM4, COM5..." 
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label for="selectedUserId">Chọn User:</label>
+                            <select id="selectedUserId" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px;">
+                                <option value="">-- Chọn User --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button onclick="addNewComPort()" class="btn btn-success" style="margin-top: 20px;">
+                                ➕ Phân quyền COM Port
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <button onclick="loadComPortManagement()" class="btn btn-success">
+                        🔄 Làm mới danh sách
+                    </button>
+                    <button onclick="loadAllComPorts()" class="btn" style="background: #17a2b8;">
+                        📋 Xem tất cả COM Ports
+                    </button>
+                </div>
+                
+                <!-- Thống kê COM Port -->
+                <div id="comStats" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; display: none;">
+                    <h4>📊 Thống kê COM Port</h4>
+                    <div id="comStatsContent"></div>
+                </div>
+                
+                <!-- Danh sách User và COM Port -->
+                <div class="table-container">
+                    <h3>👥 Danh sách User & COM Port</h3>
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 150px;">User</th>
+                                    <th style="width: 120px;">Role</th>
+                                    <th style="width: 150px;">COM hiện tại</th>
+                                    <th style="width: 200px;">Chọn COM mới</th>
+                                    <th style="width: 100px;">Trạng thái</th>
+                                    <th style="width: 150px;">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comManagementTableBody">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: #666; padding: 20px;">
+                                        <div style="font-size: 48px; margin-bottom: 10px;">🔌</div>
+                                        <div>Click "Làm mới danh sách COM" để bắt đầu</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Danh sách COM Port khả dụng -->
+                <div class="table-container" style="margin-top: 20px;">
+                    <h3>🔌 Danh sách COM Port khả dụng</h3>
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 120px;">COM Port</th>
+                                    <th style="width: 150px;">Nhà sản xuất</th>
+                                    <th style="width: 100px;">Độ tin cậy</th>
+                                    <th style="width: 120px;">Trạng thái</th>
+                                    <th style="width: 150px;">User đang dùng</th>
+                                    <th style="width: 200px;">Ghi chú</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comPortsTableBody">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: #666; padding: 20px;">
+                                        <div style="font-size: 48px; margin-bottom: 10px;">🔍</div>
+                                        <div>Chưa có dữ liệu COM Port</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COM Port Management - Tất cả máy -->
+            <div class="admin-section">
+                <h2>🔌 Quản lý COM Ports - Tất cả máy</h2>
+                <p>Xem và quản lý COM ports của tất cả máy đã truy cập hệ thống</p>
+                
+                <div style="margin-bottom: 20px;">
+                    <button onclick="loadAllMachines()" class="btn btn-success">
+                        🔄 Làm mới danh sách máy
+                    </button>
+                    <button onclick="loadAllMachines(true)" class="btn" style="background: #ff9800;">
+                        🔄 Force refresh
+                    </button>
+                </div>
+                
+                <!-- Thống kê -->
+                <div id="machinesStats" class="stats-container" style="display: none;">
+                    <div class="stat-item">
+                        <span class="stat-label">Tổng máy:</span>
+                        <span class="stat-value" id="totalMachines">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Máy online:</span>
+                        <span class="stat-value" id="onlineMachines">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Tổng COM ports:</span>
+                        <span class="stat-value" id="totalComPorts">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">COM ports khả dụng:</span>
+                        <span class="stat-value" id="availableComPorts">0</span>
+                    </div>
+                </div>
+                
+                <!-- Danh sách máy -->
+                <div id="machinesList" class="machines-list">
+                    <p class="loading">Đang tải danh sách máy...</p>
+                </div>
+            </div>
+
+            <!-- System Management -->
+            <div class="admin-section">
+                <h2>⚙️ Quản lý hệ thống</h2>
+                
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-danger" onclick="clearAllOrders()">Xóa tất cả đơn hàng</button>
+                    <button class="btn" onclick="refreshStats()">Làm mới thống kê</button>
+                    <button class="btn" onclick="exportData()">Xuất dữ liệu</button>
+                </div>
+
+                <div class="table-container">
+                    <h3>Danh sách đơn hàng gần đây</h3>
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Mã đóng gói</th>
+                                    <th>Mã vận đơn</th>
+                                    <th>Mã đơn hàng</th>
+                                    <th>Mã hàng</th>
+                                    <th>Số lượng</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày import</th>
+                    </tr>
+                </thead>
+                            <tbody id="ordersTableBody">
+                                <!-- Dữ liệu sẽ được hiển thị ở đây -->
+                            </tbody>
+            </table>
+        </div>
+    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let comPortsData = [];
+        let usersData = [];
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAccounts();
+            loadRecentOrders();
+            refreshStats();
+            loadAllMachines(); // Load all machines when page loads
+        });
+
+        // Handle logout
+        document.getElementById('logoutBtn').onclick = async function() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                await fetch('/api/logout', { 
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                window.location.href = '/login';
+                }
+        };
+
+        // Handle account registration
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                role: formData.get('role')
+            };
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    e.target.reset();
+                    loadAccounts();
+                    refreshStats();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Lỗi tạo tài khoản: ' + error.message);
+            }
+        });
+
+        // Load accounts
+        async function loadAccounts() {
+            try {
+                const response = await fetch('/api/accounts', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayAccounts(result.data);
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Lỗi tải danh sách tài khoản: ' + error.message);
+            }
+        }
+
+        // Display accounts
+        function displayAccounts(accounts) {
+            const tbody = document.getElementById('accountsTableBody');
+            tbody.innerHTML = '';
+
+            accounts.forEach(account => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${account.username}</td>
+                    <td><span class="role-badge ${account.role}">${account.role.toUpperCase()}</span></td>
+                    <td>${new Date(account.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td>
+                        ${account.username !== 'admin' ? `
+                            <select id="roleSelect_${account._id}" style="padding: 8px; border-radius: 6px; border: 2px solid #ddd;">
+                                <option value="admin" ${account.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                <option value="checker" ${account.role === 'checker' ? 'selected' : ''}>Checker</option>
+                                <option value="packer" ${account.role === 'packer' ? 'selected' : ''}>Packer</option>
+                                <option value="user" ${account.role === 'user' ? 'selected' : ''}>User</option>
+                            </select>
+                            <button class="btn btn-success" onclick="saveRole('${account._id}')" style="margin-left: 10px; padding: 8px 16px;">💾 Save</button>
+                            <button class="btn btn-danger" onclick="deleteAccount('${account._id}')" style="margin-left: 5px; padding: 8px 16px;">Xóa</button>
+                        ` : 'Tài khoản gốc'}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Save role
+        async function saveRole(accountId) {
+            const selectElement = document.getElementById(`roleSelect_${accountId}`);
+            if (!selectElement) {
+                showError('Không tìm thấy dropdown role!');
+                return;
+            }
+            
+            const newRole = selectElement.value;
+            
+            try {
+                const response = await fetch(`/api/accounts/${accountId}/role`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ role: newRole })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(result.message || 'Đã lưu quyền thành công!');
+                    loadAccounts();
+                } else {
+                    showError(result.message || 'Lỗi không xác định');
+                }
+            } catch (error) {
+                showError('Lỗi lưu quyền: ' + error.message);
+            }
+        }
+        
+        // Delete account
+        async function deleteAccount(accountId) {
+            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/accounts/${accountId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Xóa tài khoản thành công');
+                    loadAccounts();
+                    refreshStats();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Lỗi xóa tài khoản: ' + error.message);
+            }
+        }
+        
+        // COM Port Management Functions
+        async function loadComPortManagement(forceRefresh = false) {
+            try {
+                console.log('Loading COM Port Management...');
+                
+                // Load Users
+                const usersResponse = await fetch('/api/accounts', {
+                    credentials: 'include'
+                });
+                const usersResult = await usersResponse.json();
+                
+                if (!usersResult.success) {
+                    showError('Lỗi tải danh sách user: ' + usersResult.message);
+                    return;
+                }
+                
+                usersData = usersResult.data || [];
+                console.log('Users loaded:', usersData.length);
+                
+                // Load users into dropdown
+                loadUsersIntoDropdown();
+                
+                // Load all COM ports from database
+                await loadAllComPorts();
+                
+                // Display data
+                displayComManagementTable();
+                displayComPortsTable();
+                
+                if (forceRefresh) {
+                    showSuccess('Đã làm mới danh sách!');
+                }
+                
+            } catch (error) {
+                console.error('Error loading COM management:', error);
+                showError('Lỗi tải dữ liệu: ' + error.message);
+            }
+        }
+        
+        // Load users into dropdown
+        function loadUsersIntoDropdown() {
+            const select = document.getElementById('selectedUserId');
+            select.innerHTML = '<option value="">-- Chọn User --</option>';
+            
+            usersData.forEach(user => {
+                if (user.username !== 'admin') { // Skip admin
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = `${user.username} (${user.role})`;
+                    select.appendChild(option);
+                }
+            });
+        }
+        
+        // Load all COM ports from database
+        async function loadAllComPorts() {
+            try {
+                const response = await fetch('/api/admin/all-com-ports', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    comPortsData = result.data.ports || [];
+                    console.log('All COM Ports loaded:', comPortsData.length);
+                    
+                    // Display stats
+                    displayComStats(result.data);
+                } else {
+                    console.error('Failed to load COM ports:', result.message);
+                    comPortsData = [];
+                }
+            } catch (error) {
+                console.error('Error loading all COM ports:', error);
+                comPortsData = [];
+            }
+        }
+        
+        // Add new COM port manually
+        async function addNewComPort() {
+            const portName = document.getElementById('newComPort').value.trim();
+            const userId = document.getElementById('selectedUserId').value;
+            
+            if (!portName) {
+                showError('Vui lòng nhập tên COM Port!');
+                return;
+            }
+            
+            if (!userId) {
+                showError('Vui lòng chọn User!');
+                return;
+            }
+            
+            // Validate COM port format
+            if (!/^COM\d+$/i.test(portName)) {
+                showError('COM Port phải có định dạng COM + số (VD: COM3, COM4)');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/add-com-port', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        portName: portName.toUpperCase(),
+                        userId: userId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`Đã phân quyền COM Port ${portName} cho user ${userId} thành công!`);
+                    
+                    // Clear form
+                    document.getElementById('newComPort').value = '';
+                    document.getElementById('selectedUserId').value = '';
+                    
+                    // Refresh data
+                    await loadAllComPorts();
+                    displayComPortsTable();
+                    displayComManagementTable();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                console.error('Error adding COM port:', error);
+                showError('Lỗi phân quyền COM Port: ' + error.message);
+            }
+        }
+
+        // Display COM Stats
+        function displayComStats(data) {
+            const statsDiv = document.getElementById('comStats');
+            const statsContent = document.getElementById('comStatsContent');
+            
+            if (!data.summary) {
+                statsDiv.style.display = 'none';
+                return;
+            }
+            
+            const summary = data.summary;
+            statsContent.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #667eea;">${summary.totalPorts}</div>
+                        <div style="font-size: 14px; color: #666;">Tổng COM Port</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #28a745;">${summary.availablePorts}</div>
+                        <div style="font-size: 14px; color: #666;">Khả dụng</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${summary.assignedPorts}</div>
+                        <div style="font-size: 14px; color: #666;">Đã phân quyền</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #ff9800;">${summary.scannerDevices}</div>
+                        <div style="font-size: 14px; color: #666;">Máy quét</div>
+                    </div>
+                </div>
+            `;
+            statsDiv.style.display = 'block';
+        }
+
+        // Display COM Management Table
+        function displayComManagementTable() {
+            const tbody = document.getElementById('comManagementTableBody');
+            
+            if (usersData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #666; padding: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">👥</div>
+                            <div>Không có user nào</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            usersData.forEach(user => {
+                if (user.username === 'admin') return; // Skip admin
+                
+                // Tìm COM port từ comPortsData (từ scannerassignments)
+                const userAssignment = comPortsData.find(port => port.userId === user.username);
+                const currentCom = userAssignment ? userAssignment.path : 'Chưa có';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 600; color: #333;">${user.username}</div>
+                        <div style="font-size: 12px; color: #666;">ID: ${user._id}</div>
+                    </td>
+                    <td>
+                        <span class="role-badge ${user.role}">${user.role.toUpperCase()}</span>
+                    </td>
+                    <td>
+                        <div style="font-weight: 600; color: ${currentCom !== 'Chưa có' ? '#28a745' : '#dc3545'};">
+                            ${currentCom}
+                        </div>
+                        ${currentCom !== 'Chưa có' ? 
+                            `<div style="font-size: 11px; color: #666;">✅ Đã phân quyền</div>` : 
+                            `<div style="font-size: 11px; color: #666;">❌ Chưa phân quyền</div>`
+                        }
+                    </td>
+                    <td>
+                        <input type="text" id="comInput_${user._id}" 
+                               value="${currentCom !== 'Chưa có' ? currentCom : ''}" 
+                               placeholder="Nhập COM port (VD: COM3)" 
+                               style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        <div style="font-size: 11px; color: #666; margin-top: 2px;">
+                            💡 Nhập tên COM port thủ công
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; color: #666;">
+                            ${currentCom !== 'Chưa có' ? '🟢 Đã có COM' : '🔴 Chưa có COM'}
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-success" onclick="saveComPermission('${user._id}', '${user.username}')" 
+                                style="font-size: 12px; padding: 6px 12px;">
+                            💾 Lưu
+                        </button>
+                        ${currentCom !== 'Chưa có' ? 
+                            `<button class="btn btn-danger" onclick="removeComPermission('${user._id}', '${user.username}')" 
+                                     style="font-size: 12px; padding: 6px 12px; margin-left: 5px;">
+                                🗑️ Xóa
+                            </button>` : ''
+                        }
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Display COM Ports Table
+        function displayComPortsTable() {
+            const tbody = document.getElementById('comPortsTableBody');
+            
+            if (comPortsData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #666; padding: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">🔌</div>
+                            <div>Chưa có COM Port nào. Hãy thêm COM Port mới!</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            comPortsData.forEach(port => {
+                const row = document.createElement('tr');
+                
+                // Confidence badge
+                let confidenceBadge = '';
+                if (port.confidence === 'high') {
+                    confidenceBadge = '<span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">CAO</span>';
+                } else if (port.confidence === 'medium') {
+                    confidenceBadge = '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">TRUNG BÌNH</span>';
+                } else {
+                    confidenceBadge = '<span style="background: #9e9e9e; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">THẤP</span>';
+                }
+                
+                // Status badge
+                let statusBadge = '';
+                if (port.isAvailable) {
+                    statusBadge = '<span style="background: #4caf50; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">🟢 KHẢ DỤNG</span>';
+                } else {
+                    statusBadge = '<span style="background: #f44336; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">🔴 ĐÃ PHÂN QUYỀN</span>';
+                }
+                
+                row.innerHTML = `
+                    <td style="font-weight: 600; color: ${port.isAvailable ? '#667eea' : '#999'};">
+                        <div style="font-size: 16px;">📱 ${port.path}</div>
+                        ${port.isLikelyScanner ? '<div style="font-size: 11px; color: #4caf50; margin-top: 2px;">🔍 Scanner</div>' : ''}
+                    </td>
+                    <td>${port.manufacturer || '<em style="color: #999;">Unknown</em>'}</td>
+                    <td>${confidenceBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        ${port.assignedToUser ? 
+                            `<span style="background: #667eea; color: white; padding: 4px 10px; border-radius: 4px; font-weight: 600;">👤 ${port.assignedToUser}</span>` : 
+                            '<span style="color: #999;">-</span>'
+                        }
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; color: #666;">${port.note || port.path}</div>
+                        ${port.deviceType ? `<div style="font-size: 11px; color: #999; margin-top: 2px;">${port.deviceType}</div>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Save COM Permission
+        async function saveComPermission(userId, username) {
+            const comInput = document.getElementById(`comInput_${userId}`);
+            const selectedCom = comInput.value.trim();
+            
+            if (!selectedCom) {
+                showError('Vui lòng nhập COM Port!');
+                return;
+            }
+            
+            // Validate COM port format
+            if (!/^COM\d+$/i.test(selectedCom)) {
+                showError('COM Port phải có định dạng COM + số (VD: COM3, COM4)');
+                return;
+            }
+            
+            try {
+                console.log(`Saving COM permission: ${selectedCom} for user ${username}`);
+                
+                const response = await fetch(`/api/accounts/${userId}/scanner-permissions`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        allowedScanners: [],
+                        assignedScanner: null,
+                        port: selectedCom,
+                        allowedPorts: [selectedCom]
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(`Đã phân quyền COM ${selectedCom} cho user ${username}!`);
+                    loadComPortManagement(); // Refresh data
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                console.error('Error saving COM permission:', error);
+                showError('Lỗi phân quyền COM: ' + error.message);
+            }
+        }
+
+        // Remove COM Permission
+        async function removeComPermission(userId, username) {
+            if (!confirm(`Bạn có chắc muốn thu hồi quyền sử dụng COM từ user ${username}?`)) {
+                return;
+            }
+            
+            try {
+                console.log(`Removing COM permission from user ${username}`);
+                
+                const response = await fetch(`/api/accounts/${userId}/scanner-permissions`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        allowedScanners: [],
+                        assignedScanner: null,
+                        port: null,
+                        allowedPorts: []
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(`Đã thu hồi quyền COM từ user ${username}!`);
+                    loadComPortManagement(); // Refresh data
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                console.error('Error removing COM permission:', error);
+                showError('Lỗi thu hồi quyền: ' + error.message);
+            }
+        }
+
+        // Load recent orders
+        async function loadRecentOrders() {
+            try {
+                const response = await fetch('/api/orders?limit=10', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    displayRecentOrders(result.data.orders);
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Lỗi tải danh sách đơn hàng: ' + error.message);
+            }
+        }
+
+        // Display recent orders
+        function displayRecentOrders(orders) {
+            const tbody = document.getElementById('ordersTableBody');
+            tbody.innerHTML = '';
+
+            orders.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.stt}</td>
+                    <td>${order.maDongGoi}</td>
+                    <td>${order.maVanDon}</td>
+                    <td>${order.maDonHang}</td>
+                    <td>${order.maHang}</td>
+                    <td>${order.soLuong}</td>
+                    <td>${order.verified ? '<span style="color: green;">Đã xác nhận</span>' : '<span style="color: orange;">Chưa xác nhận</span>'}</td>
+                    <td>${new Date(order.importDate).toLocaleDateString('vi-VN')}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Refresh statistics
+        async function refreshStats() {
+            try {
+                const [ordersResponse, accountsResponse] = await Promise.all([
+                    fetch('/api/orders', { credentials: 'include' }),
+                    fetch('/api/accounts', { credentials: 'include' })
+                ]);
+
+                const ordersResult = await ordersResponse.json();
+                const accountsResult = await accountsResponse.json();
+
+                if (ordersResult.success && accountsResult.success) {
+                    const orders = ordersResult.data.orders;
+                    const accounts = accountsResult.data;
+
+                    document.getElementById('totalOrders').textContent = orders.length;
+                    document.getElementById('totalAccounts').textContent = accounts.length;
+                    document.getElementById('verifiedOrders').textContent = orders.filter(o => o.verified).length;
+                    document.getElementById('processingOrders').textContent = orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).length;
+                }
+            } catch (error) {
+                console.error('Error refreshing stats:', error);
+            }
+        }
+
+        // Clear all orders
+        async function clearAllOrders() {
+            if (!confirm('Bạn có chắc chắn muốn xóa TẤT CẢ đơn hàng? Hành động này không thể hoàn tác!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    loadRecentOrders();
+                    refreshStats();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Lỗi xóa đơn hàng: ' + error.message);
+            }
+        }
+
+        // Export data
+        function exportData() {
+            showSuccess('Tính năng xuất dữ liệu đang được phát triển');
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            hideAlerts();
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 5000);
+        }
+
+        // Show error message
+        function showError(message) {
+            hideAlerts();
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 8000);
+        }
+
+        // Hide alerts
+        function hideAlerts() {
+            document.getElementById('successAlert').style.display = 'none';
+            document.getElementById('errorAlert').style.display = 'none';
+        }
+
+        // All Machines COM Port Management
+        let allMachinesData = [];
+
+        // Load all machines COM ports
+        async function loadAllMachines(forceRefresh = false) {
+            try {
+                const machinesList = document.getElementById('machinesList');
+                const machinesStats = document.getElementById('machinesStats');
+                
+                machinesList.innerHTML = '<p class="loading">Đang tải danh sách máy...</p>';
+                
+                const response = await fetch('/api/admin/all-machines' + (forceRefresh ? '?force=true' : ''), {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    const { machines, stats } = result.data;
+                    
+                    // Hiển thị thống kê
+                    document.getElementById('totalMachines').textContent = stats.totalMachines;
+                    document.getElementById('onlineMachines').textContent = stats.onlineMachines;
+                    document.getElementById('totalComPorts').textContent = stats.totalComPorts;
+                    document.getElementById('availableComPorts').textContent = stats.totalAvailablePorts;
+                    machinesStats.style.display = 'flex';
+                    
+                    // Hiển thị danh sách máy
+                    if (machines.length === 0) {
+                        machinesList.innerHTML = '<p class="no-data">Chưa có máy nào truy cập hệ thống</p>';
+                        return;
+                    }
+                    
+                    let html = '<div class="machines-grid">';
+                    
+                    machines.forEach(machine => {
+                        const onlineStatus = machine.isOnline ? '🟢 Online' : '🔴 Offline';
+                        const lastSeen = machine.timeSinceLastSeen < 1 ? 'Vừa xong' : 
+                                        `${machine.timeSinceLastSeen} phút trước`;
+                        
+                        html += `
+                            <div class="machine-card">
+                                <div class="machine-header">
+                                    <h3>${machine.hostname || 'Unknown'}</h3>
+                                    <span class="status ${machine.isOnline ? 'online' : 'offline'}">${onlineStatus}</span>
+                                </div>
+                                <div class="machine-info">
+                                    <p><strong>IP:</strong> ${machine.ipAddress}</p>
+                                    <p><strong>Platform:</strong> ${machine.platform}</p>
+                                    <p><strong>Lần cuối:</strong> ${lastSeen}</p>
+                                    <p><strong>Truy cập:</strong> ${machine.accessCount} lần</p>
+                                </div>
+                                <div class="com-ports-section">
+                                    <h4>COM Ports (${machine.comPorts.length})</h4>
+                                    ${machine.comPorts.length === 0 ? 
+                                        '<p class="no-ports">Không có COM ports</p>' :
+                                        machine.comPorts.map(port => `
+                                            <div class="port-item ${port.isAvailable ? 'available' : 'unavailable'}">
+                                                <span class="port-path">${port.path}</span>
+                                                <span class="port-manufacturer">${port.manufacturer}</span>
+                                                <span class="port-confidence ${port.confidence}">${port.confidence}</span>
+                                                ${port.isLikelyScanner ? '<span class="scanner-badge">📱 Scanner</span>' : ''}
+                                            </div>
+                                        `).join('')
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    machinesList.innerHTML = html;
+                    
+                } else {
+                    machinesList.innerHTML = `<p class="error">Lỗi: ${result.message}</p>`;
+                }
+                
+            } catch (error) {
+                console.error('Error loading machines:', error);
+                document.getElementById('machinesList').innerHTML = '<p class="error">Lỗi tải danh sách máy</p>';
+            }
+        }
+
+        // View machine details
+        function viewMachineDetails(username) {
+            const machine = allMachinesData.find(m => m.username === username);
+            if (!machine) {
+                showError('Không tìm thấy thông tin máy');
+                return;
+            }
+            
+            const details = `
+Máy tính: ${machine.machineInfo.hostname}
+IP: ${machine.machineInfo.ipAddress}
+Platform: ${machine.machineInfo.platform}
+User: ${machine.username} (${machine.role})
+Trạng thái: ${new Date() - new Date(machine.machineInfo.lastSeen) < 5 * 60 * 1000 ? 'ONLINE' : 'OFFLINE'}
+Tổng COM: ${machine.totalPorts}
+Khả dụng: ${machine.availablePorts}
+Đã phân quyền: ${machine.assignedPorts}
+
+COM Ports:
+${machine.comPorts.map(port => 
+    `- ${port.path} (${port.manufacturer}) ${port.isAssigned ? '🔒' : '🔓'} ${port.isLikelyScanner ? '🔍' : ''}`
+).join('\n')}
+            `;
+            
+            alert(details);
+        }
+
+        // Refresh machine
+        async function refreshMachine(username) {
+            showSuccess(`Đang refresh máy ${username}...`);
+            // Có thể gửi signal để client tự refresh COM ports
+            loadAllMachines();
+        }
+    </script>
+</body>
+</html>
