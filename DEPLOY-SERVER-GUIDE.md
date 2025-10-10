@@ -235,6 +235,39 @@ docker logs ordercheck-mongodb-v2
 docker-compose restart mongodb
 ```
 
+#### **4. Container exited with code 255**
+```bash
+# Chạy script debug
+chmod +x debug-container-issues.sh
+./debug-container-issues.sh
+
+# Hoặc Windows
+debug-container-issues.bat
+
+# Khắc phục thường gặp:
+# 1. Thiếu file .env
+cp env.example .env
+
+# 2. Port conflict
+sudo netstat -tulpn | grep :3001
+sudo kill -9 PID_NUMBER
+
+# 3. Disk space đầy
+df -h
+docker system prune -f
+
+# 4. Clean restart
+docker-compose down
+docker-compose up -d --build
+
+# 5. Nếu vẫn lỗi entrypoint script
+# Sử dụng Dockerfile đơn giản (không có entrypoint)
+mv Dockerfile Dockerfile.backup
+mv Dockerfile.simple Dockerfile
+docker-compose down
+docker-compose up -d --build
+```
+
 #### **4. SSL Certificate issues**
 ```bash
 # Regenerate SSL certificate (QUAN TRỌNG cho server backup)
@@ -247,7 +280,28 @@ node create-ssl-cert.js
 docker-compose restart ordercheck
 ```
 
-#### **5. SSL Certificate cho Server Backup**
+#### **5. Lỗi "exec ./docker-entrypoint.sh no such file or directory"**
+```bash
+# Nguyên nhân: File entrypoint không tồn tại hoặc line endings sai
+
+# Cách 1: Sử dụng Dockerfile đã sửa (khuyến nghị)
+docker-compose down
+docker-compose up -d --build
+
+# Cách 2: Sử dụng Dockerfile đơn giản (fallback)
+mv Dockerfile Dockerfile.backup
+mv Dockerfile.simple Dockerfile
+docker-compose down
+docker-compose up -d --build
+
+# Cách 3: Sửa line endings thủ công
+sed -i 's/\r$//' docker-entrypoint.sh
+chmod +x docker-entrypoint.sh
+docker-compose down
+docker-compose up -d --build
+```
+
+#### **6. SSL Certificate cho Server Backup**
 ```bash
 # QUAN TRỌNG: Chứng chỉ hiện tại chỉ cho IP 192.168.1.31
 # Trên server backup, bạn PHẢI tạo chứng chỉ mới
