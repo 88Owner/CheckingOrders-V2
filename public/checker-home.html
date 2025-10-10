@@ -463,7 +463,6 @@ let pageSize = 20;
         // Function để track cacheOrders changes
         function setCacheOrders(newValue, source = 'unknown') {
             if (!Array.isArray(newValue)) {
-                console.error('❌ [ERROR] newValue is not an array! Setting to empty array.');
                 cacheOrders = [];
             } else {
             cacheOrders = newValue;
@@ -611,7 +610,6 @@ let pageSize = 20;
                 
                 const totalRequired = this.cacheOrders.reduce((sum, order) => sum + order.soLuong, 0);
                 
-                console.log(`🔍 Order completion check: required=${totalRequired}, scanned=${totalScanned}, completed=${totalScanned >= totalRequired}`);
                 return totalScanned >= totalRequired;
             }
             
@@ -2293,7 +2291,6 @@ let pageSize = 20;
             // Quét mã hàng
             async scanItem(maHang) {
                 try {
-                    console.log(`🔍 Scanning: ${maHang}`);
                     
                     // Kiểm tra mã hàng có trong danh sách đơn hàng không
                     const orderItem = this.cacheOrders.find(order => order.maHang === maHang);
@@ -2773,7 +2770,6 @@ let pageSize = 20;
                 return true;
             } catch (e) {
                 // In case of unexpected failure, redirect to login (safe fallback)
-                try { console && console.error && console.error('ensureChecker error', e); } catch(e){}
                 location.href = '/login';
                 return false;
             }
@@ -3046,11 +3042,9 @@ let pageSize = 20;
         }
 
         function renderOrders() {
-            // console.log('🔍 [DEBUG] renderOrders() called');
             
             const body = document.getElementById('rows');
             if (!body) {
-                console.error('❌ [DEBUG] Element "rows" not found!');
                 return;
             }
             
@@ -3086,14 +3080,12 @@ let pageSize = 20;
                 
                 // Fix: Đảm bảo currentPage không vượt quá totalPages
                 if (currentPage > totalPages && totalPages > 0) {
-                    console.log('🔍 [DEBUG] currentPage > totalPages, resetting to page 1');
                     currentPage = 1;
                 }
                 
                 startIdx = (currentPage - 1) * pageSize;
                 endIdx = Math.min(startIdx + pageSize, cacheOrders.length);
                 
-                // console.log('🔍 [DEBUG] Pagination for VIEW mode:', { totalPages, startIdx, endIdx, currentPage });
             } else {
                 // Không phân trang cho check đơn - hiển thị tất cả
                 startIdx = 0;
@@ -3105,7 +3097,6 @@ let pageSize = 20;
             let renderedCount = 0;
             for (let i = startIdx; i < endIdx; i++) {
                 const o = cacheOrders[i];
-                // console.log('🔍 [DEBUG] Rendering order:', i, o.maVanDon, o.maHang);
                 
                 const r = document.createElement('div');
                 const status = getStatus(o);
@@ -3144,7 +3135,6 @@ let pageSize = 20;
                 renderedCount++;
             }
             
-            // console.log('🔍 [DEBUG] Total rendered orders:', renderedCount);
             
             // Nút chuyển trang cố định - chỉ hiển thị cho chế độ view
             // Xóa pager cố định nếu có
@@ -3336,7 +3326,6 @@ window.showOrderPager = function(show) {
                 setStatus(`Đã tải ${allCancelledOrders.length} đơn hủy`, 'success');
                 
             } catch (error) {
-                console.error('Lỗi load đơn hủy:', error);
                 setStatus('Lỗi khi tải danh sách đơn hủy: ' + error.message, 'err');
                 allCancelledOrders = [];
                 cacheOrders = [];
@@ -3712,7 +3701,6 @@ window.showOrderPager = function(show) {
                 });
                 const result = await response.json();
                 
-                // console.log('🔍 [DEBUG] Full API Response:', result);
                 
                 // Handle different response formats
                 let orders = [];
@@ -3734,7 +3722,6 @@ window.showOrderPager = function(show) {
                     const oldOrdersCount = cacheOrders.length;
                     const newOrders = orders;
                     
-                    // console.log('🔍 [DEBUG] API Response success');
                     
                     // Kiểm tra xem có thay đổi không
                     const hasChanges = oldOrdersCount !== newOrders.length || 
@@ -3753,11 +3740,6 @@ window.showOrderPager = function(show) {
                         setStatus(`Đã tải ${cacheOrders.length} đơn hàng từ database (real-time)`, 'ok');
                     }
                 } else {
-                    console.error('❌ [DEBUG] No valid orders found in response');
-                    console.error('❌ [DEBUG] result.success:', result.success);
-                    console.error('❌ [DEBUG] result.data:', result.data);
-                    console.error('❌ [DEBUG] result.message:', result.message);
-                    console.error('❌ [DEBUG] Processed orders length:', orders.length);
                     
                     if (showStatus) {
                         setStatus(`Không có dữ liệu đơn hàng để hiển thị. Response format: ${JSON.stringify(result).substring(0, 100)}...`, 'err');
@@ -3765,7 +3747,6 @@ window.showOrderPager = function(show) {
                     }
                 }
             } catch (error) {
-                console.error('❌ [DEBUG] Exception in loadAllOrdersFromDB:', error);
                 if (showStatus) {
                     setStatus('Lỗi kết nối database: ' + error.message, 'err');
                     ensureInputFocus();
@@ -3983,7 +3964,6 @@ window.showOrderPager = function(show) {
                     return false;
                 }
             } catch (error) {
-                console.error('[UNLOCK] Error unlocking order:', error);
                 setStatus(`Lỗi mở khóa đơn ${orderToUnlock}: ${error.message}`, 'error');
                 return false;
             }
@@ -4268,7 +4248,6 @@ window.showOrderPager = function(show) {
                                 const result = await response.json();
                             }
                         } catch (error) {
-                            console.error('[LOGOUT] Lỗi xóa tất cả bản ghi port:', error);
                         }
                         
                         // Reset trạng thái
@@ -4562,7 +4541,6 @@ window.showOrderPager = function(show) {
                         
                     } catch (err) {
                         showToast('Lỗi fix ComboData!', false);
-                        console.error('Fix ComboData error:', err);
                     }
                     
                     fixComboData.disabled = false;
@@ -4655,12 +4633,8 @@ window.showOrderPager = function(show) {
                     
                     displayScannerPermissions(result, mockScanners);
                 } else {
-                    console.error('[LOAD-SCANNER] /api/me failed:', result.message);
-                    console.error('[LOAD-SCANNER] User chưa login hoặc session hết hạn!');
                 }
             } catch (error) {
-                console.error('[LOAD-SCANNER] Exception:', error);
-                console.error('[LOAD-SCANNER] Stack:', error.stack);
             }
         }
 
@@ -4850,7 +4824,6 @@ window.showOrderPager = function(show) {
 
             // Kiểm tra browser support
             if (!navigator.serial) {
-                console.warn('⚠️  Browser không hỗ trợ Web Serial API');
                 const statusEl = document.getElementById('comStatus');
                 if (statusEl) statusEl.innerHTML = '<span style="color: #f44336;">Browser không hỗ trợ</span>';
                 const btnEl = document.getElementById('connectComBtn');
@@ -4934,7 +4907,6 @@ window.showOrderPager = function(show) {
                 isConnecting = false;
                 
             } catch (error) {
-                console.error('Error selecting COM port:', error);
                 
                 // Reset trạng thái khi có lỗi
                 isComConnected = false;
@@ -5007,11 +4979,9 @@ window.showOrderPager = function(show) {
                             parity: 'none',
                             flowControl: 'none'
                         });
-                        console.log(`✅ Kết nối thành công với baud rate: ${baudRate}`);
                         connected = true;
                         break;
                     } catch (openError) {
-                        console.log(`⚠️ Không thể kết nối với baud rate ${baudRate}:`, openError.message);
                         // Đóng port trước khi thử baud rate khác
                         try {
                             await port.close();
@@ -5045,7 +5015,6 @@ window.showOrderPager = function(show) {
                 const reader = port.readable.getReader();
                 isListening = true;
                 
-                console.log('🔍 Bắt đầu đọc dữ liệu từ COM port với buffer...');
                 
                 // Lắng nghe dữ liệu liên tục
                 while (isListening) {
@@ -5053,7 +5022,6 @@ window.showOrderPager = function(show) {
                         const { value, done } = await reader.read();
                         
                         if (done) {
-                            console.log('📡 COM port reader đã đóng');
                             break;
                         }
                         
@@ -5061,7 +5029,6 @@ window.showOrderPager = function(show) {
                         const chunk = new TextDecoder().decode(value);
                         dataBuffer += chunk;
                         
-                        console.log('📥 Nhận chunk từ COM:', chunk, '(buffer hiện tại:', dataBuffer, ')');
                         
                         // Kiểm tra ký tự kết thúc (thường là \r\n, \n, hoặc \r)
                         if (dataBuffer.includes('\n') || dataBuffer.includes('\r')) {
@@ -5073,7 +5040,6 @@ window.showOrderPager = function(show) {
                                 const line = lines[i].trim();
                                 
                                 if (line) {
-                                    console.log('✅ Dữ liệu hoàn chỉnh từ COM:', line);
                                     
                                     // Gửi dữ liệu lên server để log
                                     sendComInputToServer(currentComPort, line);
@@ -5100,7 +5066,6 @@ window.showOrderPager = function(show) {
                                                 hideModal();
                                                 handleEnter(line);
                                             } catch (e) {
-                                                console.error('Lỗi xử lý dữ liệu:', e);
                                             }
                                         }, 100);
                                     }
@@ -5112,7 +5077,6 @@ window.showOrderPager = function(show) {
                         }
                         
                     } catch (readError) {
-                        console.error('❌ Lỗi đọc từ COM port:', readError);
                         break;
                     }
                 }
@@ -5174,7 +5138,6 @@ window.showOrderPager = function(show) {
                 }
                 return null;
             } catch (error) {
-                console.error('Error getting username:', error);
                 return null;
             }
         }
@@ -5208,7 +5171,6 @@ window.showOrderPager = function(show) {
                             hideModal();
                             handleEnter(scannedData);
                         } catch (e) {
-                            console.error('Lỗi:', e);
                         }
                         input.value = '';
                     }
@@ -5244,7 +5206,6 @@ window.showOrderPager = function(show) {
                     try {
                         await releasePort(currentComPort);
                     } catch (releaseError) {
-                        console.warn('⚠️ [DISCONNECT] Lỗi release port:', releaseError.message);
                     }
                 }
                 
@@ -5274,7 +5235,6 @@ window.showOrderPager = function(show) {
 
                 
             } catch (error) {
-                console.error('[DISCONNECT] Lỗi ngắt kết nối:', error);
                 statusSpan.innerHTML = '<span style="color: #f44336;">Lỗi ngắt kết nối</span>';
                 
                 // Force reset trạng thái ngay cả khi có lỗi
@@ -5363,7 +5323,6 @@ window.showOrderPager = function(show) {
                 return result;
                 
             } catch (error) {
-                console.error('[RELEASE-PORT] Lỗi release port:', error);
                 return {
                     success: false,
                     message: 'Lỗi release port: ' + error.message
@@ -5387,7 +5346,6 @@ window.showOrderPager = function(show) {
                 return result;
                 
             } catch (error) {
-                console.error('[RELEASE-PORT-ANY] Lỗi release port:', error);
                 return {
                     success: false,
                     message: 'Lỗi release port: ' + error.message
@@ -5502,7 +5460,7 @@ window.showOrderPager = function(show) {
                             'Authorization': 'Bearer ' + getAuthToken() 
                         },
                         body: JSON.stringify({ maVanDon: currentMaVanDon })
-                    }).catch(e => console.log('Lỗi unblock:', e));
+                    }).catch(e => {});
                 }
                 
                 // Reset trạng thái quét
