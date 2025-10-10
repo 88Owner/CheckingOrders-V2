@@ -1,228 +1,159 @@
 # OrderCheck - Hệ thống quản lý đơn hàng và kiểm tra hàng 
-### 1. Clone dự án
+
+## 🚀 Hướng dẫn cài đặt
+
+### Cách 1: Sử dụng Docker (Khuyến nghị)
+
+#### 1. Clone dự án
 ```bash
 git clone <repository-url>
 cd OrderCheck
 ```
 
-### 2. Cài đặt dependencies
+#### 2. Cấu hình môi trường
+Sao chép file cấu hình mẫu:
+```bash
+cp env.example .env
+```
+
+Chỉnh sửa file `.env` nếu cần:
+```env
+# MongoDB Local Configuration (cho Docker)
+MONGODB_URI=mongodb://admin:password123@localhost:27017/OrderDetailing?authSource=admin
+
+# Session Secret (thay đổi thành chuỗi ngẫu nhiên)
+SESSION_SECRET=your-session-secret-here
+
+# Server Port
+PORT=3001
+
+# Environment
+NODE_ENV=development
+```
+
+#### 3. Chạy với Docker Compose
+```bash
+# Khởi động tất cả services (bao gồm MongoDB)
+docker-compose up -d
+
+# Xem logs
+docker-compose logs -f
+
+# Dừng services
+docker-compose down
+```
+
+#### 4. Truy cập ứng dụng
+- **HTTP**: http://localhost:3001
+- **MongoDB**: mongodb://localhost:27017
+
+### Cách 2: Chạy trực tiếp trên máy
+
+#### 1. Clone dự án
+```bash
+git clone <repository-url>
+cd OrderCheck
+```
+
+#### 2. Cài đặt MongoDB local
+- **Windows**: Tải và cài đặt từ [MongoDB Community Server](https://www.mongodb.com/try/download/community)
+- **macOS**: `brew install mongodb-community`
+- **Ubuntu**: `sudo apt install mongodb`
+
+#### 3. Khởi động MongoDB
+```bash
+# Windows (nếu cài đặt service)
+net start MongoDB
+
+# macOS/Linux
+sudo systemctl start mongod
+# hoặc
+mongod
+```
+
+#### 4. Cài đặt dependencies
 ```bash
 npm install
 ```
 
-### 3. Cấu hình môi trường
+#### 5. Cấu hình môi trường
 Tạo file `.env`:
 ```env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database
-SESSION_SECRET=your-secret-key-here
-PORT=3000
+# MongoDB Local Configuration (cho chạy trực tiếp)
+MONGODB_URI=mongodb://localhost:27017/OrderDetailing
+
+# Session Secret
+SESSION_SECRET=your-session-secret-here
+
+# Server Port
+PORT=3001
+
+# Environment
+NODE_ENV=development
 ```
 
-### 4. Tạo SSL certificate (cho HTTPS)
+#### 6. Khởi tạo dữ liệu mẫu
+```bash
+# Kết nối MongoDB và chạy script khởi tạo
+mongo OrderDetailing < init-data.js
+```
+
+#### 7. Tạo SSL certificate (cho HTTPS)
 ```bash
 node create-ssl-cert.js
 ```
 
-### 5. Chạy dự án
+#### 8. Chạy dự án
 ```bash
-node server.js
+# Development mode
+npm run dev
+
+# Production mode
+npm start
 ```
 
-### 6. Truy cập ứng dụng
-- **HTTPS**: https://localhost:3000
-- **HTTP**: http://localhost:3000
-- **Network**: https://192.168.1.31:3000
+## 🔑 Tài khoản đăng nhập mặc định
 
-> ⚠️ **Lưu ý**: Browser sẽ hiện cảnh báo SSL, click "Advanced" → "Proceed"
+Sau khi khởi tạo dữ liệu, bạn có thể đăng nhập với các tài khoản sau:
 
-## 👥 Tài khoản mặc định
+- **admin/admin** - Quản trị viên
+- **nv01/123** - Nhân viên kiểm hàng (checker)
+- **nv02/123** - Nhân viên đóng gói (packer)
+- **user/123** - Người dùng thường
 
-| Username | Password | Role   | Mô tả                    |
-|----------|----------|--------|--------------------------|
-| admin    | admin    | admin  | Quản trị hệ thống        |
-| nv01     | 123      | checker| Kiểm tra đơn hàng        |
-| nv02     | 123      | packer | Đóng gói hàng hóa        |
-| user     | 123      | user   | Người dùng thường        |
+## 🌐 Truy cập ứng dụng
 
-## 🔧 Cấu hình COM Port
+- **HTTP**: http://localhost:3001
+- **HTTPS**: https://localhost:3001 (sau khi tạo SSL certificate)
+- **MongoDB Local**: mongodb://localhost:27017
+- **MongoDB Remote**: mongodb://YOUR_SERVER_IP:27017/OrderDetailing
 
-### 1. Kết nối scanner
-- Kết nối scanner qua USB
-- Scanner sẽ hiện dưới dạng COM port (COM3, COM4, COM5...)
+> ⚠️ **Lưu ý**: Nếu sử dụng HTTPS, browser sẽ hiện cảnh báo SSL, click "Advanced" → "Proceed"
 
-### 2. Phân quyền COM port
-- Admin đăng nhập → Quản lý tài khoản
-- Gán COM port cho từng user
-- User chỉ có thể sử dụng COM port được phân quyền
+## 🌍 Remote Access (Truy cập từ xa)
 
-### 3. Sử dụng scanner
-- User đăng nhập → Trang chính
-- Click "🔌 Kết nối COM" → Chọn COM port
-- Quét mã vạch → Tự động nhập vào hệ thống
+Để máy khác có thể kết nối tới MongoDB trên server này:
 
-## 📊 Quản lý dữ liệu
-
-### Upload đơn hàng
-1. Vào trang **Upload**
-2. Chọn file Excel đơn hàng
-3. Hệ thống tự động import vào database
-
-### Upload MasterData
-1. Vào trang **Upload** → **MasterData**
-2. Chọn file Excel với cột: SKU, Màu Vải, Tên Phiên Bản
-3. Hệ thống tự động mapping và lưu
-
-### Upload ComboData
-1. Vào trang **Upload** → **ComboData**
-2. Chọn file Excel với cột: Combo Code, Mã Hàng, Số Lượng
-3. Hệ thống tự động tạo combo sản phẩm
-
-## 🔄 Quy trình kiểm tra đơn hàng
-
-### 1. Load đơn hàng
-```
-Input mã vận đơn → Hệ thống load đơn → Hiển thị danh sách hàng
-```
-
-### 2. Quét mã hàng
-```
-Quét mã hàng → Hệ thống kiểm tra → Cập nhật trạng thái
-```
-
-### 3. Xác nhận hoàn thành
-```
-Quét đủ hàng → Xác nhận đơn → Đánh dấu hoàn thành
-```
-
-## 🚨 Xử lý lỗi thường gặp
-
-### Port 3000 đã được sử dụng
+### 1. Test kết nối từ máy khác
 ```bash
-# Tìm process sử dụng port 3000
-netstat -ano | findstr :3000
+# Windows
+scripts\test-remote-connection.bat YOUR_SERVER_IP
 
-# Kill process
-taskkill /PID <process_id> /F
+# Linux/macOS
+./scripts/test-remote-connection.sh YOUR_SERVER_IP
 ```
 
-### Lỗi kết nối MongoDB
-- Kiểm tra `MONGODB_URI` trong file `.env`
-- Đảm bảo MongoDB Atlas cho phép kết nối từ IP hiện tại
-
-### Web Serial API không hoạt động
-- Sử dụng Chrome/Edge (không hỗ trợ Firefox)
-- Truy cập qua HTTPS (không phải HTTP)
-- Đảm bảo scanner được kết nối đúng
-
-### Lỗi SSL certificate
+### 2. Cấu hình ứng dụng từ xa
 ```bash
-# Tạo lại certificate
-node create-ssl-cert.js
-
-# Hoặc chạy HTTP thay vì HTTPS
-# Sửa server.js: comment HTTPS, uncomment HTTP
+# Tạo file .env trên máy client
+MONGODB_URI=mongodb://YOUR_SERVER_IP:27017/OrderDetailing
 ```
 
-## 📱 API Endpoints
+### 3. Các bước cấu hình server
+- ✅ MongoDB đã được cấu hình bind trên tất cả interfaces
+- ✅ Không cần authentication (đơn giản hóa kết nối)
+- ⚠️ **Cần cấu hình**: Firewall cho phép port 27017
+- ⚠️ **Cần cấu hình**: Port forwarding (nếu qua Internet)
 
-### Authentication
-- `POST /api/login` - Đăng nhập
-- `POST /api/logout` - Đăng xuất
-- `GET /api/me` - Thông tin user hiện tại
+> 📖 **Chi tiết**: Xem [REMOTE-ACCESS-GUIDE.md](REMOTE-ACCESS-GUIDE.md) để biết cách cấu hình chi tiết
 
-### Orders
-- `GET /api/orders` - Lấy danh sách đơn hàng
-- `GET /api/orders/by-van-don/:maVanDon` - Lấy đơn theo mã vận đơn
-- `POST /api/scan` - Quét mã hàng
-- `POST /api/orders/unblock-van-don` - Unblock đơn hàng
-
-### COM Port
-- `GET /api/checker/com-ports` - Lấy danh sách COM port
-- `POST /api/claim-port` - Claim COM port
-- `POST /api/release-port` - Release COM port
-- `POST /api/com-input` - Gửi dữ liệu từ COM port
-
-### Upload
-- `POST /api/checker/upload` - Upload file đơn hàng
-- `POST /api/checker/upload-masterdata` - Upload MasterData
-- `POST /api/checker/upload-combo` - Upload ComboData
-
-## 🔒 Bảo mật
-
-- **JWT Authentication**: Token-based authentication
-- **Role-based Access**: Phân quyền theo vai trò
-- **HTTPS**: Mã hóa dữ liệu truyền tải
-- **Input Validation**: Kiểm tra dữ liệu đầu vào
-- **SQL Injection Protection**: Mongoose ODM protection
-
-## 📈 Performance
-
-- **Real-time Updates**: Polling mỗi 5 giây
-- **Efficient Queries**: MongoDB indexes
-- **Connection Pooling**: Mongoose connection pooling
-- **File Upload**: Multer với giới hạn kích thước
-
-## 🧪 Testing
-
-### Test API
-```bash
-# Test login
-curl -X POST http://localhost:3000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
-
-# Test upload
-curl -X POST http://localhost:3000/api/checker/upload \
-  -F "file=@orders.xlsx" \
-  -H "Authorization: Bearer <token>"
-```
-
-### Test COM Port
-1. Kết nối scanner
-2. Mở trang https://localhost:3000/debug-client.html
-3. Test kết nối COM port
-
-## 📝 Changelog
-
-### v1.0.0 (2025-10-03)
-- ✅ Hoàn thiện hệ thống quản lý đơn hàng
-- ✅ Tích hợp Web Serial API cho scanner
-- ✅ Quản lý COM port với exclusive access
-- ✅ Upload và xử lý Excel files
-- ✅ Real-time updates và polling
-- ✅ Animation đăng nhập
-- ✅ Block/unblock đơn hàng
-- ✅ MasterData và ComboData management
-
-## 🤝 Đóng góp
-
-1. Fork dự án
-2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Mở Pull Request
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## 👨‍💻 Tác giả
-
-**NNTruong** - [@kantruong11](https://github.com/kantruong11)
-
-## 📞 Liên hệ
-
-- **Email**: [email@example.com]
-- **GitHub**: [https://github.com/kantruong11]
-- **Project Link**: [https://github.com/kantruong11/OrderCheck]
-
-## 🙏 Lời cảm ơn
-
-- [Express.js](https://expressjs.com/) - Web framework
-- [MongoDB](https://www.mongodb.com/) - Database
-- [Mongoose](https://mongoosejs.com/) - ODM
-- [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) - Serial communication
-
----
-
-**⭐ Nếu dự án hữu ích, hãy cho một star!**

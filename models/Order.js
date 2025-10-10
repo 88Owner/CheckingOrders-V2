@@ -52,6 +52,10 @@ const orderSchema = new mongoose.Schema({
     blockedAt: {
         type: Date,
         default: null // thời gian bắt đầu block
+    },
+    version: {
+        type: Number,
+        default: 0 // Optimistic locking version
     }
 }, {
     timestamps: true // Tự động thêm createdAt và updatedAt

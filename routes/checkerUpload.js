@@ -112,7 +112,13 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
         }
 
         // 2.1. Nạp ComboData để chuẩn hóa mã combo => mã base
-        const comboDocs = await ComboData.find({});
+        const comboCache = require('../utils/comboCache');
+        const comboDocsMap = await comboCache.getAllCombos();
+        // Flatten Map thành array
+        const comboDocs = [];
+        for (const combos of comboDocsMap.values()) {
+            comboDocs.push(...combos);
+        }
         const comboByCode = new Map(); // key: comboCode, value: combo doc
         for (const c of comboDocs) {
             if (c && typeof c.comboCode === 'string' && c.comboCode.trim()) {
@@ -127,15 +133,13 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
             const [stt, maDongGoi, maVanDon, maDonHang, maHang, soLuong] = row;
             if (!stt || !maDongGoi || !maVanDon || !maDonHang || !maHang || !soLuong) continue;
 
-            // Giữ nguyên mã combo trong database, chỉ nhân số lượng
+            // Giữ nguyên mã combo và số lượng từ file Excel
             let normalizedMaHang = String(maHang).trim();
             let normalizedSoLuong = Number(soLuong);
+            
+            // Kiểm tra combo nhưng KHÔNG nhân số lượng
+            // ComboData chỉ dùng để reference, không thay đổi số lượng
             const combo = comboByCode.get(normalizedMaHang);
-            if (combo) {
-                const factor = Number(combo.soLuong) || 1;
-                normalizedSoLuong = normalizedSoLuong * factor;
-                // Giữ nguyên mã combo, chỉ nhân số lượng
-            }
 
             const key = String(maDonHang) + '|' + String(normalizedMaHang);
             const exist = oldMap.get(key);
@@ -193,8 +197,33 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
         if (ops.length > 0) {
             await Order.bulkWrite(ops);
         }
+
+        // Xóa file tạm
+        if (req.file) {
+            const fs = require('fs');
+            try {
+                fs.unlinkSync(req.file.path);
+                console.log(`🗑️ Đã xóa file tạm: ${req.file.path}`);
+            } catch (deleteError) {
+                console.error('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
         res.json({ success: true, message: `Đã import ${imported} đơn mới, cập nhật ${updated}, giữ nguyên ${unchanged}.` });
     } catch (error) {
+        console.error('Checker upload error:', error);
+        
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            const fs = require('fs');
+            try {
+                fs.unlinkSync(req.file.path);
+                console.log(`🗑️ Đã xóa file tạm sau lỗi: ${req.file.path}`);
+            } catch (deleteError) {
+                console.error('Không thể xóa file tạm sau lỗi:', deleteError.message);
+            }
+        }
+        
         res.status(500).json({ success: false, message: 'Lỗi import file: ' + error.message });
     }
 });
@@ -280,11 +309,19 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
         const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
         // 1. Load ComboData cũ để so sánh
-        const oldComboData = await ComboData.find({});
+        const comboCache = require('../utils/comboCache');
+        const oldComboDataMap = await comboCache.getAllCombos();
+        // Flatten Map thành array
+        const oldComboData = [];
+        for (const combos of oldComboDataMap.values()) {
+            oldComboData.push(...combos);
+        }
         const oldComboMap = new Map();
         for (const c of oldComboData) {
-            if (c && c.comboCode) {
-                oldComboMap.set(c.comboCode, c);
+            if (c && c.comboCode && c.maHang) {
+                // Tạo key composite: comboCode + maHang
+                const key = `${c.comboCode}|${c.maHang}`;
+                oldComboMap.set(key, c);
             }
         }
 
@@ -313,9 +350,12 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
             const maHang = String(maHangRaw).trim();
             const soLuong = Number(soLuongRaw) || 1;
 
-            const exist = oldComboMap.get(comboCode);
+            // Tạo key composite để kiểm tra tồn tại
+            const key = `${comboCode}|${maHang}`;
+            const exist = oldComboMap.get(key);
+            
             if (!exist) {
-                // Combo mới - insert
+                // Combo + SKU mới - insert
                 ops.push({
                     insertOne: {
                         document: {
@@ -329,9 +369,8 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
                 });
                 imported++;
             } else {
-                // Combo đã tồn tại - kiểm tra có thay đổi không
+                // Combo + SKU đã tồn tại - kiểm tra có thay đổi không
                 let changed = false;
-                if (exist.maHang !== maHang) changed = true;
                 if (exist.soLuong !== soLuong) changed = true;
                 
                 if (changed) {
@@ -340,7 +379,6 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
                             filter: { _id: exist._id },
                             update: {
                                 $set: {
-                                    maHang,
                                     soLuong,
                                     importDate: new Date(),
                                     createdBy: req.authUser.username
@@ -357,8 +395,22 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
 
         if (ops.length > 0) {
             await ComboData.bulkWrite(ops);
+            // Invalidate cache sau khi có thay đổi dữ liệu
+            const comboCache = require('../utils/comboCache');
+            comboCache.invalidateCache();
         }
         
+        // Xóa file tạm
+        if (req.file) {
+            const fs = require('fs');
+            try {
+                fs.unlinkSync(req.file.path);
+                console.log(`🗑️ [API /api/checker/upload-combodata] Đã xóa file tạm: ${req.file.path}`);
+            } catch (deleteError) {
+                console.error('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
         res.json({ 
             success: true, 
             message: `Đã import ${imported} combo mới, cập nhật ${updated}, giữ nguyên ${unchanged}.` 
@@ -366,6 +418,18 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
         
     } catch (error) {
         console.error('❌ Lỗi upload ComboData:', error);
+        
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            const fs = require('fs');
+            try {
+                fs.unlinkSync(req.file.path);
+                console.log(`🗑️ [API /api/checker/upload-combodata] Đã xóa file tạm sau lỗi: ${req.file.path}`);
+            } catch (deleteError) {
+                console.error('Không thể xóa file tạm sau lỗi:', deleteError.message);
+            }
+        }
+        
         res.status(500).json({ 
             success: false, 
             message: 'Lỗi import ComboData: ' + error.message 
@@ -396,7 +460,7 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
         const sheet = workbook.Sheets[sheetName];
         const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        console.log(`[API /api/checker/upload-masterdata] File có ${data.length} dòng dữ liệu`);
+        // console.log(`[API /api/checker/upload-masterdata] File có ${data.length} dòng dữ liệu`);
 
         // 1. Load MasterData cũ để so sánh và tránh trùng SKU
         const oldMasterData = await MasterData.find({});
@@ -407,7 +471,7 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
             }
         }
 
-        console.log(`[API /api/checker/upload-masterdata] Database hiện có ${oldMasterData.length} MasterData`);
+        // console.log(`[API /api/checker/upload-masterdata] Database hiện có ${oldMasterData.length} MasterData`);
 
         let imported = 0, updated = 0, unchanged = 0, skipped = 0;
         const ops = [];
@@ -445,7 +509,7 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
             // Kiểm tra trùng SKU trong file hiện tại
             const skuKey = sku.toLowerCase();
             if (duplicateSkus.has(skuKey)) {
-                console.log(`⚠️ [API /api/checker/upload-masterdata] SKU trùng trong file: ${sku}`);
+                // console.log(`⚠️ [API /api/checker/upload-masterdata] SKU trùng trong file: ${sku}`);
                 skipped++;
                 continue;
             }
@@ -467,7 +531,7 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
                     }
                 });
                 imported++;
-                console.log(`✅ [API /api/checker/upload-masterdata] Thêm mới SKU: ${sku}`);
+                // console.log(`✅ [API /api/checker/upload-masterdata] Thêm mới SKU: ${sku}`);
             } else {
                 // MasterData đã tồn tại - kiểm tra có thay đổi không
                 let changed = false;
@@ -489,22 +553,33 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
                         }
                     });
                     updated++;
-                    console.log(`🔄 [API /api/checker/upload-masterdata] Cập nhật SKU: ${sku}`);
+                    // console.log(`🔄 [API /api/checker/upload-masterdata] Cập nhật SKU: ${sku}`);
                 } else {
                     unchanged++;
-                    console.log(`⏭️ [API /api/checker/upload-masterdata] Giữ nguyên SKU: ${sku}`);
+                    // console.log(`⏭️ [API /api/checker/upload-masterdata] Giữ nguyên SKU: ${sku}`);
                 }
             }
         }
 
         // 3. Thực hiện bulk operations
         if (ops.length > 0) {
-            console.log(`[API /api/checker/upload-masterdata] Thực hiện ${ops.length} operations...`);
+            // console.log(`[API /api/checker/upload-masterdata] Thực hiện ${ops.length} operations...`);
             await MasterData.bulkWrite(ops);
         }
         
-        console.log(`[API /api/checker/upload-masterdata] Hoàn thành: ${imported} mới, ${updated} cập nhật, ${unchanged} giữ nguyên, ${skipped} bỏ qua`);
+        // console.log(`[API /api/checker/upload-masterdata] Hoàn thành: ${imported} mới, ${updated} cập nhật, ${unchanged} giữ nguyên, ${skipped} bỏ qua`);
         
+        // Xóa file tạm
+        if (req.file) {
+            const fs = require('fs');
+            try {
+                fs.unlinkSync(req.file.path);
+                console.log(`🗑️ [API /api/checker/upload-masterdata] Đã xóa file tạm: ${req.file.path}`);
+            } catch (deleteError) {
+                console.error('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
         res.json({ 
             success: true, 
             message: `Đã import ${imported} MasterData mới, cập nhật ${updated}, giữ nguyên ${unchanged}, bỏ qua ${skipped} dòng.`,
@@ -519,6 +594,18 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
         
     } catch (error) {
         console.error('❌ [API /api/checker/upload-masterdata] Lỗi:', error);
+        
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            const fs = require('fs');
+            try {
+                fs.unlinkSync(req.file.path);
+                console.log(`🗑️ [API /api/checker/upload-masterdata] Đã xóa file tạm sau lỗi: ${req.file.path}`);
+            } catch (deleteError) {
+                console.error('Không thể xóa file tạm sau lỗi:', deleteError.message);
+            }
+        }
+        
         res.status(500).json({ 
             success: false, 
             message: 'Lỗi import MasterData: ' + error.message 

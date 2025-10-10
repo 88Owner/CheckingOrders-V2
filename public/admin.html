@@ -232,6 +232,7 @@
             font-size: 2rem;
             font-weight: bold;
             color: #333;
+            transition: all 0.3s ease;
         }
 
         @media (max-width: 600px) {
@@ -383,6 +384,39 @@
             text-align: center;
             padding: 20px;
         }
+
+        /* Pagination Styles */
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .pagination-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .pagination-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .pagination-btn:disabled {
+            background: #f5f5f5;
+            color: #ccc;
+            border-color: #ddd;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 <body>
@@ -466,8 +500,8 @@
                 </div>
             </div>
 
-            <!-- COM Port Management -->
-            <div class="admin-section">
+            <!-- COM Port Management - ẨN -->
+            <div class="admin-section" style="display: none;">
                 <h2>🔌 Quản lý phân quyền COM Port</h2>
                 <p>Phân quyền cổng COM cho user - Nhập thủ công tên COM port</p>
                 
@@ -564,8 +598,8 @@
                 </div>
             </div>
 
-            <!-- COM Port Management - Tất cả máy -->
-            <div class="admin-section">
+            <!-- COM Port Management - Tất cả máy - ẨN -->
+            <div class="admin-section" style="display: none;">
                 <h2>🔌 Quản lý COM Ports - Tất cả máy</h2>
                 <p>Xem và quản lý COM ports của tất cả máy đã truy cập hệ thống</p>
                 
@@ -604,9 +638,9 @@
                 </div>
             </div>
 
-            <!-- System Management -->
+            <!-- Order Management -->
             <div class="admin-section">
-                <h2>⚙️ Quản lý hệ thống</h2>
+                <h2>📦 Quản lý đơn hàng</h2>
                 
                 <div style="margin-bottom: 20px;">
                     <button class="btn btn-danger" onclick="clearAllOrders()">Xóa tất cả đơn hàng</button>
@@ -614,8 +648,36 @@
                     <button class="btn" onclick="exportData()">Xuất dữ liệu</button>
                 </div>
 
+                <!-- Search and Filter -->
+                <div style="margin-bottom: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #e9ecef;">
+                    <h4>🔍 Tìm kiếm đơn hàng</h4>
+                    <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label for="searchInput">Từ khóa:</label>
+                            <input type="text" id="searchInput" placeholder="Tìm theo mã đơn hàng, mã vận đơn, mã hàng..." 
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div style="min-width: 150px;">
+                            <label for="statusFilter">Trạng thái:</label>
+                            <select id="statusFilter" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px;">
+                                <option value="">Tất cả</option>
+                                <option value="verified">Đã xác nhận</option>
+                                <option value="pending">Chưa xác nhận</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button onclick="searchOrders()" class="btn btn-success" style="margin-top: 20px;">
+                                🔍 Tìm kiếm
+                            </button>
+                            <button onclick="clearSearch()" class="btn" style="margin-top: 20px; background: #6c757d;">
+                                🗑️ Xóa bộ lọc
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="table-container">
-                    <h3>Danh sách đơn hàng gần đây</h3>
+                    <h3>Danh sách đơn hàng</h3>
                     <div class="table-responsive">
                         <table class="admin-table">
                             <thead>
@@ -633,9 +695,19 @@
                             <tbody id="ordersTableBody">
                                 <!-- Dữ liệu sẽ được hiển thị ở đây -->
                             </tbody>
-            </table>
-        </div>
-    </div>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div id="paginationContainer" style="margin-top: 20px; text-align: center; padding: 20px;">
+                        <div id="paginationInfo" style="margin-bottom: 15px; color: #666; font-size: 14px;">
+                            Hiển thị 0 - 0 của 0 đơn hàng
+                        </div>
+                        <div id="paginationButtons" style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                            <!-- Pagination buttons will be generated here -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -644,18 +716,105 @@
         // Global variables
         let comPortsData = [];
         let usersData = [];
+        let authToken = null;
+        let statsInterval = null;
+        let currentPage = 1;
+        let itemsPerPage = 10;
+        let totalOrders = 0;
+        let allOrders = [];
+        let filteredOrders = [];
 
         // Load data when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            loadAccounts();
-            loadRecentOrders();
-            refreshStats();
-            loadAllMachines(); // Load all machines when page loads
+            initializeAuth();
+            
+            // Add Enter key support for search
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchOrders();
+                }
+            });
         });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            stopRealtimeStats();
+        });
+
+        // Initialize authentication and load data
+        async function initializeAuth() {
+            try {
+                // Get token from session
+                const response = await fetch('/api/admin/token', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    authToken = result.token;
+                    console.log('✅ Admin token loaded successfully');
+                    
+                    // Load all data after getting token
+                    await Promise.all([
+                        loadAccounts(),
+                        loadRecentOrders(),
+                        refreshStats()
+                    ]);
+                    
+                    // Load machines data separately (since this section is hidden)
+                    try {
+                        await loadAllMachines();
+                    } catch (error) {
+                        console.warn('⚠️ Failed to load machines data:', error);
+                    }
+                    
+                    // Start real-time stats updates
+                    startRealtimeStats();
+                } else {
+                    console.error('❌ Failed to get admin token:', result.message);
+                    showError('Lỗi xác thực: ' + result.message);
+                }
+            } catch (error) {
+                console.error('❌ Error initializing auth:', error);
+                showError('Lỗi khởi tạo: ' + error.message);
+            }
+        }
+
+        // Start real-time stats updates
+        function startRealtimeStats() {
+            // Clear existing interval
+            if (statsInterval) {
+                clearInterval(statsInterval);
+            }
+            
+            // Update stats every 30 seconds
+            statsInterval = setInterval(async () => {
+                try {
+                    await refreshStats();
+                    console.log('🔄 Stats updated automatically');
+                } catch (error) {
+                    console.warn('⚠️ Failed to update stats automatically:', error);
+                }
+            }, 30000); // 30 seconds
+            
+            console.log('✅ Real-time stats updates started');
+        }
+
+        // Stop real-time stats updates
+        function stopRealtimeStats() {
+            if (statsInterval) {
+                clearInterval(statsInterval);
+                statsInterval = null;
+                console.log('⏹️ Real-time stats updates stopped');
+            }
+        }
 
         // Handle logout
         document.getElementById('logoutBtn').onclick = async function() {
             if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                // Stop real-time updates
+                stopRealtimeStats();
+                
                 await fetch('/api/logout', { 
                     method: 'POST',
                     credentials: 'include'
@@ -1191,16 +1350,27 @@
             }
         }
 
-        // Load recent orders
-        async function loadRecentOrders() {
+        // Load all orders for pagination
+        async function loadAllOrders() {
             try {
-                const response = await fetch('/api/orders?limit=10', {
-                    credentials: 'include'
+                if (!authToken) {
+                    console.error('❌ No auth token available for orders API');
+                    return;
+                }
+                
+                const response = await fetch('/api/orders?limit=1000', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
                 });
                 const result = await response.json();
 
                 if (result.success) {
-                    displayRecentOrders(result.data.orders);
+                    allOrders = result.data.orders || [];
+                    filteredOrders = [...allOrders];
+                    totalOrders = allOrders.length;
+                    displayOrdersWithPagination();
                 } else {
                     showError(result.message);
                 }
@@ -1209,10 +1379,38 @@
             }
         }
 
-        // Display recent orders
-        function displayRecentOrders(orders) {
+        // Load recent orders (for backward compatibility)
+        async function loadRecentOrders() {
+            await loadAllOrders();
+        }
+
+        // Display orders with pagination
+        function displayOrdersWithPagination() {
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const ordersToShow = filteredOrders.slice(startIndex, endIndex);
+            
+            displayOrders(ordersToShow);
+            updatePaginationInfo();
+            renderPaginationButtons();
+        }
+
+        // Display orders in table
+        function displayOrders(orders) {
             const tbody = document.getElementById('ordersTableBody');
             tbody.innerHTML = '';
+
+            if (orders.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #666; padding: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
+                            <div>Không có đơn hàng nào</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
 
             orders.forEach(order => {
                 const row = document.createElement('tr');
@@ -1223,18 +1421,33 @@
                     <td>${order.maDonHang}</td>
                     <td>${order.maHang}</td>
                     <td>${order.soLuong}</td>
-                    <td>${order.verified ? '<span style="color: green;">Đã xác nhận</span>' : '<span style="color: orange;">Chưa xác nhận</span>'}</td>
+                    <td>${order.verified ? '<span style="color: green; font-weight: bold;">✅ Đã xác nhận</span>' : '<span style="color: orange; font-weight: bold;">⏳ Chưa xác nhận</span>'}</td>
                     <td>${new Date(order.importDate).toLocaleDateString('vi-VN')}</td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
+        // Display recent orders (for backward compatibility)
+        function displayRecentOrders(orders) {
+            displayOrders(orders);
+        }
+
         // Refresh statistics
         async function refreshStats() {
             try {
+                if (!authToken) {
+                    console.error('❌ No auth token available for stats API');
+                    return;
+                }
+                
                 const [ordersResponse, accountsResponse] = await Promise.all([
-                    fetch('/api/orders', { credentials: 'include' }),
+                    fetch('/api/orders', { 
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }),
                     fetch('/api/accounts', { credentials: 'include' })
                 ]);
 
@@ -1245,14 +1458,37 @@
                     const orders = ordersResult.data.orders;
                     const accounts = accountsResult.data;
 
-                    document.getElementById('totalOrders').textContent = orders.length;
-                    document.getElementById('totalAccounts').textContent = accounts.length;
-                    document.getElementById('verifiedOrders').textContent = orders.filter(o => o.verified).length;
-                    document.getElementById('processingOrders').textContent = orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).length;
+                    // Update with animation
+                    updateStatWithAnimation('totalOrders', orders.length);
+                    updateStatWithAnimation('totalAccounts', accounts.length);
+                    updateStatWithAnimation('verifiedOrders', orders.filter(o => o.verified).length);
+                    updateStatWithAnimation('processingOrders', orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).length);
                 }
             } catch (error) {
                 console.error('Error refreshing stats:', error);
             }
+        }
+
+        // Update stat with animation
+        function updateStatWithAnimation(elementId, newValue) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            const currentValue = parseInt(element.textContent) || 0;
+            if (currentValue === newValue) return;
+            
+            // Add animation class
+            element.style.transform = 'scale(1.1)';
+            element.style.color = '#667eea';
+            
+            // Update value
+            element.textContent = newValue;
+            
+            // Remove animation after 300ms
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+                element.style.color = '#333';
+            }, 300);
         }
 
         // Clear all orders
@@ -1262,8 +1498,17 @@
             }
 
             try {
+                if (!authToken) {
+                    showError('Không có token xác thực');
+                    return;
+                }
+                
                 const response = await fetch('/api/orders', {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
                 });
 
                 const result = await response.json();
@@ -1277,6 +1522,104 @@
                 }
             } catch (error) {
                 showError('Lỗi xóa đơn hàng: ' + error.message);
+            }
+        }
+
+        // Search orders
+        function searchOrders() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            filteredOrders = allOrders.filter(order => {
+                // Search by multiple fields
+                const matchesSearch = !searchTerm || 
+                    order.maDonHang?.toLowerCase().includes(searchTerm) ||
+                    order.maVanDon?.toLowerCase().includes(searchTerm) ||
+                    order.maHang?.toLowerCase().includes(searchTerm) ||
+                    order.maDongGoi?.toLowerCase().includes(searchTerm);
+                
+                // Filter by status
+                const matchesStatus = !statusFilter || 
+                    (statusFilter === 'verified' && order.verified) ||
+                    (statusFilter === 'pending' && !order.verified);
+                
+                return matchesSearch && matchesStatus;
+            });
+            
+            currentPage = 1; // Reset to first page
+            displayOrdersWithPagination();
+            
+            console.log(`🔍 Search results: ${filteredOrders.length} orders found`);
+        }
+
+        // Clear search
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            filteredOrders = [...allOrders];
+            currentPage = 1;
+            displayOrdersWithPagination();
+        }
+
+        // Update pagination info
+        function updatePaginationInfo() {
+            const startIndex = (currentPage - 1) * itemsPerPage + 1;
+            const endIndex = Math.min(currentPage * itemsPerPage, filteredOrders.length);
+            const total = filteredOrders.length;
+            
+            document.getElementById('paginationInfo').textContent = 
+                `Hiển thị ${startIndex} - ${endIndex} của ${total} đơn hàng`;
+        }
+
+        // Render pagination buttons
+        function renderPaginationButtons() {
+            const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+            const container = document.getElementById('paginationButtons');
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // Previous button
+            html += `<button class="pagination-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Trước</button>`;
+            
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (startPage > 1) {
+                html += `<button class="pagination-btn" onclick="goToPage(1)">1</button>`;
+                if (startPage > 2) {
+                    html += `<span style="padding: 8px;">...</span>`;
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    html += `<span style="padding: 8px;">...</span>`;
+                }
+                html += `<button class="pagination-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+            }
+            
+            // Next button
+            html += `<button class="pagination-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Sau ›</button>`;
+            
+            container.innerHTML = html;
+        }
+
+        // Go to specific page
+        function goToPage(page) {
+            const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                displayOrdersWithPagination();
             }
         }
 

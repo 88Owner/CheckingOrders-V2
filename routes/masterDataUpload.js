@@ -104,7 +104,7 @@ router.post('/api/master-data/upload', upload.single('file'), async (req, res) =
             try {
                 fs.unlinkSync(req.file.path);
             } catch (deleteError) {
-                console.log('Không thể xóa file tạm:', deleteError.message);
+                // console.log('Không thể xóa file tạm:', deleteError.message);
             }
         }
 

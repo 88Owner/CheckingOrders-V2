@@ -2,10 +2,8 @@
 
 # Docker entrypoint script for OrderCheck application
 
-echo "🚀 Starting OrderCheck Application..."
 
 # Wait for MongoDB to be ready
-echo "⏳ Waiting for MongoDB connection..."
 node -e "
 const mongoose = require('mongoose');
 const config = require('./config');
@@ -37,7 +35,6 @@ waitForMongo();
 "
 
 # Run migration if needed
-echo "🔄 Running database migration..."
 node -e "
 const mongoose = require('mongoose');
 const config = require('./config');
@@ -93,5 +90,5 @@ runMigration();
 "
 
 # Start the application
-echo "🚀 Starting OrderCheck server..."
+echo "Starting OrderCheck server..."
 exec node server.js

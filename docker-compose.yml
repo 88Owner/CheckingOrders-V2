@@ -1,27 +1,44 @@
-version: '3.8'
-
 services:
+  mongodb:
+    image: mongo:7.0
+    container_name: ordercheck-mongodb-v2
+    ports:
+      - "0.0.0.0:27017:27017"  # Bind trên tất cả interfaces để cho phép remote access
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-data.js:/docker-entrypoint-initdb.d/init-data.js:ro
+    restart: unless-stopped
+    networks:
+      - ordercheck-network
+    command: mongod --bind_ip_all  # Cho phép kết nối từ tất cả IP, không có authentication
+
   ordercheck:
     build: .
-    container_name: ordercheck-app
+    container_name: ordercheck-app-v2
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
-      MONGODB_URI: mongodb+srv://kantruong11:05092003Nt@nntruong.uku9iyi.mongodb.net/OrderDetailing?retryWrites=true&w=majority&appName=NNTruong
+      MONGODB_URI: mongodb://mongodb:27017/OrderDetailing
       SESSION_SECRET: change_this_session_secret_in_production
+      PORT: 3001
       NODE_ENV: production
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
     restart: unless-stopped
+    depends_on:
+      - mongodb
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     networks:
       - ordercheck-network
+
+volumes:
+  mongodb_data:
 
 networks:
   ordercheck-network:

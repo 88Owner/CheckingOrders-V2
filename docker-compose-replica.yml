@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  mongodb-primary:
+    image: mongo:7.0
+    container_name: ordercheck-mongodb-primary
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongodb_primary_data:/data/db
+      - ./init-data.js:/docker-entrypoint-initdb.d/init-data.js:ro
+    restart: unless-stopped
+    command: mongod --replSet rs0 --bind_ip_all
+    networks:
+      - ordercheck-network
+
+  mongodb-secondary:
+    image: mongo:7.0
+    container_name: ordercheck-mongodb-secondary
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongodb_secondary_data:/data/db
+    restart: unless-stopped
+    command: mongod --replSet rs0 --bind_ip_all
+    depends_on:
+      - mongodb-primary
+    networks:
+      - ordercheck-network
+
+  ordercheck:
+    build: .
+    container_name: ordercheck-app-v2
+    ports:
+      - "3001:3001"
+    environment:
+      MONGODB_URI: mongodb://admin:admin123@mongodb-primary:27017,mongodb-secondary:27017/OrderDetailing?replicaSet=rs0&authSource=admin
+      SESSION_SECRET: change_this_session_secret_in_production
+      PORT: 3001
+      NODE_ENV: production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - mongodb-primary
+      - mongodb-secondary
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ordercheck-network
+
+volumes:
+  mongodb_primary_data:
+  mongodb_secondary_data:
+
+networks:
+  ordercheck-network:
+    driver: bridge

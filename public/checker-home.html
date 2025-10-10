@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checker - Một trang duy nhất</title>
+    <title>Kiểm đơn gói hàng</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'">
     <script src="/serial-scanner.js"></script>
     <style>
@@ -133,6 +133,82 @@
         .modal-icon.error { color: #ef4444; }
         .modal-icon.warning { color: #f59e0b; }
         .modal-icon.info { color: #3b82f6; }
+        
+        /* Modal background colors */
+        .modal.success {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 3px solid #22c55e;
+            box-shadow: 0 20px 40px rgba(34, 197, 94, 0.2);
+        }
+        
+        .modal.error {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border: 3px solid #ef4444;
+            box-shadow: 0 20px 40px rgba(239, 68, 68, 0.2);
+        }
+        
+        .modal.warning {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 3px solid #f59e0b;
+            box-shadow: 0 20px 40px rgba(245, 158, 11, 0.2);
+        }
+        
+        .modal.info {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 3px solid #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
+        }
+        
+        .modal.question {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 3px solid #64748b;
+            box-shadow: 0 20px 40px rgba(100, 116, 139, 0.2);
+        }
+        
+        /* Modal animations */
+        .modal {
+            transition: all 0.3s ease;
+            transform: scale(0.9);
+            opacity: 0;
+        }
+        
+        .modal-overlay.show .modal {
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        /* Pulse animation for success modal */
+        .modal.success {
+            animation: successPulse 0.6s ease-out;
+        }
+        
+        @keyframes successPulse {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Shake animation for error modal */
+        .modal.error {
+            animation: errorShake 0.6s ease-out;
+        }
+        
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        /* Bounce animation for warning modal */
+        .modal.warning {
+            animation: warningBounce 0.6s ease-out;
+        }
+        
+        @keyframes warningBounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
         
         .modal-title {
             font-size: 2.2rem;
@@ -270,10 +346,8 @@
                 
                 const result = await response.json();
                 if (!result.success) {
-                    // console.log('Lỗi lưu user behaviour:', result.message);
                 }
             } catch (error) {
-                // console.log('Lỗi lưu user behaviour:', error.message);
             }
         }
     </script>
@@ -286,9 +360,9 @@
                     <h1 style="color:#e2e8f0;">Checker</h1>
                 </div>
                 <button id="viewBtn" class="nav-btn active">Xem đơn hàng</button>
+                <button id="cancelledBtn" class="nav-btn">Xem đơn hủy</button>
                 <button id="uploadBtn" class="nav-btn">Upload file</button>
                 <button id="checkBtn" class="nav-btn">Check đơn</button>
-                <button id="portBtn" class="nav-btn">Cổng port</button>
                 <div style="height:16px;"></div>
                 <div style="display:flex;flex-direction:column;gap:8px;">
                     <span class="tag" id="userTag">...</span>
@@ -366,27 +440,13 @@
                     <div class="progress-line" style="display:none;width:100%;"><div class="progress-bar" id="uploadComboBar"></div></div>
                 </div>
                 
-                <div id="portPanel" style="display:none;margin-top:18px;">
-                    <div style="background:#f8fafc;padding:20px;border-radius:10px;border:1px solid #e2e8f0;">
-                        <h3 style="color:#1e293b;margin-bottom:16px;">🔌 Quản lý cổng port</h3>
-                        <div style="margin-bottom:16px;">
-                            <button id="refreshPortsBtn" class="btn" style="background:#28a745;">🔄 Làm mới danh sách</button>
-                            <span style="margin-left:12px;color:#64748b;font-size:14px;">
-                                Chỉ hiển thị máy quét keyboard được phân quyền
-                            </span>
-                        </div>
-                        <div id="portsList" style="max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:12px;">
-                            <!-- Danh sách cổng port sẽ được load động -->
-                        </div>
-                    </div>
-                </div>
                 <div id="toast" class="toast"></div>
             </div>
         </div>
         
         <!-- Modal Container -->
         <div id="modalOverlay" class="modal-overlay">
-            <div class="modal">
+            <div id="modal" class="modal">
                 <div id="modalIcon" class="modal-icon"></div>
                 <div id="modalTitle" class="modal-title"></div>
                 <div id="modalMessage" class="modal-message"></div>
@@ -406,18 +466,2144 @@ let pageSize = 20;
         const queueList = []; // giữ thứ tự đơn đang xử lý
         
         // Trạng thái quy trình check đơn
-        let orderCheckState = 'idle'; // 'idle', 'scanning', 'confirming', 'completed'
+        let orderCheckState = 'idle'; // 'idle', 'scanning', 'completed'
         let scannedItems = []; // Danh sách các mặt hàng đã quét
         let currentVanDonStatus = null; // Lưu trạng thái của maVanDon hiện tại
         let waitingForNewOrder = false; // Đang chờ input đơn mới (đơn hiện tại đã hoàn thành)
         let pollingInterval = null; // Interval cho polling định kỳ
         let lastPollingTime = 0; // Thời gian polling cuối cùng
         
+        // ========== STATE MACHINE PATTERN ==========
+        
+        // Định nghĩa các trạng thái
+        const CheckStates = {
+            IDLE: 'idle',
+            ORDER_ACTIVE: 'order_active',
+            SCANNING: 'scanning',
+            ORDER_COMPLETED: 'order_completed'
+        };
+        
+        // Class State Machine cho Order Check
+        class OrderCheckStateMachine {
+            constructor() {
+                this.state = CheckStates.IDLE;
+                this.currentOrder = null;
+                this.scannedItems = [];
+                this.cacheOrders = [];
+                this.isLoading = false;
+            }
+            
+            // Kiểm tra input có hợp lệ không
+            isValidInput(code) {
+                return code && code.length >= 3;
+            }
+            
+            // Kiểm tra xem code có vẻ như mã vận đơn không
+            looksLikeVanDon(code) {
+                const dashCount = (code.match(/-/g) || []).length;
+                return dashCount === 0; // Không có dấu gạch ngang = mã đơn
+            }
+            
+            // Phân loại input
+            classifyInput(code) {
+                if (!this.isValidInput(code)) {
+                    return 'INVALID_INPUT';
+                }
+                
+                const isVanDonCode = this.looksLikeVanDon(code);
+                
+                if (isVanDonCode) {
+                    if (code === this.currentOrder?.maVanDon) {
+                        // Quét lại đơn hiện tại = CHECK-IN lại (tiếp tục quét)
+                        return 'CURRENT_ORDER_CHECKIN';
+                    } else if (this.currentOrder) {
+                        // Quét đơn khác = KHÔNG cho phép chuyển, yêu cầu hoàn thành đơn hiện tại
+                        return 'DIFFERENT_ORDER_BLOCKED';
+                    } else {
+                        // Chưa có đơn nào = check-in đơn mới
+                        return 'NEW_ORDER_CHECKIN';
+                    }
+                } else {
+                    if (this.currentOrder) {
+                        // Kiểm tra xem code có phải là mã hàng trong đơn hiện tại không
+                        const isValidItem = this.isValidItemInCurrentOrder(code);
+                        if (isValidItem) {
+                            return 'ITEM_SCAN';
+                        } else {
+                            return 'INVALID_ITEM_FOR_ORDER';
+                        }
+                    } else {
+                        return 'ITEM_WITHOUT_ORDER';
+                    }
+                }
+            }
+            
+            // Kiểm tra mã hàng có hợp lệ trong đơn hiện tại không
+            isValidItemInCurrentOrder(code) {
+                if (!this.currentOrder || !this.cacheOrders.length) {
+                    return false;
+                }
+                
+                // Kiểm tra xem code có match với pattern mã hàng trong đơn không
+                return this.cacheOrders.some(order => {
+                    if (!order.maHang) return false;
+                    
+                    // Kiểm tra exact match trước
+                    if (order.maHang === code) {
+                        return true;
+                    }
+                    
+                    // Kiểm tra combo item pattern
+                    if (this.isComboItem(code, order.maHang)) {
+                        return true;
+                    }
+                    
+                    // Kiểm tra partial match (code có chứa maHang base)
+                    const baseMaHang = order.maHang.split('-')[0]; // Lấy phần base
+                    if (code.includes(baseMaHang) && code.includes('-')) {
+                        return true;
+                    }
+                    
+                    return false;
+                });
+            }
+            
+            // Kiểm tra xem có phải combo item không
+            isComboItem(code, maHang) {
+                // Logic kiểm tra combo item (có thể cần điều chỉnh theo yêu cầu cụ thể)
+                if (!maHang || !code) return false;
+                
+                // Kiểm tra pattern combo: maHang-base + code-suffix
+                const dashCount = (code.match(/-/g) || []).length;
+                if (dashCount >= 2) {
+                    // Có thể là combo item
+                    return true;
+                }
+                
+                return false;
+            }
+            
+            // Kiểm tra đơn có hoàn thành không
+            isOrderCompleted() {
+                if (!this.currentOrder || !this.cacheOrders.length) return false;
+                
+                const totalRequired = this.cacheOrders.reduce((sum, order) => sum + order.soLuong, 0);
+                const uniqueProducts = new Set(this.scannedItems.map(item => item.maHang));
+                const totalScanned = Array.from(uniqueProducts).reduce((sum, maHang) => {
+                    const scannedItemsForThisProduct = this.scannedItems.filter(item => item.maHang === maHang);
+                    if (scannedItemsForThisProduct.length > 0) {
+                        const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                        return sum + (latestItem.soLuongDaQuet || 0);
+                    }
+                    return sum;
+                }, 0);
+                
+                return totalScanned >= totalRequired;
+            }
+            
+            // Kiểm tra đơn có đang được quét không
+            isOrderInProgress() {
+                return this.state === CheckStates.SCANNING && this.scannedItems.length > 0;
+            }
+            
+            // Xử lý input chính
+            async handleInput(code) {
+                if (this.isLoading) {
+                    return;
+                }
+                
+                try {
+                    this.isLoading = true;
+                    
+                    // Kiểm tra nếu đang ở trạng thái IDLE (trang rỗng) và input là mã vận đơn
+                    if (this.state === CheckStates.IDLE && this.looksLikeVanDon(code)) {
+                        await this.checkinOrder(code);
+                        return;
+                    }
+                    
+                    const inputType = this.classifyInput(code);
+                    
+                    switch (inputType) {
+                        case 'INVALID_INPUT':
+                            this.showError('Input không hợp lệ. Vui lòng nhập lại.');
+                            break;
+                            
+                        case 'ITEM_WITHOUT_ORDER':
+                            this.showError('Chưa chọn mã vận đơn. Hãy nhập mã vận đơn trước.');
+                            break;
+                            
+                        case 'INVALID_ITEM_FOR_ORDER':
+                            this.showError(`Mã hàng "${code}" không thuộc đơn ${this.currentOrder.maVanDon}. Vui lòng quét mã hàng đúng hoặc quét đơn khác.`);
+                            break;
+                            
+                        case 'DIFFERENT_ORDER_BLOCKED':
+                            await this.handleDifferentOrderBlocked(code);
+                            break;
+                            
+                        case 'CURRENT_ORDER_CHECKIN':
+                            await this.handleCurrentOrderCheckin();
+                            break;
+                            
+                        case 'NEW_ORDER_CHECKIN':
+                            await this.checkinOrder(code);
+                            break;
+                            
+                        case 'ITEM_SCAN':
+                            await this.scanItem(code);
+                            break;
+                            
+                        default:
+                            this.showError('Loại input không được hỗ trợ.');
+                    }
+                    
+                } catch (error) {
+                    this.showError(error.message || 'Có lỗi xảy ra');
+                } finally {
+                    this.isLoading = false;
+                    // Chỉ focus input nếu không có modal đang hiển thị
+                    if (!document.getElementById('modalOverlay').classList.contains('show')) {
+                        this.ensureInputFocus();
+                    }
+                }
+            }
+            
+            // Xử lý quét lại đơn hiện tại
+            async handleCurrentOrderCheckin() {
+                // Đóng modal nếu đang hiển thị
+                hideModal();
+                
+                // Kiểm tra trạng thái đơn hiện tại
+                const isCompleted = this.isOrderCompleted();
+                
+                if (isCompleted) {
+                    // Đơn đã hoàn thành - tự động hoàn thành đơn
+                    await this.completeOrder();
+                } else {
+                    // Đơn chưa hoàn thành - tự động hủy đơn và hiển thị modal như cũ
+                    await this.cancelOrder();
+                }
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+                        
+            // Xử lý khi quét đơn khác (KHÔNG cho phép chuyển)
+            async handleDifferentOrderBlocked(newMaVanDon) {
+                // Hiển thị thông báo không cho phép chuyển đơn
+                this.showWarning(
+                    `Không thể chuyển sang đơn ${newMaVanDon}.`,
+                    `Đang xử lý đơn ${this.currentOrder.maVanDon}. Vui lòng hoàn thành đơn hiện tại trước khi chuyển đơn khác.\n\nHướng dẫn:\n• Quét lại đơn ${this.currentOrder.maVanDon} để hoàn thành\n• Hoặc quét lại đơn ${this.currentOrder.maVanDon} để hủy`
+                );
+                
+                // Focus lại input để tiếp tục quét mã hàng của đơn hiện tại
+                this.ensureInputFocus();
+            }
+            
+            // Xử lý đơn khác (checkout đơn hiện tại và checkin đơn mới) - KHÔNG CÒN SỬ DỤNG
+            async handleDifferentOrder(newMaVanDon) {
+                // Đóng modal nếu đang hiển thị
+                hideModal();
+                
+                // Lưu thông tin đơn hiện tại
+                const oldMaVanDon = this.currentOrder?.maVanDon;
+                
+                // 1. Kiểm tra xem đơn mới có tồn tại không trước khi rollback đơn cũ
+                const response = await fetch(`/api/orders/by-van-don/${encodeURIComponent(newMaVanDon)}`, {
+                    credentials: 'include',
+                    headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+                });
+                const result = await response.json();
+                
+                if (!result.success) {
+                    // Nếu đơn mới không tồn tại, không rollback đơn cũ - chỉ hiển thị lỗi và giữ nguyên trạng thái
+                    if (result.message && result.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                        this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${newMaVanDon}. Tiếp tục quét đơn hiện tại ${oldMaVanDon}.`);
+                        return;
+                    }
+                    // Các lỗi khác (ví dụ: đơn đã hoàn thành)
+                    if (result.message && result.message.includes('đã được quét hoàn tất')) {
+                        this.showWarning(`Đơn ${newMaVanDon} đã được quét hoàn tất. Tiếp tục quét đơn hiện tại ${oldMaVanDon}.`);
+                        return;
+                    }
+                    // Lỗi khác
+                    this.showError(`Lỗi tải đơn ${newMaVanDon}: ${result.message}. Tiếp tục quét đơn hiện tại ${oldMaVanDon}.`);
+                    return;
+                }
+                
+                // 2. Nếu đơn mới tồn tại, rollback đơn hiện tại (checkout)
+                try {
+                    await this.rollbackCurrentOrder();
+                } catch (error) {
+                    // Ignore rollback errors
+                }
+                
+                // 3. Reset state
+                this.reset();
+                
+                // 4. Check-in đơn mới
+                await this.checkinOrder(newMaVanDon);
+            }
+            
+            // Hiển thị modal xác nhận chuyển đơn (không còn sử dụng)
+            async showSwitchConfirmation(newMaVanDon) {
+                // Logic này không còn sử dụng vì chỉ cho phép chuyển đơn sau checkout
+                this.showError('Vui lòng checkout đơn hiện tại trước khi chuyển đơn khác.');
+            }
+            
+            // Chuyển sang đơn mới (sau khi checkout)
+            async switchToNewOrder(newMaVanDon) {
+                try {
+                    // Check-in đơn mới (đã checkout rồi nên không cần rollback)
+                    await this.checkinOrder(newMaVanDon);
+                    
+                } catch (error) {
+                    throw new Error(`Lỗi chuyển đơn: ${error.message}`);
+                }
+            }
+            
+            // Rollback đơn hiện tại
+            async rollbackCurrentOrder() {
+                try {
+                    if (!this.currentOrder) return;
+                    
+                    const maVanDon = this.currentOrder.maVanDon;
+                    
+                    // Unblock đơn trên server
+                    await fetch('/api/orders/unblock-van-don', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + getAuthToken()
+                        },
+                        body: JSON.stringify({ maVanDon })
+                    });
+                    
+                } catch (error) {
+                    // Không throw error vì rollback không phải lỗi nghiêm trọng
+                }
+            }
+            
+            // Check-in đơn hàng
+            async checkinOrder(maVanDon) {
+                try {
+                    
+                    // Load đơn hàng từ server
+                    const response = await fetch(`/api/orders/by-van-don/${encodeURIComponent(maVanDon)}`, {
+                        credentials: 'include',
+                        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+                    });
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        // Kiểm tra nếu đơn đã hoàn thành
+                        if (result.message && result.message.includes('đã được quét hoàn tất')) {
+                            this.showWarning(`Đơn ${maVanDon} đã được quét hoàn tất. Vui lòng chọn đơn khác.`);
+                            return;
+                        }
+                        
+                        // Kiểm tra nếu không tìm thấy đơn hàng - không rollback, chỉ hiển thị lỗi
+                        if (result.message && result.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                            this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${maVanDon}. Vui lòng kiểm tra lại mã vận đơn.`);
+                            return;
+                        }
+                        
+                        throw new Error(result.message || 'Không thể tải đơn hàng');
+                    }
+                    
+                    // Cập nhật state
+                    this.currentOrder = { maVanDon, ...result.data };
+                    this.cacheOrders = result.data.orders || [];
+                    this.scannedItems = [];
+                    this.state = CheckStates.ORDER_ACTIVE;
+                    
+                    // Cập nhật UI
+                    this.updateUI();
+                    
+                    // Hiển thị thông báo ngắn gọn
+                    const verifiedCount = result.data.alreadyVerifiedItems?.length || 0;
+                    this.showInfo(`Đã check-in ${this.cacheOrders.length} mặt hàng cho đơn ${maVanDon}. Bắt đầu quét hàng.`);
+                    
+                    // Lưu user behaviour
+                    await this.saveUserBehaviour('scanner', `Check-in đơn hàng: ${maVanDon} - ${this.cacheOrders.length} mặt hàng`, {
+                        maVanDon: maVanDon,
+                        orderCount: this.cacheOrders.length,
+                        verifiedItemsCount: verifiedCount,
+                        action: 'checkin_order'
+                    });
+                    
+                    // Đảm bảo reset loading state sau khi hoàn thành
+                    this.isLoading = false;
+                    
+                } catch (error) {
+                    // Đảm bảo reset loading state khi có lỗi
+                    this.isLoading = false;
+                    
+                    // Kiểm tra nếu lỗi là "Không tìm thấy đơn hàng với mã vận đơn này" - không rollback, chỉ hiển thị lỗi
+                    if (error.message && error.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                        this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${maVanDon}. Vui lòng kiểm tra lại mã vận đơn.`);
+                        return;
+                    }
+                    
+                    throw new Error(`Lỗi check-in đơn: ${error.message}`);
+                }
+            }
+            
+            // Check-out đơn hàng (hiển thị modal xác nhận)
+            async handleCheckout() {
+                
+                const uniqueProducts = new Set(this.scannedItems.map(item => item.maHang));
+                const scannedCount = Array.from(uniqueProducts).reduce((sum, maHang) => {
+                    const scannedItemsForThisProduct = this.scannedItems.filter(item => item.maHang === maHang);
+                    if (scannedItemsForThisProduct.length > 0) {
+                        const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                        return sum + (latestItem.soLuongDaQuet || 0);
+                    }
+                    return sum;
+                }, 0);
+                const totalRequired = this.cacheOrders.reduce((sum, order) => sum + order.soLuong, 0);
+                const isCompleted = scannedCount >= totalRequired;
+                
+                this.showModal({
+                    type: 'info',
+                    title: 'Check-out đơn hàng',
+                    message: `Đơn ${this.currentOrder.maVanDon} đã quét ${scannedCount}/${totalRequired} mã hàng${isCompleted ? ' (Hoàn thành)' : ' (Chưa hoàn thành)'}.\n\nHướng dẫn:\n• Quét đơn khác để chuyển đơn\n• Nhấn Enter để xác nhận checkout`,
+                    buttons: [
+                        {
+                            text: 'Xác nhận checkout',
+                            class: 'primary',
+                            onclick: () => {
+                                this.reset();
+                                this.showInfo(`Đã checkout đơn ${this.currentOrder?.maVanDon || 'hiện tại'}. Sẵn sàng quét đơn mới.`);
+                            }
+                        }
+                    ]
+                });
+            }
+            
+            // Quét mã hàng
+            async scanItem(maHang) {
+                try {
+                    
+                    const response = await fetch('/api/orders/scan', {
+                        credentials: 'include',
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + getAuthToken()
+                        },
+                        body: JSON.stringify({ 
+                            maVanDon: this.currentOrder.maVanDon, 
+                            maHang 
+                        })
+                    });
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        // Kiểm tra nếu không tìm thấy đơn hàng - không rollback, chỉ hiển thị lỗi và tiếp tục quét
+                        if (result.message && result.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                            this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${this.currentOrder.maVanDon}. Vui lòng kiểm tra lại mã vận đơn.`);
+                            // Không throw error để không rollback, giữ nguyên trạng thái đơn hiện tại
+                            this.isLoading = false;
+                            return;
+                        }
+                        
+                        throw new Error(result.message || 'Quét không thành công');
+                    }
+                    
+                    // Thêm vào danh sách đã quét
+                    this.scannedItems.push({
+                        maHang: result.data.maHang,
+                        timestamp: new Date(),
+                        soLuongDaQuet: result.data.soLuongDaQuet,
+                        soLuongYeuCau: result.data.soLuongYeuCau
+                    });
+                    
+                    // Cập nhật UI ngay lập tức
+                    this.updateUI();
+                    
+                    // Hiển thị thông báo quét thành công
+                    const progress = result.data.progress;
+                    const progressText = progress ? `${progress.scannedItems}/${progress.totalItems}` : `${result.data.soLuongDaQuet}/${result.data.soLuongYeuCau}`;
+                    this.showInfo(` Đã quét: ${result.data.maHang} (${progressText})`);
+                    
+                    // Lưu user behaviour
+                    await this.saveUserBehaviour('scanner', `Quét mã hàng: ${result.data.maHang} - Tiến độ: ${result.data.soLuongDaQuet}/${result.data.soLuongYeuCau}`, {
+                        maVanDon: this.currentOrder.maVanDon,
+                        maHang: result.data.maHang,
+                        originalMaHang: result.data.originalMaHang,
+                        scannedQuantity: result.data.soLuongDaQuet,
+                        requiredQuantity: result.data.soLuongYeuCau,
+                        verified: result.data.verified,
+                        isCombo: result.data.isCombo,
+                        action: 'scan_item'
+                    });
+                    
+                    // Kiểm tra đơn có hoàn thành không
+                    if (result.data.progress && result.data.progress.isCompleted) {
+                        this.state = CheckStates.ORDER_COMPLETED;
+                        await this.showCompletionModal();
+                    } else {
+                        this.state = CheckStates.SCANNING;
+                        // Tự động tiếp tục quét, không hiển thị modal
+                        this.showInfo(`Tiếp tục quét đơn ${this.currentOrder.maVanDon}`);
+                    }
+                    
+                    // Đảm bảo reset loading state sau khi hoàn thành
+                    this.isLoading = false;
+                    
+                } catch (error) {
+                    // Kiểm tra nếu lỗi là "Không tìm thấy đơn hàng với mã vận đơn này" - không rollback, chỉ hiển thị lỗi
+                    if (error.message && error.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                        this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${this.currentOrder.maVanDon}. Tiếp tục quét đơn hiện tại.`);
+                        this.isLoading = false;
+                        return;
+                    }
+                    
+                    // Các lỗi khác - hiển thị lỗi nhưng không rollback đơn hiện tại
+                    this.showError(`Lỗi quét mã hàng: ${error.message}. Tiếp tục quét đơn hiện tại ${this.currentOrder.maVanDon}.`);
+                    this.isLoading = false;
+                }
+            }
+            
+            // Hiển thị modal hoàn thành đơn (tự động hoàn thành)
+            async showCompletionModal() {
+                // Tự động hoàn thành đơn thay vì hiển thị modal
+                try {
+                    await this.completeOrder();
+                } catch (error) {
+                    this.showError(`Lỗi hoàn thành đơn: ${error.message}`);
+                }
+                
+                return Promise.resolve();
+            }
+            
+            // Hiển thị modal tiếp tục quét (không còn sử dụng)
+            async showContinueModal() {
+                // Không còn sử dụng modal này, tự động tiếp tục quét
+                return Promise.resolve();
+            }
+            
+            // Hủy đơn hàng
+            async cancelOrder() {
+                try {
+                    const orderToCancel = this.currentOrder.maVanDon;
+                    
+                    // Lưu UserBehaviour trước khi rollback
+                    await this.saveUserBehaviour('scanner', `Hủy đơn ${orderToCancel}`, {
+                        maVanDon: orderToCancel,
+                        action: 'cancel_order',
+                        missingItems: checkMissingItems()
+                    });
+                    
+                    // Rollback đơn trên server
+                    await this.rollbackCurrentOrder();
+                    
+                    // Reset state
+                    this.reset();
+                    
+                    // Hiển thị modal thông báo hủy đơn
+                    this.showModal({
+                        type: 'warning',
+                        title: 'Đã hủy đơn hàng',
+                        message: `Đơn ${orderToCancel} đã được hủy thành công.\n\nSẵn sàng quét đơn mới.`,
+                        timeout: 2000
+                    });
+                    
+                    // Sau 2 giây, về trang check đơn rỗng
+                    setTimeout(() => {
+                        this.showInfo('Sẵn sàng quét đơn mới');
+                    }, 2000);
+                    
+                } catch (error) {
+                    this.showError(`Lỗi hủy đơn: ${error.message}`);
+                }
+            }
+            
+            // Hoàn thành đơn hàng
+            async completeOrder() {
+                try {
+                    const response = await fetch('/api/orders/complete-van-don', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + getAuthToken()
+                        },
+                        body: JSON.stringify({
+                            maVanDon: this.currentOrder.maVanDon
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const completedOrder = this.currentOrder.maVanDon;
+                        
+                        // Reset state trước
+                        this.reset();
+                        
+                        // Hiển thị modal thông báo hoàn thành
+                        this.showModal({
+                            type: 'success',
+                            title: 'Đơn hàng hoàn tất',
+                            message: `Đơn ${completedOrder} đã được quét hoàn tất thành công.\n\nSẵn sàng quét đơn mới.`,
+                            timeout: 2000
+                        });
+                        
+                        // Sau 2 giây, về trang check đơn rỗng
+                        setTimeout(() => {
+                            this.showInfo('Sẵn sàng quét đơn mới');
+                        }, 2000);
+                        
+                    } else {
+                        throw new Error(result.message);
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`Lỗi hoàn thành đơn: ${error.message}`);
+                }
+            }
+            
+            // Reset state machine
+            reset() {
+                // Unblock đơn hiện tại nếu có
+                if (this.currentOrder) {
+                    this.rollbackCurrentOrder().catch(error => {
+                        // Ignore rollback errors during reset
+                    });
+                }
+                
+                // Reset state
+                this.state = CheckStates.IDLE;
+                this.currentOrder = null;
+                this.scannedItems = [];
+                this.cacheOrders = [];
+                
+                // Cập nhật UI
+                this.updateUI();
+                
+                // Đảm bảo input được focus để sẵn sàng quét tiếp
+                this.ensureInputFocus();
+            }
+            
+            // Cập nhật UI
+            updateUI() {
+                // Cập nhật currentMaVanDon global
+                currentMaVanDon = this.currentOrder?.maVanDon || '';
+                cacheOrders = this.cacheOrders;
+                scannedItems = [...this.scannedItems]; // Copy array để đồng bộ
+                orderCheckState = this.state;
+                
+                // Cập nhật DOM
+                document.getElementById('maVanDonTag').textContent = currentMaVanDon || 'Chưa chọn';
+                renderQueue();
+                renderOrders();
+                updateProgress();
+            }
+            
+            // Hiển thị lỗi
+            showError(message) {
+                setStatus(message, 'err');
+                this.showModal({
+                    type: 'error',
+                    title: 'Lỗi',
+                    message: message,
+                    buttons: [{
+                        text: 'OK',
+                        class: 'primary',
+                        onclick: () => this.ensureInputFocus()
+                    }]
+                });
+            }
+            
+            // Hiển thị cảnh báo
+            showWarning(message) {
+                setStatus(message, 'warn');
+                this.showModal({
+                    type: 'warning',
+                    title: 'Cảnh báo',
+                    message: message,
+                    timeout: 3000
+                });
+            }
+            
+            // Hiển thị thông tin
+            showInfo(message) {
+                setStatus(message, 'info');
+                // Không hiển thị modal cho thông tin, chỉ update status
+                // Auto hide sau 3 giây
+                setTimeout(() => {
+                    setStatus('', '');
+                }, 3000);
+            }
+            
+            // Hiển thị thành công
+            showSuccess(title, message) {
+                setStatus(message, 'ok');
+                this.showModal({
+                    type: 'success',
+                    title: title,
+                    message: message,
+                    timeout: 2000
+                });
+            }
+            
+            // Hiển thị modal
+            showModal(options) {
+                // Implementation sẽ sử dụng hàm showModal hiện có
+                showModal(options);
+            }
+            
+            // Đảm bảo input được focus
+            ensureInputFocus() {
+                const input = document.getElementById('codeInput');
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                    input.click();
+                    
+                    // Thêm visual feedback
+                    input.style.borderColor = '#667eea';
+                    setTimeout(() => {
+                        input.style.borderColor = '';
+                    }, 1000);
+                }
+            }
+            
+            // Lưu user behaviour
+            async saveUserBehaviour(method, description, metadata = {}) {
+                try {
+                    const response = await fetch('/api/user-behaviour', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + getAuthToken()
+                        },
+                        body: JSON.stringify({
+                            method,
+                            description,
+                            metadata
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (!result.success) {
+                    }
+                } catch (error) {
+                }
+            }
+        }
+        
+        // Khởi tạo State Machine
+        const orderCheckSM = new OrderCheckStateMachine();
+        
         // Hàm kiểm tra thiếu hàng
         function checkMissingItems() {
             const missingItems = [];
+            const currentScannedItems = orderCheckSM.scannedItems || scannedItems;
             cacheOrders.forEach(order => {
-                const scannedQty = scannedItems.filter(item => item.maHang === order.maHang).length;
+                const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === order.maHang);
+                let scannedQty = 0;
+                
+                if (scannedItemsForThisProduct.length > 0) {
+                    const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                    scannedQty = latestItem.soLuongDaQuet || 0;
+                }
+                
                 if (scannedQty < order.soLuong) {
                     missingItems.push({
                         maHang: order.maHang,
@@ -566,10 +2752,23 @@ let pageSize = 20;
         // Modal functions
         function showModal(options) {
             const overlay = document.getElementById('modalOverlay');
+            const modal = document.getElementById('modal');
             const icon = document.getElementById('modalIcon');
             const title = document.getElementById('modalTitle');
             const message = document.getElementById('modalMessage');
             const buttons = document.getElementById('modalButtons');
+            
+            if (!overlay || !modal) {
+                return;
+            }
+            
+            // Remove all color classes first
+            modal.classList.remove('success', 'error', 'warning', 'info', 'question');
+            
+            // Add the appropriate color class based on type
+            if (options.type) {
+                modal.classList.add(options.type);
+            }
             
             // Luôn ẩn icon
             icon.style.display = 'none';
@@ -592,7 +2791,9 @@ let pageSize = 20;
                         button.textContent = btn.text;
                         button.className = `modal-btn ${btn.class || 'primary'}`;
                         button.onclick = () => {
-                            if (btn.onclick) btn.onclick();
+                            if (btn.onclick) {
+                                btn.onclick();
+                            }
                             hideModal();
                         };
                         buttons.appendChild(button);
@@ -608,11 +2809,11 @@ let pageSize = 20;
             }
             
             // Add compact class if has timeout (no icon, no buttons)
-            const modal = overlay.querySelector('.modal');
+            const modalElement = overlay.querySelector('.modal');
             if (options.timeout) {
-                modal.classList.add('compact');
+                modalElement.classList.add('compact');
             } else {
-                modal.classList.remove('compact');
+                modalElement.classList.remove('compact');
             }
             
             // Show modal
@@ -647,63 +2848,7 @@ let pageSize = 20;
             }
         }
 
-        // Load available ports for user
-        async function loadAvailablePorts() {
-            try {
-                const response = await fetch('/api/ports/available', {
-                    credentials: 'include'
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayAvailablePorts(result.data);
-                } else {
-                    document.getElementById('portsList').innerHTML = 
-                        `<div style="color:#ef4444;text-align:center;padding:20px;">${result.message}</div>`;
-                }
-            } catch (error) {
-                console.error('Error loading ports:', error);
-                document.getElementById('portsList').innerHTML = 
-                    `<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi tải danh sách cổng port: ${error.message}</div>`;
-            }
-        }
 
-        // Display available ports
-        function displayAvailablePorts(ports) {
-            const portsList = document.getElementById('portsList');
-            
-            if (ports.length === 0) {
-                portsList.innerHTML = `
-                    <div style="text-align:center;padding:20px;color:#64748b;">
-                        <div style="font-size:48px;margin-bottom:10px;">🔍</div>
-                        <div>Bạn chưa được phân quyền sử dụng máy quét keyboard nào</div>
-                        <div style="font-size:12px;margin-top:5px;">Vui lòng liên hệ admin để được cấp quyền</div>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '';
-            ports.forEach(port => {
-                const statusIcon = port.isAvailable ? '🟢' : '🔴';
-                const statusText = port.isAvailable ? 'Khả dụng' : 'Đang sử dụng';
-                const statusColor = port.isAvailable ? '#22c55e' : '#ef4444';
-                
-                html += `
-                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;background:#fff;border-left:4px solid ${statusColor};">
-                        <div>
-                            <div style="font-weight:600;color:#1e293b;">📱 ${port.path}</div>
-                            <div style="font-size:14px;color:#64748b;">${statusIcon} ${statusText}</div>
-                        </div>
-                        <div style="color:${statusColor};font-weight:600;">
-                            ${statusText}
-                        </div>
-                    </div>
-                `;
-            });
-
-            portsList.innerHTML = html;
-        }
         
         // Convenience functions for different modal types
         function showSuccessModal(title, message, timeout = null) {
@@ -765,20 +2910,26 @@ let pageSize = 20;
             
             // Chỉ hiển thị đơn hiện tại (không còn queue nữa)
             if (currentMaVanDon) {
-                const scannedCount = scannedItems.length;
+                const currentScannedItems = orderCheckSM.scannedItems || scannedItems;
+                const uniqueProducts = new Set(currentScannedItems.map(item => item.maHang));
+                const scannedCount = Array.from(uniqueProducts).reduce((sum, maHang) => {
+                    const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === maHang);
+                    if (scannedItemsForThisProduct.length > 0) {
+                        const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                        return sum + (latestItem.soLuongDaQuet || 0);
+                    }
+                    return sum;
+                }, 0);
                 const totalRequired = cacheOrders.reduce((sum, order) => sum + order.soLuong, 0);
                 const isDone = orderCheckState === 'completed';
-                const isConfirming = orderCheckState === 'confirming';
+                // const isConfirming = orderCheckState === 'confirming'; // Không còn cần thiết
                 
                 const item = document.createElement('span');
                 let statusClass = 'pending';
                 let statusText = '';
                 
-                // Ưu tiên kiểm tra trạng thái verified từ server
-                if (currentVanDonStatus && currentVanDonStatus.verified) {
-                    statusClass = 'completed';
-                    statusText = ' (Hoàn thành)';
-                } else if (orderCheckState === 'scanning' || orderCheckState === 'confirming') {
+                // Kiểm tra trạng thái quét
+                if (orderCheckState === 'scanning') {
                     statusClass = 'processing';
                     statusText = ' (Đang xử lý)';
                 } else if (orderCheckState === 'completed') {
@@ -797,7 +2948,7 @@ let pageSize = 20;
                     let statusMsg = '';
                     if (orderCheckState === 'completed') {
                         statusMsg = `Đơn ${currentMaVanDon} đã hoàn thành`;
-                    } else if (orderCheckState === 'scanning' || orderCheckState === 'confirming') {
+                    } else if (orderCheckState === 'scanning') {
                         statusMsg = `Đang xử lý đơn ${currentMaVanDon}`;
                     } else {
                         statusMsg = `Đơn ${currentMaVanDon} chưa xử lý`;
@@ -811,6 +2962,23 @@ let pageSize = 20;
                 btn.onclick = async (e) => {
                     e.stopPropagation();
                     try {
+                        // Lưu UserBehaviour trước khi hủy đơn
+                        const missingItems = checkMissingItems();
+                        await fetch('/api/user-behaviour', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+                            body: JSON.stringify({
+                                method: 'scanner',
+                                description: `Hủy đơn ${currentMaVanDon}`,
+                                metadata: {
+                                    maVanDon: currentMaVanDon,
+                                    action: 'cancel_order',
+                                    missingItems: missingItems
+                                }
+                            })
+                        });
+                        
                         await fetch('/api/orders/unblock-van-don', {
                             method: 'POST',
                             credentials: 'include',
@@ -894,7 +3062,7 @@ let pageSize = 20;
                     <div style="flex:0 0 120px;min-width:80px;padding:8px 8px;">${escapeHtml(o.mauVai)}</div>
                     <div style="flex:1 1 320px;min-width:180px;padding:8px 12px;">${escapeHtml(o.tenPhienBan)}</div>
                     <div style="flex:0 0 120px;min-width:80px;padding:8px 8px;">
-                        <span class="badge ${status.badge}">
+                        <span class="badge ${status.badge}" title="${status.tooltip || status.text}">
                             <span class="status-indicator ${status.badge.replace('b-', '')}"></span>
                             ${status.text}
                         </span>
@@ -955,10 +3123,47 @@ window.showOrderPager = function(show) {
                 return getOrderStatus(o);
             }
             
-            // Nếu đang ở chế độ check, hiển thị tiến độ quét
-            const scannedCount = scannedItems.filter(item => item.maHang === o.maHang).length;
-            const scanned = scannedCount || o.scannedQuantity || 0;
-            return { text: `${scanned}/${o.soLuong}`, badge: 'b-info' };
+            // Nếu đang ở chế độ check, hiển thị tiến độ quét chi tiết
+            const currentScannedItems = orderCheckSM.scannedItems || scannedItems;
+            const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === o.maHang);
+            
+            let scanned = 0;
+            if (scannedItemsForThisProduct.length > 0) {
+                // Lấy soLuongDaQuet từ item mới nhất (backend trả về tổng số đã quét)
+                const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                scanned = latestItem.soLuongDaQuet || 0;
+            } else {
+                // Fallback: sử dụng scannedQuantity từ cacheOrders nếu có
+                scanned = o.scannedQuantity || 0;
+            }
+            const required = o.soLuong;
+            
+            // Xác định trạng thái và màu sắc dựa trên tiến độ quét
+            if (scanned === 0) {
+                // Chưa quét gì
+                return { 
+                    text: `0/${required}`, 
+                    badge: 'b-pending',
+                    tooltip: 'Chưa quét'
+                };
+            } else if (scanned < required) {
+                // Đang quét một phần
+                return { 
+                    text: `${scanned}/${required}`, 
+                    badge: 'b-progress',
+                    tooltip: `Đang quét (còn thiếu ${required - scanned})`
+                };
+            } else if (scanned >= required) {
+                // Đã quét đủ hoặc thừa
+                return { 
+                    text: `${scanned}/${required}`, 
+                    badge: 'b-done',
+                    tooltip: scanned > required ? `Đã quét đủ (thừa ${scanned - required})` : 'Đã quét đủ'
+                };
+            }
+            
+            // Fallback
+            return { text: `${scanned}/${required}`, badge: 'b-info' };
         }
         
         function getOrderStatus(o) {
@@ -982,16 +3187,196 @@ window.showOrderPager = function(show) {
             }
         }
 
+        // Hàm load dữ liệu đơn hủy từ UserBehaviour
+        async function loadCancelledOrders() {
+            try {
+                setStatus('Đang tải danh sách đơn hủy...', 'info');
+                
+                // Gọi API để lấy user behaviour với action "Hủy đơn"
+                const response = await fetch('/api/user-behaviour?method=scanner&limit=500', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getAuthToken()
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.message || 'Lỗi khi tải dữ liệu');
+                }
+                
+                // Lọc các behaviour có chứa "Hủy đơn" trong description
+                const behaviours = result.data?.behaviours || result.data || [];
+                const cancelledBehaviours = behaviours.filter(behaviour => 
+                    behaviour.description && behaviour.description.includes('Hủy đơn')
+                );
+                
+                // Chuyển đổi dữ liệu để hiển thị
+                const cancelledOrders = cancelledBehaviours.map(behaviour => {
+                    // Parse thông tin từ description
+                    const description = behaviour.description;
+                    const maVanDonMatch = description.match(/đơn\s+([A-Z0-9]+)/i);
+                    const maVanDon = maVanDonMatch ? maVanDonMatch[1] : 'N/A';
+                    
+                    // Parse số lượng hàng thiếu từ metadata hoặc description
+                    let missingQuantity = 0;
+                    if (behaviour.metadata && behaviour.metadata.missingItems) {
+                        missingQuantity = behaviour.metadata.missingItems.reduce((sum, item) => sum + (item.soLuongThieu || 0), 0);
+                    } else {
+                        // Fallback: parse từ description
+                        const missingMatch = description.match(/thiếu\s+(\d+)/i);
+                        if (missingMatch) {
+                            missingQuantity = parseInt(missingMatch[1]);
+                        }
+                    }
+                    
+                    return {
+                        id: behaviour._id,
+                        maVanDon: maVanDon,
+                        user: behaviour.user,
+                        time: new Date(behaviour.time),
+                        description: description,
+                        missingQuantity: missingQuantity,
+                        metadata: behaviour.metadata || {}
+                    };
+                });
+                
+                // Cập nhật cacheOrders để hiển thị
+                cacheOrders = cancelledOrders;
+                
+                // Render danh sách đơn hủy
+                renderCancelledOrders();
+                updateProgress();
+                
+                setStatus(`Đã tải ${cancelledOrders.length} đơn hủy`, 'success');
+                
+            } catch (error) {
+                console.error('Lỗi load đơn hủy:', error);
+                setStatus('Lỗi khi tải danh sách đơn hủy: ' + error.message, 'err');
+                cacheOrders = [];
+                renderCancelledOrders();
+            }
+        }
+        
+        // Hàm render danh sách đơn hủy
+        function renderCancelledOrders() {
+            const body = document.getElementById('rows');
+            body.innerHTML = '';
+            
+            // Header cho đơn hủy
+            const header = document.createElement('div');
+            header.className = 'row header';
+            header.style.display = 'flex';
+            header.style.fontSize = '18px';
+            header.innerHTML = `
+                <div style="flex:0 0 160px;min-width:120px;font-weight:600;padding:8px 8px;">Mã vận đơn</div>
+                <div style="flex:0 0 120px;min-width:100px;font-weight:600;padding:8px 8px;">User hủy</div>
+                <div style="flex:0 0 150px;min-width:120px;font-weight:600;padding:8px 8px;">Thời gian hủy</div>
+                <div style="flex:0 0 100px;min-width:80px;font-weight:600;padding:8px 8px;">Hàng thiếu</div>
+                <div style="flex:1 1 400px;min-width:200px;font-weight:600;padding:8px 12px;">Mô tả</div>
+            `;
+            body.appendChild(header);
+            
+            if (!cacheOrders.length) {
+                body.innerHTML += '<div class="empty">Không có đơn hủy nào.</div>';
+                updateProgress();
+                return;
+            }
+            
+            // Hiển thị danh sách đơn hủy (không phân trang)
+            cacheOrders.forEach((order, index) => {
+                const r = document.createElement('div');
+                r.className = 'row status-pending';
+                r.style.display = 'flex';
+                r.style.fontSize = '17px';
+                r.innerHTML = `
+                    <div style="flex:0 0 160px;min-width:120px;padding:8px 8px;font-weight:600;">${escapeHtml(order.maVanDon)}</div>
+                    <div style="flex:0 0 120px;min-width:100px;padding:8px 8px;">${escapeHtml(order.user)}</div>
+                    <div style="flex:0 0 150px;min-width:120px;padding:8px 8px;">${order.time.toLocaleString('vi-VN')}</div>
+                    <div style="flex:0 0 100px;min-width:80px;padding:8px 8px;text-align:center;color:#dc2626;font-weight:600;">${order.missingQuantity}</div>
+                    <div style="flex:1 1 400px;min-width:200px;padding:8px 12px;">${escapeHtml(order.description)}</div>
+                `;
+                body.appendChild(r);
+            });
+            
+            updateProgress();
+        }
+
         function updateProgress() {
             const total = cacheOrders.length;
-            const completed = cacheOrders.filter(x => x.verified).length;
             
-            // Tính từ scannedItems thay vì scannedQuantity
-            const scanned = scannedItems.length;
+            let scanned = 0;
+            let completed = 0;
+            let inProgress = 0;
+            
+            // Nếu đang ở chế độ check (scanning), tính từ scannedItems
+            if (activeView === 'check' && orderCheckSM.scannedItems) {
+                const currentScannedItems = orderCheckSM.scannedItems || scannedItems;
+                
+                // Tính tổng số lượng đã quét
+                const uniqueProducts = new Set(currentScannedItems.map(item => item.maHang));
+                scanned = Array.from(uniqueProducts).reduce((sum, maHang) => {
+                    const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === maHang);
+                    if (scannedItemsForThisProduct.length > 0) {
+                        const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                        return sum + (latestItem.soLuongDaQuet || 0);
+                    }
+                    return sum;
+                }, 0);
+                
+                // Tính số sản phẩm đã quét đủ và đang quét
+                cacheOrders.forEach(order => {
+                    const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === order.maHang);
+                    let scannedCount = 0;
+                    
+                    if (scannedItemsForThisProduct.length > 0) {
+                        // Lấy soLuongDaQuet từ item mới nhất
+                        const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
+                        scannedCount = latestItem.soLuongDaQuet || 0;
+                    }
+                    
+                    if (scannedCount >= order.soLuong) {
+                        completed++;
+                    } else if (scannedCount > 0) {
+                        inProgress++;
+                    }
+                });
+            } else {
+                // Nếu đang ở chế độ view, tính từ cacheOrders (verified từ DB)
+                completed = cacheOrders.filter(x => x.verified).length;
+                scanned = cacheOrders.reduce((sum, order) => {
+                    return sum + (order.scannedQuantity || 0);
+                }, 0);
+            }
+            
             const required = cacheOrders.reduce((s, x) => s + x.soLuong, 0);
             
+            // Tính phần trăm dựa trên số sản phẩm đã hoàn thành
             const percent = total ? Math.round((completed / total) * 100) : 0;
-            document.getElementById('progressText').textContent = `${completed}/${total} hoàn thành · ${scanned}/${required} đã quét`;
+            
+            // Hiển thị thông tin chi tiết hơn
+            let progressText = '';
+            if (activeView === 'cancelled') {
+                // Đơn hủy: hiển thị tổng số đơn hủy
+                const totalMissing = cacheOrders.reduce((sum, order) => sum + (order.missingQuantity || 0), 0);
+                progressText = `${total} đơn hủy · ${totalMissing} hàng thiếu`;
+            } else if (activeView === 'check') {
+                progressText = `${completed}/${total} hoàn thành · ${scanned}/${required} đã quét`;
+                if (inProgress > 0) {
+                    progressText += ` · ${inProgress} đang quét`;
+                }
+            } else {
+                progressText = `${completed}/${total} hoàn thành · ${scanned}/${required} đã quét`;
+            }
+            
+            document.getElementById('progressText').textContent = progressText;
             document.getElementById('bar').style.width = percent + '%';
         }
 
@@ -1020,11 +3405,7 @@ window.showOrderPager = function(show) {
                     renderOrders();
                     
                     if (hasChanges) {
-                        // console.log('🔄 Phát hiện thay đổi trong database:', {
-                        //     oldCount: oldOrdersCount,
-                        //     newCount: newOrders.length,
-                        //     timestamp: new Date().toLocaleTimeString()
-                        // });
+                        
                         if (showStatus) {
                             setStatus(`Đã cập nhật ${cacheOrders.length} đơn hàng từ database (real-time)`, 'ok');
                         }
@@ -1036,43 +3417,39 @@ window.showOrderPager = function(show) {
                         setStatus('Không thể tải dữ liệu từ database', 'err');
                     ensureInputFocus();
                     }
-                    console.error('❌ Lỗi load dữ liệu:', result.message);
+                    console.error('Lỗi load dữ liệu:', result.message);
                 }
             } catch (error) {
                 if (showStatus) {
                     setStatus('Lỗi kết nối database: ' + error.message, 'err');
                     ensureInputFocus();
                 }
-                console.error('❌ Lỗi kết nối:', error);
+                console.error('Lỗi kết nối:', error);
             }
         }
 
         // Hàm tự động refresh khi có thao tác trên database (chỉ khi ở chế độ view)
         function autoRefreshIfInViewMode() {
             if (activeView === 'view') {
-                console.log('🔄 Tự động refresh do có thao tác trên database...');
-                lastPollingTime = Date.now(); // Cập nhật thời gian polling
+                lastPollingTime = Date.now();
                 loadAllOrdersFromDB();
             }
         }
 
         // Hàm bắt đầu polling định kỳ để phát hiện thay đổi từ nhân viên khác
         function startPolling() {
-            stopPolling(); // Dừng polling cũ nếu có
+            stopPolling();
             pollingInterval = setInterval(() => {
                 if (activeView === 'view') {
                     const now = Date.now();
                     // Chỉ polling nếu đã qua ít nhất 3 giây từ lần polling cuối
                     if (now - lastPollingTime >= 3000) {
-                        // console.log('🔍 Polling để phát hiện thay đổi từ nhân viên khác...');
                         lastPollingTime = now;
-                        loadAllOrdersFromDB(false); // Không hiển thị status để tránh spam
+                        loadAllOrdersFromDB(false);
                     } else {
-                        // console.log('⏭️ Bỏ qua polling (vừa mới refresh)');
                     }
                 }
-            }, 5000); // 5 giây - tối ưu cho việc quét đơn liên tục
-            // console.log('✅ Đã bắt đầu polling (5s) để phát hiện thay đổi từ nhân viên khác');
+            }, 5000);
         }
 
         // Hàm dừng polling
@@ -1080,937 +3457,74 @@ window.showOrderPager = function(show) {
             if (pollingInterval) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
-                // console.log('⏹️ Đã dừng polling');
             }
         }
 
 
         // Hàm kiểm tra xem code có vẻ như mã vận đơn không
         function looksLikeVanDon(code) {
-            // Mã đơn: không có dấu gạch ngang
-            // Mã hàng: có hơn 2 dấu gạch ngang
             const dashCount = (code.match(/-/g) || []).length;
-            return dashCount === 0; // Không có dấu gạch ngang = mã đơn
+            return dashCount === 0;
         }
+
+        // Hàm kiểm tra input có hợp lệ không
+        function isValidInput(code) {
+            // Kiểm tra độ dài tối thiểu
+            if (!code || code.length < 3) return false;
+            
+            // Kiểm tra ký tự đặc biệt không hợp lệ
+            const invalidChars = /[<>:"/\\|?*]/;
+            if (invalidChars.test(code)) return false;
+            
+            // Kiểm tra chỉ chứa khoảng trắng
+            if (code.trim().length === 0) return false;
+            
+            return true;
+        }
+
+        // ========== STATE MACHINE HANDLER ==========
 
         async function handleEnter(value) {
             const code = value.trim();
-            if (!code) return;
-            if (isLoading) return;
-            isLoading = true;
-            try {
-                // Nếu đang chờ input đơn mới và code không phải là mã vận đơn, bỏ qua
-                if (waitingForNewOrder && !looksLikeVanDon(code)) {
-                    isLoading = false;
-                    setStatus('Đang chờ input đơn mới. Vui lòng nhập mã vận đơn.', 'warn');
-                    ensureInputFocus();
+            
+            if (!code) {
                     return;
                 }
-                
-                // Đóng modal nếu đang hiển thị (để cho phép input đơn mới)
-                hideModal();
-                // Nếu ở chế độ check: ưu tiên coi code là mã vận đơn, nếu không đúng thì coi là mã hàng
-                const shouldTryAsOrder = (activeView === 'check' || userRole === 'packer');
-                
-                // Nếu code là mã vận đơn hiện tại (xác nhận đơn)
-                if (code === currentMaVanDon) {
-                    // Kiểm tra đơn đã hoàn thành chưa (verified = true)
-                    if (currentVanDonStatus && currentVanDonStatus.verified) {
-                        setStatus('Đơn đã hoàn thành, không thể xác nhận lại.', 'warn');
-                        ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn đã hoàn thành',
-                            message: `Đơn vận đơn ${currentMaVanDon} đã được quét hoàn tất.\n\nBạn không thể xác nhận lại đơn này.\nHãy nhập mã đơn mới để tiếp tục.`,
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        // Không làm gì, giữ modal hiển thị
-                                    }
-                                }
-                            ]
-                        });
-                        return;
-                    }
                     
-                    // Xác nhận đơn hiện tại
-                    const missingItems = checkMissingItems();
-                    if (missingItems.length > 0) {
-                        // Chưa đủ hàng - hiển thị thông báo
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn chưa hoàn thành',
-                            message: `Đơn ${currentMaVanDon} chưa quét đủ hàng.\n\nChọn hành động tiếp theo:`,
-                            buttons: [
-                                {
-                                    text: 'Tiếp tục quét đơn này',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        setStatus(`Tiếp tục quét đơn ${currentMaVanDon}`, 'info');
-                                        ensureInputFocus();
+            // Đóng modal nếu đang hiển thị
                                         hideModal();
-                                    }
-                                },
-                                {
-                                    text: 'Chuyển đơn mới',
-                                    class: 'secondary',
-                                    onclick: () => {
-                                        // Rollback đơn hiện tại
-                                        orderCheckState = 'idle';
-                                        scannedItems = [];
-                                        currentMaVanDon = '';
-                                        cacheOrders = [];
-                                        currentVanDonStatus = null;
-                                        document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                                        setStatus('Đã rollback đơn cũ. Sẵn sàng nhận đơn mới.', 'info');
-                                        ensureInputFocus();
-                                        renderQueue();
-                                        renderOrders();
-                                        hideModal();
-                                    }
-                                }
-                            ]
-                        });
-                        return;
-                    } else {
-                        // Đủ hàng - hoàn thành đơn
-                        orderCheckState = 'completed';
-                        setStatus('Đang cập nhật trạng thái đơn...', 'ok');
-                        ensureInputFocus();
-                        
-                        try {
-                            // Gọi API để đánh dấu đơn đã hoàn thành trên server
-                            const completeRes = await fetch('/api/orders/complete-van-don', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': 'Bearer ' + getAuthToken()
-                                },
-                                body: JSON.stringify({ maVanDon: currentMaVanDon })
-                            });
-                            
-                            const completeResult = await completeRes.json();
-                            if (completeResult.success) {
-                                // Cập nhật trạng thái đơn đã hoàn thành
-                                if (currentVanDonStatus) {
-                                    currentVanDonStatus.verified = true;
-                                }
-                                setStatus('Đơn hàng đã hoàn thành!', 'ok');
-                        ensureInputFocus();
-                                
-                                // Tự động refresh nếu đang ở chế độ view
-                                autoRefreshIfInViewMode();
-                                
-                                showModal({
-                                    type: 'success',
-                                    title: 'Hoàn thành đơn hàng!',
-                                    message: `Bạn đã hoàn thành kiểm tra toàn bộ đơn vận đơn ${currentMaVanDon}.\n\nTổng số mặt hàng: ${cacheOrders.length}\nĐã quét: ${scannedItems.length} mã hàng\n\nĐơn hàng đã được đánh dấu hoàn thành trên hệ thống.`,
-                                    buttons: [
-                                        {
-                                            text: 'OK',
-                                            class: 'primary',
-                                            onclick: () => {
-                                                // Không làm gì, giữ modal hiển thị
-                                            }
-                                        }
-                                    ]
-                                });
-                                
-                                // Lưu user behaviour cho việc hoàn thành đơn
-                                saveUserBehaviour('scanner', `Hoàn thành đơn vận đơn: ${currentMaVanDon} - ${cacheOrders.length} mặt hàng`, {
-                                    maVanDon: currentMaVanDon,
-                                    orderCount: cacheOrders.length,
-                                    scannedItemsCount: scannedItems.length,
-                                    action: 'complete_order'
-                                });
+            
+            // Chỉ sử dụng State Machine khi ở chế độ check
+            const shouldUseStateMachine = (activeView === 'check' || userRole === 'packer');
+            
+            try {
+                if (shouldUseStateMachine) {
+                    // Sử dụng State Machine Pattern
+                    await orderCheckSM.handleInput(code);
                             } else {
-                                setStatus('Hoàn thành đơn nhưng có lỗi cập nhật server', 'warn');
-                            ensureInputFocus();
-                                showModal({
-                                    type: 'warning',
-                                    title: 'Hoàn thành đơn hàng!',
-                                    message: `Bạn đã hoàn thành kiểm tra toàn bộ đơn vận đơn ${currentMaVanDon}.\n\nTổng số mặt hàng: ${cacheOrders.length}\nĐã quét: ${scannedItems.length} mã hàng\n\nLưu ý: Có lỗi khi cập nhật trạng thái trên server.`,
-                                    buttons: [
-                                        {
-                                            text: 'OK',
-                                            class: 'primary',
-                                            onclick: () => {
-                                                // Không làm gì, giữ modal hiển thị
-                                            }
-                                        }
-                                    ]
-                                });
+                    await handleEnterLegacy(code);
                             }
                         } catch (error) {
-                            console.error('Lỗi khi hoàn thành đơn:', error);
-                            setStatus('Hoàn thành đơn nhưng có lỗi cập nhật server', 'warn');
-                            ensureInputFocus();
-                            showModal({
-                                type: 'warning',
-                                title: 'Hoàn thành đơn hàng!',
-                                message: `Bạn đã hoàn thành kiểm tra toàn bộ đơn vận đơn ${currentMaVanDon}.\n\nTổng số mặt hàng: ${cacheOrders.length}\nĐã quét: ${scannedItems.length} mã hàng\n\nLưu ý: Có lỗi khi cập nhật trạng thái trên server.`,
-                                buttons: [
-                                    {
-                                        text: 'OK',
-                                        class: 'primary',
-                                        onclick: () => {
-                                            // Không làm gì, giữ modal hiển thị
-                                        }
-                                    }
-                                ]
-                            });
-                        }
-                        
-                        // Reset để sẵn sàng đơn mới
-                        setTimeout(() => {
-                            orderCheckState = 'idle';
-                            scannedItems = [];
-                            currentMaVanDon = '';
-                            cacheOrders = [];
-                            currentVanDonStatus = null;
-                            waitingForNewOrder = false;
-                            document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                            setStatus('Sẵn sàng nhận đơn mới.', 'info');
-                            ensureInputFocus();
-                            renderQueue();
-                            renderOrders();
-                        }, 2000);
-                        return;
-                    }
-                }
-
-                
-                // Nếu quét lại mã đơn hiện tại khi đang xử lý - hủy đơn hiện tại và chuyển sang đơn mới
-                if (shouldTryAsOrder && code === currentMaVanDon && orderCheckState === 'scanning') {
-                    // Rollback đơn hiện tại
-                    const oldMaVanDon = currentMaVanDon;
-                    
-                    // Hủy đơn cũ trên server
-                    try {
-                        await fetch('/api/orders/unblock-van-don', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 
-                                'Content-Type': 'application/json', 
-                                'Authorization': 'Bearer ' + getAuthToken() 
-                            },
-                            body: JSON.stringify({ maVanDon: oldMaVanDon })
-                        });
-                        // console.log(`Đã rollback đơn cũ: ${oldMaVanDon}`);
-                        
-                        // Tự động refresh nếu đang ở chế độ view
-                        autoRefreshIfInViewMode();
-                    } catch (e) {
-                        // console.log('Lỗi rollback đơn cũ:', e);
-                    }
-                    
-                    // Reset trạng thái đơn cũ
-                    orderCheckState = 'idle';
-                    scannedItems = [];
-                    currentMaVanDon = '';
-                    cacheOrders = [];
-                    currentVanDonStatus = null;
-                    document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                    
-                    // Xóa khỏi queue nếu có
-                    const ix = queueList.indexOf(oldMaVanDon);
-                    if (ix > -1) queueList.splice(ix, 1);
-                    queueMap.delete(oldMaVanDon);
-                    
-                    setStatus(`Đã hủy đơn ${oldMaVanDon}. Sẵn sàng nhận đơn mới.`, 'info');
-                    ensureInputFocus();
-                    renderQueue();
-                    renderOrders();
-                    return;
-                }
-                
-                // Nếu input có vẻ như mã vận đơn khác (không phải đơn hiện tại) và đang ở chế độ check
-                if (shouldTryAsOrder && code !== currentMaVanDon && looksLikeVanDon(code)) {
-                    // Lưu đơn cũ trước khi thay đổi
-                    const oldMaVanDon = currentMaVanDon;
-                    const hadOldOrder = oldMaVanDon && code !== oldMaVanDon;
-                    
-                    // Rollback toàn bộ đơn cũ trước khi tải đơn mới
-                    if (oldMaVanDon) {
-                        // Hủy đơn cũ trên server
-                        try {
-                            await fetch('/api/orders/unblock-van-don', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 
-                                    'Content-Type': 'application/json', 
-                                    'Authorization': 'Bearer ' + getAuthToken() 
-                                },
-                                body: JSON.stringify({ maVanDon: oldMaVanDon })
-                            });
-                            // console.log(`Đã rollback đơn cũ: ${oldMaVanDon}`);
-                            
-                            // Tự động refresh nếu đang ở chế độ view
-                            autoRefreshIfInViewMode();
-                        } catch (e) {
-                            // console.log('Lỗi rollback đơn cũ:', e);
-                        }
-                        
-                        // Xóa khỏi queue nếu có
-                        const ix = queueList.indexOf(oldMaVanDon);
-                        if (ix > -1) queueList.splice(ix, 1);
-                        queueMap.delete(oldMaVanDon);
-                    }
-                    
-                    const resp = await fetch(`/api/orders/by-van-don/${encodeURIComponent(code)}`, {
-                        credentials: 'include',
-                        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
-                    });
-                    const result = await resp.json();
-                    
-                    // Xử lý trường hợp đơn hàng đã hoàn thành (allCompleted = true)
-                    if (result && !result.success && result.data && result.data.allCompleted) {
-                        // Reset tất cả trạng thái khi input đơn đã hoàn thành
-                        currentMaVanDon = '';
-                        cacheOrders = [];
-                        currentVanDonStatus = null;
-                        orderCheckState = 'idle';
-                        scannedItems = [];
-                        waitingForNewOrder = true; // Đang chờ input đơn mới
-                        document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                        
-                        setStatus(`Đơn ${code} đã được quét hoàn tất.`, 'warn');
+                setStatus(`Lỗi xử lý input: ${error.message}`, 'err');
+            }
+        }
+        
+        // Logic cũ cho các chế độ không phải check
+        async function handleEnterLegacy(code) {
+            if (isLoading) return;
+            
+            // Kiểm tra input có hợp lệ không
+            if (!isValidInput(code)) {
+                setStatus('Input không hợp lệ. Vui lòng nhập lại.', 'err');
                         ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn đã hoàn thành',
-                            message: `Đơn vận đơn ${code} đã được quét hoàn tất.\n\nBạn không thể thao tác trên đơn này.\nHãy nhập mã đơn mới để tiếp tục.`,
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        ensureInputFocus();
-                                    }
-                                }
-                            ]
-                        });
-                        renderQueue();
-                        renderOrders();
                         return;
                     }
                     
-                    // Xử lý trường hợp đơn hàng bị block bởi nhân viên khác
-                    if (result && !result.success && result.blocked) {
-                        setStatus(result.message || 'Đơn hàng đang được kiểm tra bởi nhân viên khác', 'warn');
+            isLoading = true;
+            try {
+                // Logic cũ cho view mode - chỉ hiển thị thông báo
+                setStatus('Chế độ view - không hỗ trợ quét', 'warn');
                         ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn hàng đang được kiểm tra',
-                            message: result.message || 'Đơn hàng này đang được nhân viên khác kiểm tra. Vui lòng thử lại sau.',
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        ensureInputFocus();
-                                    }
-                                }
-                            ]
-                        });
-                        return;
-                    }
-                    
-                    if (result && result.success && result.data && result.data.orders && result.data.orders.length) {
-                        // Kiểm tra đơn đã hoàn thành chưa
-                        // Đơn hoàn thành khi: tất cả maHang đã verified = true (đã confirm đơn)
-                        if (result.data.verified) {
-                            // Reset tất cả trạng thái khi input đơn đã hoàn thành
-                            currentMaVanDon = '';
-                            cacheOrders = [];
-                            currentVanDonStatus = null;
-                            orderCheckState = 'idle';
-                            scannedItems = [];
-                            waitingForNewOrder = true; // Đang chờ input đơn mới
-                            document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                            
-                            setStatus(`Đơn ${code} đã được quét hoàn tất.`, 'warn');
-                        ensureInputFocus();
-                            showModal({
-                                type: 'warning',
-                                title: 'Đơn đã hoàn thành',
-                                message: `Đơn vận đơn ${code} đã được quét hoàn tất.\n\nBạn không thể thao tác trên đơn này.\nHãy nhập mã đơn mới để tiếp tục.`,
-                                buttons: [
-                                    {
-                                        text: 'OK',
-                                        class: 'primary',
-                                        onclick: () => {
-                                            // Không làm gì, giữ modal hiển thị
-                                        }
-                                    }
-                                ]
-                            });
-                            
-                            // Cập nhật giao diện
-                            renderQueue();
-                            renderOrders();
-                            return;
-                        }
-                        const mvd = result.data.maVanDon || code;
-                        
-                        // Rollback và tải đơn mới
-                        currentMaVanDon = mvd;
-                        cacheOrders = result.data.orders;
-                        currentVanDonStatus = {
-                            verified: result.data.verified,
-                            allItemsCompleted: result.data.allItemsCompleted,
-                            completedItems: result.data.completedItems,
-                            totalItems: result.data.totalItems
-                        };
-                        waitingForNewOrder = false; // Reset trạng thái chờ đơn mới
-                        currentPage = 1;
-                        
-                        // Reset trạng thái quy trình check đơn - để idle cho đến khi quét mã hàng đầu tiên
-                        orderCheckState = 'idle';
-                        scannedItems = []; // Rollback toàn bộ những gì đã quét
-                        
-                        // Reset trạng thái quét cho tất cả mặt hàng trong đơn mới và kiểm tra mã hàng đã xác nhận
-                        const alreadyVerifiedItems = [];
-                        cacheOrders.forEach(order => {
-                            // Giữ nguyên trạng thái từ server nếu có
-                            if (order.scannedQuantity > 0 || order.verified) {
-                                alreadyVerifiedItems.push({
-                                    maHang: order.maHang,
-                                    scannedQuantity: order.scannedQuantity,
-                                    verified: order.verified,
-                                    verifiedAt: order.verifiedAt
-                                });
-                            } else {
-                                order.scannedQuantity = 0;
-                                order.verified = false;
-                                order.verifiedAt = null;
-                            }
-                        });
-                        
-                        // Cập nhật scannedItems với các mã hàng đã xác nhận
-                        scannedItems = alreadyVerifiedItems;
-                        
-                        // console.log('cacheOrders:', cacheOrders);
-                        document.getElementById('maVanDonTag').textContent = currentMaVanDon;
-                        
-                        // Hiển thị modal thông báo thành công
-                        const verifiedCount = alreadyVerifiedItems.length;
-                        const statusMsg = hadOldOrder ? 
-                            `Đã rollback đơn cũ và tải ${cacheOrders.length} dòng cho ${mvd}. ${verifiedCount > 0 ? verifiedCount + ' mã hàng đã được xác nhận trước đó.' : 'Bắt đầu quét hàng.'}` :
-                            `Đã tải ${cacheOrders.length} dòng cho ${mvd}. ${verifiedCount > 0 ? verifiedCount + ' mã hàng đã được xác nhận trước đó.' : 'Bắt đầu quét hàng.'}`;
-                        setStatus(statusMsg, 'ok');
-                        ensureInputFocus();
-                        const title = hadOldOrder ? 'Chuyển đơn thành công!' : 'Tải đơn thành công!';
-                        const message = hadOldOrder ? 
-                            `Đã rollback đơn cũ và tải ${cacheOrders.length} mặt hàng cho đơn vận đơn ${mvd}.\nBắt đầu quét hàng mới.` :
-                            `Đã tải ${cacheOrders.length} mặt hàng cho đơn vận đơn ${mvd}.\nBắt đầu quét hàng.`;
-                        
-                        showModal({
-                            type: 'success',
-                            title: title,
-                            message: message,
-                            timeout: 1500
-                        });
-                        
-                        // Lưu user behaviour cho việc load order
-                        saveUserBehaviour('scanner', `Load đơn hàng: ${mvd} - ${cacheOrders.length} mặt hàng`, {
-                            maVanDon: mvd,
-                            orderCount: cacheOrders.length,
-                            action: 'load_order',
-                            hadOldOrder: hadOldOrder
-                        });
-                        
-                        renderQueue();
-                        renderOrders();
-                        return;
-                    } else {
-                        // Kiểm tra xem có phải đơn bị block không
-                        if (result && !result.success && result.blocked) {
-                            setStatus(result.message || 'Đơn hàng đang được kiểm tra bởi nhân viên khác', 'warn');
-                            ensureInputFocus();
-                            showModal({
-                                type: 'warning',
-                                title: 'Đơn hàng đang được kiểm tra',
-                                message: result.message || 'Đơn hàng này đang được nhân viên khác kiểm tra. Vui lòng thử lại sau.',
-                                buttons: [
-                                    {
-                                        text: 'OK',
-                                        class: 'primary',
-                                        onclick: () => {
-                                            ensureInputFocus();
-                                        }
-                                    }
-                                ]
-                            });
-                            return;
-                        }
-                        
-                        // Không tìm thấy đơn mới, giữ nguyên đơn cũ
-                        setStatus(`Không tìm thấy đơn ${code}. Đơn hiện tại: ${oldMaVanDon || 'Chưa có'}`, 'warn');
-                        ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Không tìm thấy đơn',
-                            message: `Không tìm thấy đơn ${code}.\nĐơn hiện tại: ${oldMaVanDon || 'Chưa có'}\nTiếp tục quét đơn hiện tại.`,
-                            timeout: 1500
-                        });
-                        return;
-                    }
-                }
-
-                // Nếu chưa có đơn nào và đang ở chế độ check, thử tải đơn đầu tiên (chỉ khi input có vẻ như mã vận đơn)
-                if (!currentMaVanDon && shouldTryAsOrder && looksLikeVanDon(code)) {
-                    const resp = await fetch(`/api/orders/by-van-don/${encodeURIComponent(code)}`, {
-                        credentials: 'include',
-                        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
-                    });
-                    const result = await resp.json();
-                    
-                    // Xử lý trường hợp đơn hàng đã hoàn thành (allCompleted = true)
-                    if (result && !result.success && result.data && result.data.allCompleted) {
-                        // Reset tất cả trạng thái khi input đơn đã hoàn thành
-                        currentMaVanDon = '';
-                        cacheOrders = [];
-                        currentVanDonStatus = null;
-                        orderCheckState = 'idle';
-                        scannedItems = [];
-                        waitingForNewOrder = true; // Đang chờ input đơn mới
-                        document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                        
-                        setStatus(`Đơn ${code} đã được quét hoàn tất.`, 'warn');
-                        ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn đã hoàn thành',
-                            message: `Đơn vận đơn ${code} đã được quét hoàn tất.\n\nBạn không thể thao tác trên đơn này.\nHãy nhập mã đơn mới để tiếp tục.`,
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        ensureInputFocus();
-                                    }
-                                }
-                            ]
-                        });
-                        renderQueue();
-                        renderOrders();
-                        return;
-                    }
-                    
-                    // Xử lý trường hợp đơn hàng bị block bởi nhân viên khác
-                    if (result && !result.success && result.blocked) {
-                        setStatus(result.message || 'Đơn hàng đang được kiểm tra bởi nhân viên khác', 'warn');
-                        ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn hàng đang được kiểm tra',
-                            message: result.message || 'Đơn hàng này đang được nhân viên khác kiểm tra. Vui lòng thử lại sau.',
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        ensureInputFocus();
-                                    }
-                                }
-                            ]
-                        });
-                        return;
-                    }
-                    
-                    if (result && result.success && result.data && result.data.orders && result.data.orders.length) {
-                        // Kiểm tra đơn đã hoàn thành chưa
-                        // Đơn hoàn thành khi: tất cả maHang đã verified = true (đã confirm đơn)
-                        if (result.data.verified) {
-                            // Reset tất cả trạng thái khi input đơn đã hoàn thành
-                            currentMaVanDon = '';
-                            cacheOrders = [];
-                            currentVanDonStatus = null;
-                            orderCheckState = 'idle';
-                            scannedItems = [];
-                            waitingForNewOrder = true; // Đang chờ input đơn mới
-                            document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
-                            
-                            setStatus(`Đơn ${code} đã được quét hoàn tất.`, 'warn');
-                        ensureInputFocus();
-                            showModal({
-                                type: 'warning',
-                                title: 'Đơn đã hoàn thành',
-                                message: `Đơn vận đơn ${code} đã được quét hoàn tất.\n\nBạn không thể thao tác trên đơn này.\nHãy nhập mã đơn mới để tiếp tục.`,
-                                buttons: [
-                                    {
-                                        text: 'OK',
-                                        class: 'primary',
-                                        onclick: () => {
-                                            // Không làm gì, giữ modal hiển thị
-                                        }
-                                    }
-                                ]
-                            });
-                            
-                            // Cập nhật giao diện
-                            renderQueue();
-                            renderOrders();
-                    return;
-                }
-                        const mvd = result.data.maVanDon || code;
-                        
-                        // Tải đơn đầu tiên
-                        currentMaVanDon = mvd;
-                        cacheOrders = result.data.orders;
-                        currentVanDonStatus = {
-                            verified: result.data.verified,
-                            allItemsCompleted: result.data.allItemsCompleted,
-                            completedItems: result.data.completedItems,
-                            totalItems: result.data.totalItems
-                        };
-                        waitingForNewOrder = false; // Reset trạng thái chờ đơn mới
-                        currentPage = 1;
-                        
-                        // Reset trạng thái quy trình check đơn - để idle cho đến khi quét mã hàng đầu tiên
-                        orderCheckState = 'idle';
-                        scannedItems = [];
-                        
-                        // Reset trạng thái quét cho tất cả mặt hàng và kiểm tra mã hàng đã xác nhận
-                        const alreadyVerifiedItems = [];
-                        cacheOrders.forEach(order => {
-                            // Giữ nguyên trạng thái từ server nếu có
-                            if (order.scannedQuantity > 0 || order.verified) {
-                                alreadyVerifiedItems.push({
-                                    maHang: order.maHang,
-                                    scannedQuantity: order.scannedQuantity,
-                                    verified: order.verified,
-                                    verifiedAt: order.verifiedAt
-                                });
-                            } else {
-                                order.scannedQuantity = 0;
-                                order.verified = false;
-                                order.verifiedAt = null;
-                            }
-                        });
-                        
-                        // Cập nhật scannedItems với các mã hàng đã xác nhận
-                        scannedItems = alreadyVerifiedItems;
-                        
-                        // console.log('cacheOrders:', cacheOrders);
-                        document.getElementById('maVanDonTag').textContent = currentMaVanDon;
-                        
-                        const verifiedCount = alreadyVerifiedItems.length;
-                        const statusMsg = verifiedCount > 0 ? 
-                            `Đã tải ${cacheOrders.length} dòng cho ${mvd}. ${verifiedCount} mã hàng đã được xác nhận trước đó.` :
-                            `Đã tải ${cacheOrders.length} dòng cho ${mvd}. Bắt đầu quét hàng.`;
-                        setStatus(statusMsg, 'ok');
-                        ensureInputFocus();
-                        
-                        const message = verifiedCount > 0 ? 
-                            `Đã tải ${cacheOrders.length} mặt hàng cho đơn vận đơn ${mvd}.\n\n${verifiedCount} mã hàng đã được xác nhận trước đó:\n${alreadyVerifiedItems.map(item => `• ${item.maHang} (${item.scannedQuantity}/${cacheOrders.find(o => o.maHang === item.maHang)?.soLuong || 0})`).join('\n')}\n\nTiếp tục quét các mã hàng còn lại.` :
-                            `Đã tải ${cacheOrders.length} mặt hàng cho đơn vận đơn ${mvd}.\nBắt đầu quét hàng.`;
-                        
-                        showModal({
-                            type: 'success',
-                            title: 'Tải đơn thành công!',
-                            message: message,
-                            timeout: verifiedCount > 0 ? 3000 : 1500
-                        });
-                        
-                        renderQueue();
-                        renderOrders();
-                        return;
-                    }
-                    
-                    // Xử lý trường hợp đơn hàng bị block bởi nhân viên khác
-                    if (result && !result.success && result.blocked) {
-                        setStatus(result.message || 'Đơn hàng đang được kiểm tra bởi nhân viên khác', 'warn');
-                        ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn hàng đang được kiểm tra',
-                            message: result.message || 'Đơn hàng này đang được nhân viên khác kiểm tra. Vui lòng thử lại sau.',
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        ensureInputFocus();
-                                    }
-                                }
-                            ]
-                        });
-                        return;
-                    }
-                    
-                    // Nếu không tìm thấy đơn, tiếp tục xử lý như mã hàng
-                }
-
-                // Nếu đang ở trạng thái scanning và code là mã hàng
-                if (orderCheckState === 'scanning') {
-                    // Kiểm tra đơn đã hoàn thành chưa (verified = true)
-                    if (currentVanDonStatus && currentVanDonStatus.verified) {
-                        setStatus('Đơn đã hoàn thành, không thể quét thêm.', 'warn');
-                        ensureInputFocus();
-                        showModal({
-                            type: 'warning',
-                            title: 'Đơn đã hoàn thành',
-                            message: `Đơn vận đơn ${currentMaVanDon} đã được quét hoàn tất.\n\nBạn không thể quét thêm mã hàng nào.\nHãy nhập mã đơn mới để tiếp tục.`,
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        // Không làm gì, giữ modal hiển thị
-                                    }
-                                }
-                            ]
-                        });
-                        return;
-                    }
-                    
-                const maHang = code;
-                setStatus(`Đang quét mã hàng ${maHang}...`, '');
-                    
-                const res = await fetch('/api/orders/scan', {
-                    credentials: 'include',
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + getAuthToken()
-                    },
-                    body: JSON.stringify({ maVanDon: currentMaVanDon, maHang })
-                });
-                const data = await res.json();
-                    
-                if (!data.success) {
-                    setStatus(data.message || 'Quét không thành công', 'err');
-                    ensureInputFocus();
-                        showModal({
-                            type: 'error',
-                            title: 'Quét mã hàng thất bại',
-                            message: data.message || 'Có lỗi xảy ra khi quét mã hàng. Vui lòng thử lại.'
-                        });
-                    return;
-                }
-                    
-                    // Thêm vào danh sách đã quét
-                    scannedItems.push({
-                        maHang: data.data.maHang,
-                        timestamp: new Date(),
-                        soLuongDaQuet: data.data.soLuongDaQuet,
-                        soLuongYeuCau: data.data.soLuongYeuCau
-                    });
-                    
-                setStatus(data.message || 'Đã quét', 'ok');
-                ensureInputFocus();
-                    
-                    // Hiển thị modal thông báo quét thành công
-                    showModal({
-                        type: 'success',
-                        title: 'Quét mã hàng thành công!',
-                        message: `${data.message}\nMã hàng: ${data.data.maHang}\nTiến độ: ${data.data.soLuongDaQuet}/${data.data.soLuongYeuCau}`,
-                        buttons: [
-                            {
-                                text: 'OK',
-                                class: 'primary',
-                                onclick: () => {
-                                    // Không làm gì, giữ modal hiển thị
-                                }
-                            }
-                        ]
-                    });
-                    
-                    // Lưu user behaviour cho việc quét mã hàng
-                    saveUserBehaviour('scanner', `Quét mã hàng: ${data.data.maHang} - Tiến độ: ${data.data.soLuongDaQuet}/${data.data.soLuongYeuCau}`, {
-                        maVanDon: currentMaVanDon,
-                        maHang: data.data.maHang,
-                        originalMaHang: data.data.originalMaHang,
-                        scannedQuantity: data.data.soLuongDaQuet,
-                        requiredQuantity: data.data.soLuongYeuCau,
-                        verified: data.data.verified,
-                        isCombo: data.data.isCombo,
-                        comboInfo: data.data.comboInfo
-                    });
-                    
-                    // Cập nhật cacheOrders cho maHang tương ứng
-                const idx = cacheOrders.findIndex(x => x.maHang === data.data.maHang);
-                if (idx !== -1) {
-                    cacheOrders[idx].scannedQuantity = data.data.soLuongDaQuet;
-                    cacheOrders[idx].verified = data.data.verified;
-                    cacheOrders[idx].verifiedAt = data.data.verifiedAt;
-                    try {
-                        const rowsEl = document.getElementById('rows');
-                        const rowEl = rowsEl.children[idx + 1];
-                        rowEl && rowEl.classList.add('flash');
-                        setTimeout(() => rowEl && rowEl.classList.remove('flash'), 1200);
-                    } catch {}
-                } else {
-                    await reloadCurrentVanDon();
-                }
-                renderOrders();
-
-                    // Tự động refresh nếu đang ở chế độ view
-                    autoRefreshIfInViewMode();
-
-                    // Kiểm tra nếu đã quét đủ hàng cho tất cả mặt hàng
-                    const allItemsScanned = cacheOrders.every(order => {
-                        const scannedQty = scannedItems.filter(item => item.maHang === order.maHang).length;
-                        return scannedQty >= order.soLuong;
-                    });
-                    
-                    if (allItemsScanned) {
-                        orderCheckState = 'confirming';
-                        setStatus('Đã quét xong tất cả hàng. Quét lại mã vận đơn để xác nhận.', 'info');
-                        ensureInputFocus();
-                        
-                        showModal({
-                            type: 'info',
-                            title: 'Sẵn sàng xác nhận',
-                            message: `Đã quét xong tất cả hàng trong đơn ${currentMaVanDon}.\n\nHãy quét lại mã vận đơn để xác nhận cuối cùng.`,
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        // Không làm gì, giữ modal hiển thị
-                                    }
-                                }
-                            ]
-                        });
-                    }
-                    return;
-                }
-
-                // Trường hợp khác - hiển thị thông báo hướng dẫn
-                if (!currentMaVanDon) {
-                    setStatus('Chưa chọn mã vận đơn. Hãy nhập mã vận đơn trước.', 'warn');
-                    ensureInputFocus();
-                    showModal({
-                        type: 'warning',
-                        title: 'Chưa chọn đơn hàng',
-                        message: 'Vui lòng nhập mã vận đơn để tải đơn hàng trước khi quét mã hàng.',
-                        timeout: 1500
-                    });
-                } else if (orderCheckState === 'idle') {
-                    // Nếu đã có đơn và quét mã hàng, chuyển sang trạng thái scanning
-                    if (currentMaVanDon) {
-                        orderCheckState = 'scanning';
-                        // Tiếp tục xử lý quét mã hàng
-                        const maHang = code;
-                        setStatus(`Đang quét mã hàng ${maHang}...`, '');
-                            
-                        const res = await fetch('/api/orders/scan', {
-                            credentials: 'include',
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': 'Bearer ' + getAuthToken()
-                            },
-                            body: JSON.stringify({ maVanDon: currentMaVanDon, maHang })
-                        });
-                        const data = await res.json();
-                            
-                        if (!data.success) {
-                            setStatus(data.message || 'Quét không thành công', 'err');
-                            ensureInputFocus();
-                            showModal({
-                                type: 'error',
-                                title: 'Quét mã hàng thất bại',
-                                message: data.message || 'Có lỗi xảy ra khi quét mã hàng. Vui lòng thử lại.'
-                            });
-                            return;
-                        }
-                            
-                        // Thêm vào danh sách đã quét
-                        scannedItems.push({
-                            maHang: data.data.maHang,
-                            originalMaHang: data.data.originalMaHang,
-                            scannedQuantity: data.data.soLuongDaQuet,
-                            requiredQuantity: data.data.soLuongYeuCau,
-                            scannedAt: new Date().toISOString()
-                        });
-                        
-                        // Cập nhật cache orders
-                        const order = cacheOrders.find(o => o.maHang === data.data.maHang);
-                        if (order) {
-                            order.scannedQuantity = data.data.soLuongDaQuet;
-                            order.verified = data.data.soLuongDaQuet >= data.data.soLuongYeuCau;
-                            if (order.verified) {
-                                order.verifiedAt = new Date().toISOString();
-                            }
-                        }
-                        
-                        setStatus(data.message || 'Quét thành công', 'ok');
-                        ensureInputFocus();
-                            
-                        // Hiển thị modal thông báo quét thành công
-                        showModal({
-                            type: 'success',
-                            title: 'Quét mã hàng thành công!',
-                            message: `${data.message}\nMã hàng: ${data.data.maHang}\nTiến độ: ${data.data.soLuongDaQuet}/${data.data.soLuongYeuCau}`,
-                            buttons: [
-                                {
-                                    text: 'OK',
-                                    class: 'primary',
-                                    onclick: () => {
-                                        ensureInputFocus();
-                                    }
-                                }
-                            ]
-                        });
-                        
-                        // Lưu user behaviour cho việc quét mã hàng
-                        saveUserBehaviour('scanner', `Quét mã hàng: ${data.data.maHang} - Tiến độ: ${data.data.soLuongDaQuet}/${data.data.soLuongYeuCau}`, {
-                            maVanDon: currentMaVanDon,
-                            maHang: data.data.maHang,
-                            originalMaHang: data.data.originalMaHang,
-                            scannedQuantity: data.data.soLuongDaQuet,
-                            requiredQuantity: data.data.soLuongYeuCau,
-                            action: 'scan_item'
-                        });
-                        
-                        // Kiểm tra xem đã quét đủ tất cả hàng chưa
-                        const allItemsScanned = cacheOrders.every(order => {
-                            const scannedQty = scannedItems.filter(item => item.maHang === order.maHang).length;
-                            return scannedQty >= order.soLuong;
-                        });
-                        
-                        if (allItemsScanned) {
-                            orderCheckState = 'confirming';
-                            setStatus('Đã quét xong tất cả hàng. Quét lại mã vận đơn để xác nhận.', 'info');
-                            ensureInputFocus();
-                            
-                            showModal({
-                                type: 'info',
-                                title: 'Sẵn sàng xác nhận',
-                                message: `Đã quét xong tất cả hàng trong đơn ${currentMaVanDon}.\n\nHãy quét lại mã vận đơn để xác nhận cuối cùng.`,
-                                buttons: [
-                                    {
-                                        text: 'OK',
-                                        class: 'primary',
-                                        onclick: () => {
-                                            ensureInputFocus();
-                                        }
-                                    }
-                                ]
-                            });
-                        }
-                        
-                        renderQueue();
-                        renderOrders();
-                    } else {
-                    setStatus('Vui lòng nhập mã vận đơn để bắt đầu.', 'info');
-                    ensureInputFocus();
-                    }
-                } else if (orderCheckState === 'confirming') {
-                    setStatus('Hãy quét lại mã vận đơn để xác nhận.', 'info');
-                    ensureInputFocus();
-                } else if (orderCheckState === 'completed') {
-                    setStatus('Đơn đã hoàn thành. Nhập mã vận đơn mới để bắt đầu.', 'info');
-                    ensureInputFocus();
-                }
-                renderQueue();
             } catch (e) {
                 setStatus(e.message || 'Có lỗi xảy ra', 'err');
                 ensureInputFocus();
@@ -2089,12 +3603,16 @@ window.showOrderPager = function(show) {
             }
         });
 
-        // Hàm unlock đơn hiện tại
-        async function unlockCurrentOrder() {
-            if (!currentMaVanDon) return;
+        // Hàm unlock đơn hiện tại với error handling
+        async function unlockCurrentOrder(maVanDonToUnlock = null) {
+            const orderToUnlock = maVanDonToUnlock || currentMaVanDon;
+            
+            if (!orderToUnlock) {
+                return false;
+            }
             
             try {
-                console.log(`🔓 [UNLOCK] Unlocking order: ${currentMaVanDon}`);
+                
                 const response = await fetch('/api/orders/unblock-van-don', {
                     method: 'POST',
                     credentials: 'include',
@@ -2102,24 +3620,35 @@ window.showOrderPager = function(show) {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + getAuthToken()
                     },
-                    body: JSON.stringify({ maVanDon: currentMaVanDon })
+                    body: JSON.stringify({ maVanDon: orderToUnlock })
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
+                
                 if (result.success) {
-                    console.log(`✅ [UNLOCK] Successfully unlocked order: ${currentMaVanDon}`);
-                    setStatus(`Đã mở khóa đơn ${currentMaVanDon}`, 'ok');
+                    setStatus(`Đã mở khóa đơn ${orderToUnlock}`, 'ok');
+                    return true;
                 } else {
-                    console.log(`⚠️ [UNLOCK] Failed to unlock order: ${result.message}`);
+                    setStatus(`Lỗi mở khóa đơn ${orderToUnlock}: ${result.message}`, 'error');
+                    return false;
                 }
             } catch (error) {
-                console.error('❌ [UNLOCK] Error unlocking order:', error);
+                console.error('[UNLOCK] Error unlocking order:', error);
+                setStatus(`Lỗi mở khóa đơn ${orderToUnlock}: ${error.message}`, 'error');
+                return false;
             }
         }
 
-        function switchView(view) {
+        async function switchView(view) {
             // Nếu đang ở chế độ check và chuyển sang view khác, unlock đơn hiện tại
             if (activeView === 'check' && view !== 'check' && currentMaVanDon) {
+                // Lưu lại currentMaVanDon trước khi reset
+                const currentOrderToUnlock = currentMaVanDon;
+                
                 // Reset trạng thái đơn hiện tại
                 currentMaVanDon = '';
                 cacheOrders = [];
@@ -2129,8 +3658,13 @@ window.showOrderPager = function(show) {
                 waitingForNewOrder = false;
                 document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
                 
+                // Reset State Machine
+                if (orderCheckSM) {
+                    orderCheckSM.reset();
+                }
+                
                 // Unlock đơn trên server
-                unlockCurrentOrder();
+                await unlockCurrentOrder(currentOrderToUnlock);
                 
                 // Cập nhật giao diện
                 renderQueue();
@@ -2153,7 +3687,6 @@ window.showOrderPager = function(show) {
             const uploadPanel = document.getElementById('uploadPanel');
             const uploadMasterPanel = document.getElementById('uploadMasterPanel');
             const uploadComboPanel = document.getElementById('uploadComboPanel');
-            const portPanel = document.getElementById('portPanel');
             const rows = document.getElementById('rows');
             const inputWrap = document.getElementById('inputWrap');
             const metaWrap = document.getElementById('metaWrap');
@@ -2161,7 +3694,6 @@ window.showOrderPager = function(show) {
                 uploadPanel.style.display = '';
                 uploadMasterPanel.style.display = '';
                 uploadComboPanel.style.display = '';
-                portPanel.style.display = 'none';
                 rows.style.display = 'none';
                 inputWrap.style.display = 'none';
                 metaWrap.style.display = 'none';
@@ -2170,7 +3702,6 @@ window.showOrderPager = function(show) {
                 uploadPanel.style.display = 'none';
                 uploadMasterPanel.style.display = 'none';
                 uploadComboPanel.style.display = 'none';
-                portPanel.style.display = 'none';
                 rows.style.display = '';
                 inputWrap.style.display = '';
                 metaWrap.style.display = '';
@@ -2179,24 +3710,34 @@ window.showOrderPager = function(show) {
                     const info = queueMap.get(currentMaVanDon);
                     cacheOrders = info.orders || [];
                 }
+                
+                // Đảm bảo State Machine được khôi phục đúng cách
+                if (orderCheckSM && !orderCheckSM.currentOrder && currentMaVanDon) {
+                    // Nếu có đơn hiện tại nhưng State Machine chưa có, khôi phục State Machine
+                    orderCheckSM.currentOrder = { maVanDon: currentMaVanDon };
+                    orderCheckSM.cacheOrders = cacheOrders || [];
+                    orderCheckSM.state = orderCheckState === 'idle' ? orderCheckSM.CheckStates.IDLE : orderCheckSM.CheckStates.ORDER_ACTIVE;
+                    orderCheckSM.updateUI();
+                }
+                
                 input.placeholder = currentMaVanDon ? 'Nhập mã hàng rồi nhấn Enter' : 'Nhập mã vận đơn rồi nhấn Enter';
                 setStatus(currentMaVanDon ? 'Nhập mã hàng để quét.' : 'Nhập mã vận đơn để tải đơn và khóa đơn.', '');
-            } else if (view === 'port') {
-                // Port management
+            } else if (view === 'cancelled') {
+                // cancelled: hiển thị danh sách đơn hủy
                 uploadPanel.style.display = 'none';
                 uploadMasterPanel.style.display = 'none';
                 uploadComboPanel.style.display = 'none';
-                portPanel.style.display = '';
-                rows.style.display = 'none';
+                rows.style.display = '';
                 inputWrap.style.display = 'none';
-                metaWrap.style.display = 'none';
-                loadAvailablePorts();
+                metaWrap.style.display = '';
+                // Load dữ liệu đơn hủy
+                loadCancelledOrders();
+                setStatus('', '');
             } else {
                 // view: only list all orders - load real-time data from database
                 uploadPanel.style.display = 'none';
                 uploadMasterPanel.style.display = 'none';
                 uploadComboPanel.style.display = 'none';
-                portPanel.style.display = 'none';
                 rows.style.display = '';
                 inputWrap.style.display = 'none';
                 metaWrap.style.display = '';
@@ -2315,9 +3856,9 @@ window.showOrderPager = function(show) {
             });
             // Vào trang: checker -> Xem đơn hàng; packer -> Check đơn (một chức năng duy nhất)
             if (userRole === 'checker') {
-                switchView('view');
+                await switchView('view');
             } else {
-                switchView('check');
+                await switchView('check');
             }
             const resetBtn = document.getElementById('resetBtn');
             if (resetBtn) resetBtn.addEventListener('click', resetPage);
@@ -2341,7 +3882,6 @@ window.showOrderPager = function(show) {
                         // Ngắt kết nối COM port nếu đang kết nối
                         if (currentComPort) {
                             try {
-                                console.log('🔌 [LOGOUT] Đang ngắt kết nối COM port trước khi logout...');
                                 
                                 // Xóa bản ghi port cụ thể
                                 try {
@@ -2350,9 +3890,7 @@ window.showOrderPager = function(show) {
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ comPort: currentComPort })
                                     });
-                                    console.log('🗑️ [LOGOUT] Đã xóa bản ghi port cụ thể');
                                 } catch (error) {
-                                    console.warn('⚠️ [LOGOUT] Lỗi xóa bản ghi port:', error);
                                 }
                                 
                                 // Đóng COM port
@@ -2369,17 +3907,13 @@ window.showOrderPager = function(show) {
                                 currentPort = null;
                                 isListening = false;
                                 
-                                console.log('🔌 [LOGOUT] Đã ngắt kết nối COM port thành công');
                             } catch (error) {
-                                console.warn('⚠️ [LOGOUT] Lỗi ngắt kết nối COM port:', error);
                             }
                         }
                         
                         // Xóa hoàn toàn tất cả bản ghi port của user hiện tại (fallback)
                         try {
-                            console.log('🗑️ [LOGOUT] Đang xóa tất cả bản ghi port của user hiện tại...');
                             const currentUser = getCurrentUsername();
-                            console.log('🗑️ [LOGOUT] Current user:', currentUser);
                             if (currentUser) {
                                 // Gọi API để xóa hoàn toàn tất cả bản ghi port của user hiện tại
                                 const response = await fetch('/api/delete-all-user-ports', {
@@ -2388,11 +3922,9 @@ window.showOrderPager = function(show) {
                                     body: JSON.stringify({ userId: currentUser })
                                 });
                                 const result = await response.json();
-                                console.log('🗑️ [LOGOUT] Response from delete-all-user-ports:', result);
-                                console.log('🗑️ [LOGOUT] Đã xóa tất cả bản ghi port của user hiện tại');
                             }
                         } catch (error) {
-                            console.error('❌ [LOGOUT] Lỗi xóa tất cả bản ghi port:', error);
+                            console.error('[LOGOUT] Lỗi xóa tất cả bản ghi port:', error);
                         }
                         
                         // Reset trạng thái
@@ -2455,16 +3987,11 @@ window.showOrderPager = function(show) {
                         return { success: false, message: 'Lỗi upload: ' + (e.message || e) };
                     }
                 }
-                viewBtn.addEventListener('click', () => switchView('view'));
-                uploadBtn.addEventListener('click', () => switchView('upload'));
-                checkBtn.addEventListener('click', () => switchView('check'));
-                portBtn.addEventListener('click', () => switchView('port'));
+                viewBtn.addEventListener('click', async () => await switchView('view'));
+                cancelledBtn.addEventListener('click', async () => await switchView('cancelled'));
+                uploadBtn.addEventListener('click', async () => await switchView('upload'));
+                checkBtn.addEventListener('click', async () => await switchView('check'));
                 
-                // Port management event listeners
-                const refreshPortsBtn = document.getElementById('refreshPortsBtn');
-                if (refreshPortsBtn) {
-                    refreshPortsBtn.addEventListener('click', loadAvailablePorts);
-                }
                 
                 filePicker.addEventListener('change', async (e) => {
                     const file = e.target.files && e.target.files[0];
@@ -2521,7 +4048,7 @@ window.showOrderPager = function(show) {
                                         document.getElementById('rows').innerHTML = '<div style="color:#065f46;font-size:14px;margin-top:8px;">Dữ liệu đã được tải lên thành công. Sẵn sàng để kiểm tra.</div>';
                                     }
                                     // Tự động chuyển sang tab Xem đơn hàng
-                                    switchView('view');
+                                    await switchView('view');
                                     // Auto-refresh sẽ được gọi trong switchView('view')
                                 } else {
                                     setStatus(result.message || 'Upload không thành công', 'err');
@@ -2602,7 +4129,6 @@ window.showOrderPager = function(show) {
                             const form = new FormData();
                             form.append('file', fileMasterPicker.files[0]);
                             const token = getAuthToken();
-                            console.log('🔑 [UPLOAD-MASTERDATA] Token:', token ? 'Có token' : 'Không có token');
                             
                             const res = await fetch('/api/checker/upload-masterdata', {
                                 method: 'POST',
@@ -2688,7 +4214,6 @@ window.showOrderPager = function(show) {
                         showToast(result.message || 'Fix ComboData thành công', result.success);
                         
                         if (result.success && result.indexes) {
-                            console.log('✅ ComboData indexes:', result.indexes);
                         }
                         
                     } catch (err) {
@@ -2704,7 +4229,6 @@ window.showOrderPager = function(show) {
             try {
                 await loadMyScannerPermissions();
             } catch (error) {
-                console.log('Lỗi khởi tạo scanner info:', error);
             }
         });
 
@@ -2737,29 +4261,18 @@ window.showOrderPager = function(show) {
         // Lấy thông tin máy quét được phân quyền cho user hiện tại
         async function loadMyScannerPermissions() {
             try {
-                console.log('🔍 [LOAD-SCANNER] Bắt đầu load scanner permissions...');
-                console.log('🔍 [LOAD-SCANNER] Auth token:', getAuthToken() ? 'CÓ' : 'KHÔNG');
                 
                 const response = await fetch('/api/me', {
-                    credentials: 'include', // QUAN TRỌNG: Gửi cookies
+                    credentials: 'include',
                     headers: {
                         'Authorization': 'Bearer ' + getAuthToken()
                     }
                 });
 
-                console.log('📡 [LOAD-SCANNER] /api/me status:', response.status);
                 const result = await response.json();
-                console.log('📡 [LOAD-SCANNER] /api/me result:', result);
 
                 if (result.success) {
-                    console.log('✅ [LOAD-SCANNER] User info:', {
-                        username: result.username,
-                        role: result.role,
-                        hasScanner: !!result.scannerPermissions?.port
-                    });
-                    
-                    // Hiển thị button kết nối COM port cho tất cả user (giống debug-client.html)
-                    console.log('✅ [LOAD-SCANNER] Hiển thị button kết nối COM port...');
+                    // User info loaded successfully
                     
                     // Tạo scannerPermissions giả để hiển thị button
                     result.scannerPermissions = {
@@ -2798,12 +4311,12 @@ window.showOrderPager = function(show) {
                     
                     displayScannerPermissions(result, mockScanners);
                 } else {
-                    console.error('❌ [LOAD-SCANNER] /api/me failed:', result.message);
-                    console.error('❌ [LOAD-SCANNER] User chưa login hoặc session hết hạn!');
+                    console.error('[LOAD-SCANNER] /api/me failed:', result.message);
+                    console.error('[LOAD-SCANNER] User chưa login hoặc session hết hạn!');
                 }
             } catch (error) {
-                console.error('❌ [LOAD-SCANNER] Exception:', error);
-                console.error('❌ [LOAD-SCANNER] Stack:', error.stack);
+                console.error('[LOAD-SCANNER] Exception:', error);
+                console.error('[LOAD-SCANNER] Stack:', error.stack);
             }
         }
 
@@ -2859,7 +4372,6 @@ window.showOrderPager = function(show) {
             }
 
             // Hiển thị button kết nối COM port cho tất cả user (giống debug-client.html)
-            console.log('✅ Hiển thị button kết nối COM port...');
             
             // Hiển thị thông tin
             assignedPortSpan.textContent = 'Click để chọn thiết bị';
@@ -2869,7 +4381,6 @@ window.showOrderPager = function(show) {
             noScannerInfo.style.display = 'none';
             scannerDetails.style.display = 'block';
             
-            console.log('🔌 Button kết nối COM port đã hiển thị');
         }
 
         // Hiển thị modal blocking khi chưa được phân quyền máy quét
@@ -2950,16 +4461,16 @@ window.showOrderPager = function(show) {
             }
             
             machineId = 'MACHINE_' + Math.abs(hash).toString(36);
-            console.log('🖥️ [MACHINE] Generated machine ID:', machineId);
             return machineId;
         }
         
-        // Generate unique session ID
+        // Generate unique session ID (unique per browser tab/window)
         function generateSessionId() {
             if (sessionId) return sessionId;
             
-            sessionId = 'SESSION_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            console.log('🔑 [SESSION] Generated session ID:', sessionId);
+            // Tạo session ID dựa trên timestamp + random + tab ID để đảm bảo unique
+            const tabId = Math.random().toString(36).substr(2, 8);
+            sessionId = 'SESSION_' + Date.now() + '_' + tabId;
             return sessionId;
         }
         
@@ -2975,14 +4486,11 @@ window.showOrderPager = function(show) {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ comPort: currentComPort })
                         });
-                        console.log('💓 [HEARTBEAT] Updated heartbeat for', currentComPort);
                     } catch (error) {
-                        console.warn('⚠️ [HEARTBEAT] Failed to update heartbeat:', error);
                     }
                 }
             }, 10000); // Update every 10 seconds
             
-            console.log('💓 [HEARTBEAT] Started heartbeat interval');
         }
         
         // Stop heartbeat
@@ -2990,48 +4498,40 @@ window.showOrderPager = function(show) {
             if (heartbeatInterval) {
                 clearInterval(heartbeatInterval);
                 heartbeatInterval = null;
-                console.log('💓 [HEARTBEAT] Stopped heartbeat interval');
             }
         }
 
         // Khởi tạo SerialScanner
         function initSerialScanner() {
-            console.log('🔌 Initializing COM port connection...');
 
             // Kiểm tra browser support
             if (!navigator.serial) {
                 console.warn('⚠️  Browser không hỗ trợ Web Serial API');
                 const statusEl = document.getElementById('comStatus');
-                if (statusEl) statusEl.innerHTML = '<span style="color: #f44336;">❌ Browser không hỗ trợ</span>';
+                if (statusEl) statusEl.innerHTML = '<span style="color: #f44336;">Browser không hỗ trợ</span>';
                 const btnEl = document.getElementById('connectComBtn');
                 if (btnEl) btnEl.disabled = true;
                 return;
             }
 
-            console.log('✅ Web Serial API supported');
 
             // Xử lý nút kết nối (dùng để ngắt kết nối hoặc kết nối lại)
             const connectBtn = document.getElementById('connectComBtn');
             if (connectBtn) {
                 connectBtn.addEventListener('click', handleComConnection);
-                console.log('✅ Connect button event listener added');
             }
         }
 
         // Xử lý kết nối/ngắt kết nối COM port
         async function handleComConnection() {
-            console.log('🔌 [HANDLE-CONNECTION] Button clicked, isComConnected:', isComConnected, 'isConnecting:', isConnecting);
             
             if (isConnecting) {
-                console.log('🔌 [HANDLE-CONNECTION] Đang trong quá trình kết nối, bỏ qua...');
                 return;
             }
             
             if (isComConnected) {
-                console.log('🔌 [HANDLE-CONNECTION] Đang ngắt kết nối...');
                 await disconnectCom();
             } else {
-                console.log('🔌 [HANDLE-CONNECTION] Đang kết nối...');
                 // Flow mới: Gọi API lấy danh sách COM ports → User chọn → Connect
                 await showComPortSelection();
             }
@@ -3040,7 +4540,6 @@ window.showOrderPager = function(show) {
         // Hiển thị dialog chọn COM port (giống debug-client.html)
         async function showComPortSelection() {
             try {
-                console.log('🔌 Requesting COM port access...');
                 
                 // Set flag đang kết nối
                 isConnecting = true;
@@ -3056,54 +4555,28 @@ window.showOrderPager = function(show) {
                 const port = await navigator.serial.requestPort();
                 
                 const portInfo = port.getInfo();
-                console.log('Port info:', portInfo);
-                console.log('Port info details:', {
-                    path: portInfo.path,
-                    serialNumber: portInfo.serialNumber,
-                    usbVendorId: portInfo.usbVendorId,
-                    usbProductId: portInfo.usbProductId,
-                    manufacturer: portInfo.manufacturer,
-                    product: portInfo.product
-                });
                 
                 // Lấy tên COM port từ port info hoặc sử dụng tên mặc định
                 let comPortName = 'COM_UNKNOWN';
                 
-                console.log('🔍 [DEBUG] Port info analysis:');
-                console.log('  - path:', portInfo.path);
-                console.log('  - serialNumber:', portInfo.serialNumber);
-                console.log('  - usbVendorId:', portInfo.usbVendorId);
-                console.log('  - usbProductId:', portInfo.usbProductId);
-                console.log('  - manufacturer:', portInfo.manufacturer);
-                console.log('  - product:', portInfo.product);
                 
-                // Tạo tên unique cho mỗi port để tránh trùng giữa các máy
+                // Tạo tên unique cho mỗi port để tránh trùng giữa các user trên cùng máy
                 const machineId = generateMachineId();
+                const sessionId = generateSessionId();
                 const timestamp = Date.now();
                 const random = Math.random().toString(36).substr(2, 5);
                 
                 if (portInfo.path) {
-                    // Sử dụng path + machine ID để tránh trùng giữa các máy
-                    comPortName = `${portInfo.path}_${machineId}`;
-                    console.log('✅ [DEBUG] Using path + machineId:', comPortName);
+                    // Sử dụng path + session ID để phân biệt user trên cùng máy
+                    comPortName = `${portInfo.path}_${sessionId}`;
                 } else {
-                    // Tạo tên unique dựa trên timestamp + random + machine ID
-                    comPortName = `COM_${timestamp}_${random}_${machineId}`;
-                    console.log('✅ [DEBUG] Using unique fallback + machineId:', comPortName);
+                    // Tạo tên unique dựa trên timestamp + random + session ID
+                    comPortName = `COM_${timestamp}_${random}_${sessionId}`;
                 }
                 
-                console.log('🎯 [DEBUG] Final COM port name:', comPortName);
                 
-                // Kiểm tra xem COM port đã được sử dụng chưa
-                const isPortInUse = await checkPortUsage(comPortName);
-                if (isPortInUse) {
-                    alert(`COM port ${comPortName} đang được sử dụng bởi user khác. Vui lòng chọn COM port khác hoặc đợi user đó ngắt kết nối.`);
-                    isConnecting = false;
-                    return;
-                }
-                
-                // Claim port trước khi kết nối
-                const claimResult = await claimPort(comPortName);
+                // Claim port trực tiếp (atomic operation, không cần check trước)
+                const claimResult = await claimPort(comPortName, machineId, sessionId);
                 if (!claimResult.success) {
                     alert(claimResult.message);
                     isConnecting = false;
@@ -3155,21 +4628,16 @@ window.showOrderPager = function(show) {
                 if (currentPort) {
                     try {
                         await currentPort.close();
-                        console.log('🔌 Đã đóng port cũ');
                     } catch (closeError) {
-                        console.warn('⚠️ Lỗi đóng port cũ:', closeError.message);
                     }
                     currentPort = null;
                 }
                 
                 // Kiểm tra port đã mở chưa
                 if (port.readable) {
-                    console.log('⚠️ Port đã mở, đóng trước khi mở lại...');
                     try {
                         await port.close();
-                        console.log('🔌 Đã đóng port hiện tại');
                     } catch (closeError) {
-                        console.warn('⚠️ Lỗi đóng port hiện tại:', closeError.message);
                     }
                 }
                 
@@ -3181,15 +4649,38 @@ window.showOrderPager = function(show) {
                     throw new Error(`COM port ${comPort} đang được sử dụng bởi user khác`);
                 }
                 
-                // Mở port với cấu hình cơ bản (giống debug-client.html)
-                await port.open({ 
-                    baudRate: 9600,
-                    dataBits: 8,
-                    stopBits: 1,
-                    parity: 'none'
-                });
+                // Mở port với cấu hình tối ưu cho scanner
+                // Thử nhiều baud rate phổ biến cho scanner
+                const baudRates = [9600, 115200, 38400, 19200, 4800];
+                let connected = false;
                 
-                console.log(`🔧 [CONNECT-COM] Kết nối ${comPort} thành công`);
+                for (const baudRate of baudRates) {
+                    try {
+                        await port.open({ 
+                            baudRate: baudRate,
+                            dataBits: 8,
+                            stopBits: 1,
+                            parity: 'none',
+                            flowControl: 'none'
+                        });
+                        console.log(`✅ Kết nối thành công với baud rate: ${baudRate}`);
+                        connected = true;
+                        break;
+                    } catch (openError) {
+                        console.log(`⚠️ Không thể kết nối với baud rate ${baudRate}:`, openError.message);
+                        // Đóng port trước khi thử baud rate khác
+                        try {
+                            await port.close();
+                        } catch (closeError) {
+                            // Ignore close errors
+                        }
+                    }
+                }
+                
+                if (!connected) {
+                    throw new Error('Không thể kết nối với bất kỳ baud rate nào. Vui lòng kiểm tra thiết bị scanner.');
+                }
+                
                 
                 // Lưu port và tên COM port để sử dụng sau này
                 currentPort = port;
@@ -3197,7 +4688,7 @@ window.showOrderPager = function(show) {
                 
                 // Cập nhật status thành công
                 isComConnected = true;
-                statusSpan.innerHTML = `<span style="color: #4caf50;">✅ Đã kết nối ${comPort}</span>`;
+                statusSpan.innerHTML = `<span style="color: #4caf50;"> Đã kết nối ${comPort}</span>`;
                 connectBtn.textContent = '🔌 Ngắt kết nối COM';
                 connectBtn.style.background = '#f44336';
                 connectBtn.disabled = false;
@@ -3205,9 +4696,12 @@ window.showOrderPager = function(show) {
                 // Start heartbeat để keep port alive
                 startHeartbeat();
                 
-                // Bắt đầu đọc dữ liệu
+                // Bắt đầu đọc dữ liệu với buffer để xử lý dữ liệu đầy đủ
+                let dataBuffer = '';
                 const reader = port.readable.getReader();
                 isListening = true;
+                
+                console.log('🔍 Bắt đầu đọc dữ liệu từ COM port với buffer...');
                 
                 // Lắng nghe dữ liệu liên tục
                 while (isListening) {
@@ -3215,60 +4709,72 @@ window.showOrderPager = function(show) {
                         const { value, done } = await reader.read();
                         
                         if (done) {
-                            console.log('📱 COM port reader closed');
+                            console.log('📡 COM port reader đã đóng');
                             break;
                         }
                         
-                        // Chuyển đổi dữ liệu thành string
-                        const inputData = new TextDecoder().decode(value);
+                        // Chuyển đổi dữ liệu thành string và thêm vào buffer
+                        const chunk = new TextDecoder().decode(value);
+                        dataBuffer += chunk;
                         
-                        if (inputData.trim()) {
-                            console.log(`📥 [CONNECT-COM] Nhận từ ${comPort}:`, inputData);
+                        console.log('📥 Nhận chunk từ COM:', chunk, '(buffer hiện tại:', dataBuffer, ')');
+                        
+                        // Kiểm tra ký tự kết thúc (thường là \r\n, \n, hoặc \r)
+                        if (dataBuffer.includes('\n') || dataBuffer.includes('\r')) {
+                            // Tách dữ liệu hoàn chỉnh từ buffer
+                            const lines = dataBuffer.split(/[\r\n]+/);
                             
-                            // Gửi dữ liệu lên server để log
-                            sendComInputToServer(currentComPort, inputData);
-                            
-                            // Đưa dữ liệu vào input field và tự động xử lý
-                            const input = document.getElementById('codeInput');
-                            if (input) {
-                                const trimmedData = inputData.trim();
-                                console.log(`📝 [AUTO-FILL] Tự động điền dữ liệu: ${trimmedData}`);
+                            // Xử lý tất cả dòng hoàn chỉnh (trừ dòng cuối nếu chưa kết thúc)
+                            for (let i = 0; i < lines.length - 1; i++) {
+                                const line = lines[i].trim();
                                 
-                                // Tự động đóng modal trước khi xử lý dữ liệu
-                                hideModal();
-                                
-                                // Focus vào input field
-                                input.focus();
-                                
-                                // Điền dữ liệu
-                                input.value = trimmedData;
-                                
-                                // Trigger input event để các listener khác có thể xử lý
-                                input.dispatchEvent(new Event('input', { bubbles: true }));
-                                
-                                // Tự động xử lý dữ liệu sau 100ms
-                                setTimeout(() => {
-                                    try {
-                                        console.log(`🔄 [AUTO-PROCESS] Tự động xử lý: ${trimmedData}`);
-                                        // Đảm bảo modal được đóng trước khi xử lý
+                                if (line) {
+                                    console.log('✅ Dữ liệu hoàn chỉnh từ COM:', line);
+                                    
+                                    // Gửi dữ liệu lên server để log
+                                    sendComInputToServer(currentComPort, line);
+                                    
+                                    // Đưa dữ liệu vào input field và tự động xử lý
+                                    const input = document.getElementById('codeInput');
+                                    if (input) {
+                                        // Tự động đóng modal trước khi xử lý dữ liệu
                                         hideModal();
-                                        handleEnter(trimmedData);
-                                    } catch (e) {
-                                        console.error('❌ Lỗi xử lý dữ liệu:', e);
+                                        
+                                        // Focus vào input field
+                                        input.focus();
+                                        
+                                        // Điền dữ liệu
+                                        input.value = line;
+                                        
+                                        // Trigger input event để các listener khác có thể xử lý
+                                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                                        
+                                        // Tự động xử lý dữ liệu sau 100ms
+                                        setTimeout(() => {
+                                            try {
+                                                // Đảm bảo modal được đóng trước khi xử lý
+                                                hideModal();
+                                                handleEnter(line);
+                                            } catch (e) {
+                                                console.error('Lỗi xử lý dữ liệu:', e);
+                                            }
+                                        }, 100);
                                     }
-                                }, 100);
+                                }
                             }
+                            
+                            // Giữ lại phần dữ liệu chưa hoàn chỉnh trong buffer
+                            dataBuffer = lines[lines.length - 1];
                         }
                         
                     } catch (readError) {
-                        console.error('Error reading from COM port:', readError);
+                        console.error('❌ Lỗi đọc từ COM port:', readError);
                         break;
                     }
                 }
                 
             } catch (error) {
-                console.error('❌ Lỗi kết nối COM port:', error);
-                statusSpan.innerHTML = `<span style="color: #f44336;">❌ Lỗi kết nối ${comPort}: ${error.message}</span>`;
+                statusSpan.innerHTML = `<span style="color: #f44336;">Lỗi kết nối ${comPort}: ${error.message}</span>`;
                 
                 // Reset trạng thái khi có lỗi
                 isComConnected = false;
@@ -3287,6 +4793,8 @@ window.showOrderPager = function(show) {
         async function sendComInputToServer(comPort, inputData) {
             try {
                 const username = getCurrentUsername();
+                const currentSessionId = generateSessionId();
+                
                 
                 const response = await fetch('/api/com-input', {
                     method: 'POST',
@@ -3297,20 +4805,18 @@ window.showOrderPager = function(show) {
                         userId: username || 'unknown_user',
                         comPort: comPort,
                         inputData: inputData.trim(),
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        sessionId: currentSessionId
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log(`✅ Input sent to server: ${inputData}`);
                 } else {
-                    console.error(`❌ Failed to send input: ${result.message}`);
                 }
                 
             } catch (error) {
-                console.error('❌ Error sending COM input to server:', error);
             }
         }
         
@@ -3345,10 +4851,7 @@ window.showOrderPager = function(show) {
                 await serialScanner.connect(9600);
 
                 // Bắt đầu đọc dữ liệu
-                console.log('🔧 [CONNECT-COM] Thiết lập callback...');
                 serialScanner.startReading((scannedData) => {
-                    console.log('=================================');
-                    console.log('📥 [CONNECT-COM] Nhận:', scannedData);
                     
                     // Tự động đóng modal trước khi xử lý dữ liệu
                     hideModal();
@@ -3361,24 +4864,21 @@ window.showOrderPager = function(show) {
                             hideModal();
                             handleEnter(scannedData);
                         } catch (e) {
-                            console.error('❌ Lỗi:', e);
+                            console.error('Lỗi:', e);
                         }
                         input.value = '';
                     }
-                    console.log('=================================');
                 });
 
                 isComConnected = true;
-                statusSpan.innerHTML = '<span style="color: #4caf50;">✅ Đã kết nối</span>';
+                statusSpan.innerHTML = '<span style="color: #4caf50;"> Đã kết nối</span>';
                 connectBtn.textContent = '🔌 Ngắt kết nối COM';
                 connectBtn.style.background = '#f44336';
                 connectBtn.disabled = false;
 
-                console.log('✅ Đã kết nối máy quét COM');
                 
             } catch (error) {
-                console.error('❌ Lỗi kết nối COM:', error);
-                statusSpan.innerHTML = '<span style="color: #f44336;">❌ ' + error.message + '</span>';
+                statusSpan.innerHTML = '<span style="color: #f44336;">' + error.message + '</span>';
                 connectBtn.disabled = false;
                 isComConnected = false;
             }
@@ -3390,19 +4890,15 @@ window.showOrderPager = function(show) {
             const connectBtn = document.getElementById('connectComBtn');
 
             try {
-                console.log('🔌 [DISCONNECT] Bắt đầu ngắt kết nối COM port...');
                 statusSpan.innerHTML = '<span style="color: #ff9800;">⏳ Đang ngắt kết nối...</span>';
                 
                 // Dừng việc đọc dữ liệu trước
                 isListening = false;
-                console.log('🔌 [DISCONNECT] Đã dừng việc đọc dữ liệu');
                 
                 // Release port từ database
                 if (currentComPort) {
                     try {
-                        console.log('🔓 [DISCONNECT] Đang release port từ database...');
                         await releasePort(currentComPort);
-                        console.log('🔓 [DISCONNECT] Đã release port thành công');
                     } catch (releaseError) {
                         console.warn('⚠️ [DISCONNECT] Lỗi release port:', releaseError.message);
                     }
@@ -3411,15 +4907,11 @@ window.showOrderPager = function(show) {
                 // Ngắt kết nối COM port
                 if (currentPort) {
                     try {
-                        console.log('🔌 [DISCONNECT] Đang đóng COM port...');
                         await currentPort.close();
-                        console.log('🔌 [DISCONNECT] Đã đóng COM port thành công');
                     } catch (closeError) {
-                        console.warn('⚠️ [DISCONNECT] Lỗi đóng COM port:', closeError.message);
                     }
                     currentPort = null;
                 } else {
-                    console.log('🔌 [DISCONNECT] Không có COM port nào đang mở');
                 }
                 
                 // Stop heartbeat
@@ -3436,11 +4928,10 @@ window.showOrderPager = function(show) {
                 connectBtn.style.background = '#2196f3';
                 connectBtn.disabled = false;
 
-                console.log('✅ [DISCONNECT] Đã ngắt kết nối máy quét COM thành công');
                 
             } catch (error) {
-                console.error('❌ [DISCONNECT] Lỗi ngắt kết nối:', error);
-                statusSpan.innerHTML = '<span style="color: #f44336;">❌ Lỗi ngắt kết nối</span>';
+                console.error('[DISCONNECT] Lỗi ngắt kết nối:', error);
+                statusSpan.innerHTML = '<span style="color: #f44336;">Lỗi ngắt kết nối</span>';
                 
                 // Force reset trạng thái ngay cả khi có lỗi
                 isComConnected = false;
@@ -3453,10 +4944,9 @@ window.showOrderPager = function(show) {
             }
         }
 
-        // Kiểm tra xem COM port đã được sử dụng chưa
+        // Kiểm tra xem COM port đã được sử dụng chưa (deprecated - dùng atomic claim thay thế)
         async function checkPortUsage(comPortName) {
             try {
-                console.log(`🔍 [PORT-CHECK] Kiểm tra COM port ${comPortName}...`);
                 
                 // Gọi API kiểm tra port usage
                 const response = await fetch('/api/check-port-usage', {
@@ -3466,47 +4956,30 @@ window.showOrderPager = function(show) {
                 });
                 
                 const result = await response.json();
-                console.log(`🔍 [PORT-CHECK] Kết quả kiểm tra:`, result);
                 
                 // Kiểm tra xem port có đang được sử dụng bởi user khác không
                 if (result.isInUse && result.currentUser && result.currentUser !== getCurrentUsername()) {
-                    console.log(`🔍 [PORT-CHECK] Port đang được sử dụng bởi user khác: ${result.currentUser}`);
                     return true;
                 }
                 
-                console.log(`🔍 [PORT-CHECK] Port có thể sử dụng`);
                 return false;
                 
             } catch (error) {
-                console.error('❌ [PORT-CHECK] Lỗi kiểm tra port usage:', error);
                 // Nếu không kiểm tra được, từ chối kết nối để tránh conflict
                 return true;
             }
         }
         
-        // Claim port khi kết nối
-        async function claimPort(comPortName) {
+        // Claim port khi kết nối (atomic operation)
+        async function claimPort(comPortName, machineIdParam = null, sessionIdParam = null) {
             try {
-                console.log(`🔒 [CLAIM-PORT] Claiming COM port ${comPortName}...`);
                 
-                // Kiểm tra xem port đã được claim bởi chính user hiện tại chưa
-                const currentUser = getCurrentUsername();
-                const isPortInUse = await checkPortUsage(comPortName);
-                
-                if (isPortInUse) {
-                    console.log(`🔒 [CLAIM-PORT] Port đã được sử dụng bởi user khác, không thể claim`);
-                    return {
-                        success: false,
-                        message: 'COM port đang được sử dụng bởi user khác'
-                    };
-                }
-                
-                // Generate machine and session IDs
-                const machineId = generateMachineId();
-                const sessionId = generateSessionId();
+                // Sử dụng machineId và sessionId được truyền vào hoặc tạo mới
+                const machineId = machineIdParam || generateMachineId();
+                const sessionId = sessionIdParam || generateSessionId();
                 const screenId = 'main'; // Default screen, could be enhanced for multiple screens
                 
-                // Gọi API claim port với machine/session tracking
+                // Gọi API claim port với atomic transaction
                 const response = await fetch('/api/claim-port', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -3519,12 +4992,10 @@ window.showOrderPager = function(show) {
                 });
                 
                 const result = await response.json();
-                console.log(`🔒 [CLAIM-PORT] Kết quả claim:`, result);
                 
                 return result;
                 
             } catch (error) {
-                console.error('❌ [CLAIM-PORT] Lỗi claim port:', error);
                 return {
                     success: false,
                     message: 'Lỗi claim port: ' + error.message
@@ -3535,7 +5006,6 @@ window.showOrderPager = function(show) {
         // Release port khi ngắt kết nối
         async function releasePort(comPortName) {
             try {
-                console.log(`🔓 [RELEASE-PORT] Releasing COM port ${comPortName}...`);
                 
                 // Gọi API release port cho bất kỳ user nào
                 const response = await fetch('/api/release-port-any', {
@@ -3545,12 +5015,11 @@ window.showOrderPager = function(show) {
                 });
                 
                 const result = await response.json();
-                console.log(`🔓 [RELEASE-PORT] Kết quả release:`, result);
                 
                 return result;
                 
             } catch (error) {
-                console.error('❌ [RELEASE-PORT] Lỗi release port:', error);
+                console.error('[RELEASE-PORT] Lỗi release port:', error);
                 return {
                     success: false,
                     message: 'Lỗi release port: ' + error.message
@@ -3561,7 +5030,6 @@ window.showOrderPager = function(show) {
         // Release port cho bất kỳ user nào (dùng khi logout)
         async function releasePortForAnyUser(comPortName) {
             try {
-                console.log(`🔓 [RELEASE-PORT-ANY] Releasing COM port ${comPortName} for any user...`);
                 
                 // Gọi API release port cho bất kỳ user nào
                 const response = await fetch('/api/release-port-any', {
@@ -3571,12 +5039,11 @@ window.showOrderPager = function(show) {
                 });
                 
                 const result = await response.json();
-                console.log(`🔓 [RELEASE-PORT-ANY] Kết quả release:`, result);
                 
                 return result;
                 
             } catch (error) {
-                console.error('❌ [RELEASE-PORT-ANY] Lỗi release port:', error);
+                console.error('[RELEASE-PORT-ANY] Lỗi release port:', error);
                 return {
                     success: false,
                     message: 'Lỗi release port: ' + error.message
@@ -3586,25 +5053,128 @@ window.showOrderPager = function(show) {
         
         // Kiểm tra trạng thái COM port
         function checkComPortStatus() {
-            console.log('🔍 [STATUS-CHECK] Trạng thái COM port:');
-            console.log('  - isComConnected:', isComConnected);
-            console.log('  - isListening:', isListening);
-            console.log('  - currentPort:', currentPort);
-            console.log('  - currentComPort:', currentComPort);
-            console.log('  - currentPort.readable:', currentPort?.readable);
             
             const statusSpan = document.getElementById('comStatus');
             const connectBtn = document.getElementById('connectComBtn');
             
-            console.log('  - Status span text:', statusSpan?.textContent);
-            console.log('  - Button text:', connectBtn?.textContent);
-            console.log('  - Button disabled:', connectBtn?.disabled);
-            
             // Kiểm tra port usage trong database
             if (currentComPort) {
                 checkPortUsage(currentComPort).then(result => {
-                    console.log('  - Port usage check:', result);
                 });
+            }
+        }
+        
+        // ========== STATE MACHINE COMPATIBILITY FUNCTIONS ==========
+        
+        // Xác nhận hoàn thành đơn vận đơn (tương thích với State Machine)
+        async function confirmVanDonComplete() {
+            try {
+                if (orderCheckSM.currentOrder) {
+                    // Sử dụng State Machine
+                    await orderCheckSM.completeOrder();
+                } else {
+                    // Fallback cho logic cũ
+                    const response = await fetch('/api/orders/complete-van-don', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + getAuthToken()
+                        },
+                        body: JSON.stringify({
+                            maVanDon: currentMaVanDon
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        setStatus('Đã xác nhận hoàn thành đơn vận đơn!', 'ok');
+                        ensureInputFocus();
+                        
+                        // Reset trạng thái quét sau khi xác nhận hoàn thành
+                        orderCheckState = 'idle';
+                        scannedItems = [];
+                        currentMaVanDon = '';
+                        cacheOrders = [];
+                        waitingForNewOrder = false;
+                        
+                        showModal({
+                            type: 'success',
+                            title: 'Hoàn thành!',
+                            message: result.message,
+                            timeout: 2000
+                        });
+                    } else {
+                        setStatus('Lỗi xác nhận: ' + result.message, 'err');
+                        ensureInputFocus();
+                        
+                        showModal({
+                            type: 'error',
+                            title: 'Lỗi xác nhận',
+                            message: result.message
+                        });
+                    }
+                }
+                
+            } catch (error) {
+                setStatus('Lỗi xác nhận đơn vận đơn: ' + error.message, 'err');
+                ensureInputFocus();
+                
+                showModal({
+                    type: 'error',
+                    title: 'Lỗi kết nối',
+                    message: 'Lỗi xác nhận đơn vận đơn: ' + error.message
+                });
+            }
+        }
+        
+        // Chuyển sang đơn khác (tương thích với State Machine)
+        function switchToNewOrder() {
+            if (orderCheckSM.currentOrder) {
+                // Sử dụng State Machine
+                orderCheckSM.reset();
+                setStatus('Đã reset. Hãy tìm đơn hàng mới.', 'info');
+                ensureInputFocus();
+            } else {
+                // Fallback cho logic cũ
+                // KHÔNG cho phép chuyển đơn khi đã có đơn hàng trong qtext
+                if (currentMaVanDon) {
+                    setStatus(`Đã có đơn ${currentMaVanDon} đang xử lý, không thể chuyển đơn khác`, 'err');
+                    showModal({
+                        type: 'warning',
+                        title: 'Không thể chuyển đơn',
+                        message: `Đã có đơn ${currentMaVanDon} đang xử lý. Vui lòng hoàn thành hoặc hủy đơn hiện tại trước khi chuyển đơn khác.`
+                    });
+                    return;
+                }
+                
+                // Unblock đơn hiện tại trước khi chuyển
+                if (currentMaVanDon) {
+                    fetch('/api/orders/unblock-van-don', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': 'Bearer ' + getAuthToken() 
+                        },
+                        body: JSON.stringify({ maVanDon: currentMaVanDon })
+                    }).catch(e => console.log('Lỗi unblock:', e));
+                }
+                
+                // Reset trạng thái quét
+                orderCheckState = 'idle';
+                scannedItems = [];
+                currentMaVanDon = '';
+                cacheOrders = [];
+                currentVanDonStatus = null;
+                waitingForNewOrder = true; // Cho phép input đơn mới
+                document.getElementById('maVanDonTag').textContent = 'Chưa chọn';
+                
+                // Cập nhật giao diện
+                renderQueue();
+                renderOrders();
+                setStatus('Đã reset. Hãy tìm đơn hàng mới.', 'info');
+                ensureInputFocus();
             }
         }
         
@@ -3620,7 +5190,6 @@ window.showOrderPager = function(show) {
         window.addEventListener('beforeunload', async function() {
             if (isComConnected && currentComPort) {
                 try {
-                    console.log('🔌 [BEFOREUNLOAD] Đang ngắt kết nối COM port...');
                     
                     // Dừng đọc dữ liệu
                     isListening = false;
@@ -3636,16 +5205,13 @@ window.showOrderPager = function(show) {
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ comPort: currentComPort })
                             });
-                            console.log('🗑️ [BEFOREUNLOAD] Đã xóa bản ghi port thành công');
                         } catch (deleteError) {
-                            console.warn('⚠️ [BEFOREUNLOAD] Lỗi xóa bản ghi port:', deleteError.message);
                         }
                     }
                     
                     // Đóng COM port
                     if (currentPort) {
                         await currentPort.close();
-                        console.log('🔌 [BEFOREUNLOAD] Đã đóng COM port thành công');
                     }
                     
                     // Reset trạng thái
@@ -3654,7 +5220,6 @@ window.showOrderPager = function(show) {
                     currentPort = null;
                     
                 } catch (error) {
-                    console.warn('⚠️ [BEFOREUNLOAD] Lỗi ngắt kết nối COM port:', error.message);
                 }
             }
         });

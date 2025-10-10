@@ -99,34 +99,60 @@ portUsageSchema.statics.releasePortForAnyUser = async function(comPort) {
     return result.modifiedCount > 0;
 };
 
-// Method để claim port với machine/session tracking
+// Method để claim port với machine/session tracking (atomic operation)
 portUsageSchema.statics.claimPort = async function(comPort, userId, machineId, sessionId, screenId = 'main') {
-    // console.log(`🔒 [PORT-USAGE] Claiming port ${comPort} for user ${userId} on machine ${machineId}, session ${sessionId}, screen ${screenId}`);
+    console.log(`🔒 [PORT-USAGE] Attempting to claim port ${comPort} for user ${userId} on machine ${machineId}, session ${sessionId}, screen ${screenId}`);
     
-    // Release port cũ nếu có
-    const releaseResult = await this.updateMany(
-        { comPort: comPort, isActive: true },
-        { isActive: false, lastActivity: new Date() }
-    );
-    // console.log(`🔒 [PORT-USAGE] Released ${releaseResult.modifiedCount} old port usages`);
-    
-    // Tạo hoặc cập nhật port usage mới
-    const usage = await this.findOneAndUpdate(
-        { comPort: comPort, userId: userId },
-        { 
-            machineId: machineId,
-            sessionId: sessionId,
-            screenId: screenId,
-            isActive: true, 
-            connectedAt: new Date(),
-            lastActivity: new Date(),
-            heartbeat: new Date()
-        },
-        { upsert: true, new: true }
-    );
-    
-    // console.log(`🔒 [PORT-USAGE] Claimed port ${comPort} for user ${userId}, usage ID: ${usage._id}`);
-    return usage;
+    try {
+        // Bước 1: Kiểm tra xem port có đang được sử dụng bởi user khác không
+        const existingUsage = await this.findOne(
+            { comPort: comPort, isActive: true, userId: { $ne: userId } }
+        );
+        
+        if (existingUsage) {
+            console.log(`🔒 [PORT-USAGE] Port ${comPort} is already in use by user ${existingUsage.userId}`);
+            throw new Error(`COM port ${comPort} đang được sử dụng bởi user ${existingUsage.userId}`);
+        }
+        
+        // Bước 2: Release port cũ của user hiện tại nếu có
+        const releaseResult = await this.updateMany(
+            { comPort: comPort, userId: userId, isActive: true },
+            { 
+                isActive: false, 
+                lastActivity: new Date(),
+                releasedAt: new Date()
+            }
+        );
+        
+        if (releaseResult.modifiedCount > 0) {
+            console.log(`🔒 [PORT-USAGE] Released ${releaseResult.modifiedCount} old port usage for user ${userId}`);
+        }
+        
+        // Bước 3: Tạo hoặc cập nhật port usage mới
+        const result = await this.findOneAndUpdate(
+            { comPort: comPort, userId: userId },
+            { 
+                machineId: machineId,
+                sessionId: sessionId,
+                screenId: screenId,
+                isActive: true, 
+                connectedAt: new Date(),
+                lastActivity: new Date(),
+                heartbeat: new Date()
+            },
+            { 
+                upsert: true, 
+                new: true
+            }
+        );
+        
+        console.log(`🔒 [PORT-USAGE] Successfully claimed port ${comPort} for user ${userId}, usage ID: ${result._id}`);
+        return result;
+        
+    } catch (error) {
+        console.error(`🔒 [PORT-USAGE] Failed to claim port ${comPort} for user ${userId}:`, error.message);
+        throw error;
+    }
 };
 
 // Method để release tất cả port của user

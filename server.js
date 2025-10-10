@@ -22,6 +22,8 @@ const DataOrder = require('./models/DataOrder');
 const ComboData = require('./models/ComboData');
 const ScannerAssignment = require('./models/ScannerAssignment');
 const PortUsage = require('./models/PortUsage');
+const comboCache = require('./utils/comboCache');
+const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
 const checkerUploadRouter = require('./routes/checkerUpload');
 
@@ -110,18 +112,19 @@ app.post('/api/login', async (req, res) => {
             return res.json({ success: false, message: 'Mật khẩu không đúng' });
         }
 
-        // Create session
-        req.session.user = {
-            username: account.username,
-            role: account.role
-        };
-
         // Create JWT token for API access
         const token = jwt.sign(
             { username: account.username, role: account.role },
             config.SESSION_SECRET,
             { expiresIn: '24h' }
         );
+
+        // Create session
+        req.session.user = {
+            username: account.username,
+            role: account.role,
+            token: token
+        };
 
         // Lấy thông tin COM port đã được phân quyền cho user từ collection scannerassignments
         const scannerAssignment = await ScannerAssignment.findOne({ userId: account.username });
@@ -179,6 +182,15 @@ app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
         console.error('Register error:', error);
         res.status(500).json({ success: false, message: 'Lỗi tạo tài khoản: ' + error.message });
     }
+});
+
+// API get token for admin
+app.get('/api/admin/token', requireLogin, requireAdmin, (req, res) => {
+    const token = req.session.user?.token;
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'Không có token trong session' });
+    }
+    res.json({ success: true, token: token });
 });
 
 // API get accounts (admin only)
@@ -704,6 +716,15 @@ async function connectToMongoDB() {
             maxPoolSize: 10 // Maintain up to 10 socket connections
         });
         console.log('Kết nối MongoDB thành công');
+        
+        // Khởi tạo cache sau khi kết nối MongoDB thành công
+        try {
+            await comboCache.refreshCache();
+            console.log('✅ ComboData cache initialized');
+        } catch (cacheError) {
+            console.error('⚠️ ComboData cache initialization failed:', cacheError.message);
+        }
+        
         return true;
     } catch (error) {
         console.error('Lỗi kết nối MongoDB:', error.message);
@@ -762,7 +783,6 @@ app.post('/api/logout', async (req, res) => {
                         } 
                     }
                 );
-                console.log(`� User ${username} logout - đã unblock ${blockedOrders.length} đơn hàng`);
             }
         }
 
@@ -1028,7 +1048,11 @@ app.get('/api/orders', authFromToken, async (req, res) => {
 });
 
 // Route xóa tất cả orders
-app.delete('/api/orders', async (req, res) => {
+app.delete('/api/orders', authFromToken, async (req, res) => {
+    // Check if user is admin
+    if (req.authUser.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Chỉ admin mới có quyền xóa tất cả đơn hàng' });
+    }
     try {
         // Kiểm tra kết nối MongoDB
         if (mongoose.connection.readyState !== 1) {
@@ -1056,7 +1080,6 @@ app.delete('/api/orders', async (req, res) => {
 // Route tìm đơn hàng theo mã vận đơn
 app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
     try {
-        console.log(`🔍 API /api/orders/by-van-don/${req.params.maVanDon} called by user: ${req.authUser?.username}`);
         
         // Kiểm tra kết nối MongoDB
         if (mongoose.connection.readyState !== 1) {
@@ -1074,68 +1097,129 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
 
         // Tìm tất cả đơn hàng trong mã vận đơn
         const orders = await Order.find({ maVanDon });
-        console.log(`📦 Found ${orders.length} orders for maVanDon: ${maVanDon}`);
         
         // Map ComboData để convert mã combo thành mã base nếu cần
         const ComboData = require('./models/ComboData');
         let comboDatas = [];
         try {
-            comboDatas = await ComboData.find({});
+            comboDatas = await comboCache.getAllCombos();
         } catch (error) {
             console.log('ComboData collection không tồn tại hoặc rỗng:', error.message);
         }
         const comboMap = new Map();
-        for (const cd of comboDatas) {
+        // comboDatas là Map từ cache, cần flatten thành array
+        const comboArray = [];
+        for (const combos of comboDatas.values()) {
+            comboArray.push(...combos);
+        }
+        // Tạo map theo comboCode để lấy tất cả sản phẩm trong combo
+        for (const cd of comboArray) {
             if (cd && cd.comboCode) {
-                comboMap.set(cd.comboCode, cd);
+                if (!comboMap.has(cd.comboCode)) {
+                    comboMap.set(cd.comboCode, []);
+                }
+                comboMap.get(cd.comboCode).push(cd);
             }
         }
         
-        // Tính toán displayMaHang và displaySoLuong trước
-        const processedOrders = orders.map(o => {
-            const combo = comboMap.get(o.maHang);
-            let displayMaHang = o.maHang;
-            let displaySoLuong = o.soLuong;
-            let isCombo = false;
+        // Tách combo thành các SKU riêng biệt và cộng số lượng nếu trùng
+        const skuMap = new Map(); // Map để cộng số lượng SKU trùng
+        
+        orders.forEach(o => {
+            const combos = comboMap.get(o.maHang);
             
-            if (combo) {
-                // Nếu là combo: hiển thị mã base, số lượng đã nhân combo
-                displayMaHang = combo.maHang || o.maHang;
-                // Hiển thị số lượng đã nhân combo: soLuong_trong_DB * combo_multiplier
-                displaySoLuong = o.soLuong * (combo.soLuong || 1);
-                isCombo = true;
-                console.log(`🔍 Order combo: ${o.maHang} -> ${displayMaHang} x${displaySoLuong} (DB: ${o.soLuong}, combo x${combo.soLuong})`);
+            if (combos && combos.length > 0) {
+                // Nếu là combo: tách thành các SKU riêng biệt
+                combos.forEach(combo => {
+                    const skuKey = combo.maHang;
+                    const quantity = o.soLuong * combo.soLuong;
+                    
+                    if (skuMap.has(skuKey)) {
+                        // SKU đã tồn tại, cộng số lượng
+                        skuMap.get(skuKey).quantity += quantity;
+                        skuMap.get(skuKey).sources.push({
+                            type: 'combo',
+                            comboCode: o.maHang,
+                            orderQuantity: o.soLuong,
+                            comboItemQuantity: combo.soLuong
+                        });
+                    } else {
+                        // SKU mới
+                        skuMap.set(skuKey, {
+                            maHang: skuKey,
+                            quantity: quantity,
+                            sources: [{
+                                type: 'combo',
+                                comboCode: o.maHang,
+                                orderQuantity: o.soLuong,
+                                comboItemQuantity: combo.soLuong
+                            }]
+                        });
+                    }
+                });
+                
             } else {
-                // Nếu không phải combo: hiển thị mã gốc, số lượng gốc
-                displayMaHang = o.maHang;
-                displaySoLuong = o.soLuong; // Số lượng gốc từ database
-                isCombo = false;
+                // Nếu không phải combo: thêm SKU trực tiếp
+                const skuKey = o.maHang;
+                const quantity = o.soLuong;
+                
+                if (skuMap.has(skuKey)) {
+                    // SKU đã tồn tại, cộng số lượng
+                    skuMap.get(skuKey).quantity += quantity;
+                    skuMap.get(skuKey).sources.push({
+                        type: 'direct',
+                        orderQuantity: quantity
+                    });
+                } else {
+                    // SKU mới
+                    skuMap.set(skuKey, {
+                        maHang: skuKey,
+                        quantity: quantity,
+                        sources: [{
+                            type: 'direct',
+                            orderQuantity: quantity
+                        }]
+                    });
+                }
             }
+        });
+        
+        // Chuyển Map thành array và sắp xếp theo STT
+        const processedOrders = Array.from(skuMap.values()).map((sku, index) => {
+            const directSources = sku.sources.filter(s => s.type === 'direct');
+            const comboSources = sku.sources.filter(s => s.type === 'combo');
             
             return {
-                ...o.toObject(), // Convert Mongoose document to plain object
-                displayMaHang,
-                displaySoLuong,
-                isCombo,
-                combo
+                stt: index + 1,
+                maDongGoi: orders[0]?.maDongGoi || '', // Lấy từ order đầu tiên
+                maVanDon: orders[0]?.maVanDon || '', // Lấy từ order đầu tiên
+                maDonHang: orders[0]?.maDonHang || '', // Lấy từ order đầu tiên
+                maHang: sku.maHang,
+                soLuong: sku.quantity,
+                displayMaHang: sku.maHang,
+                displaySoLuong: sku.quantity,
+                isCombo: false, // Đã tách thành SKU riêng biệt
+                isCombined: directSources.length > 0 && comboSources.length > 0, // Có cả đơn riêng và combo
+                sources: sku.sources,
+                importDate: orders[0]?.importDate || new Date(),
+                verified: false,
+                verifiedAt: null,
+                scannedQuantity: 0,
+                checkingBy: null,
+                block: false,
+                blockedAt: null
             };
         });
         
-        // Lấy thông tin MasterData cho tất cả mã hàng (cả gốc và display)
-        const allSkuList = [...new Set([
-            ...orders.map(o => o.maHang),
-            ...processedOrders.map(o => o.displayMaHang)
-        ])];
-        console.log(`[MASTERDATA] Looking for SKUs:`, allSkuList);
+        // Lấy thông tin MasterData cho tất cả mã hàng
+        const allSkuList = [...new Set(processedOrders.map(o => o.maHang))];
         
         // Kiểm tra tổng số MasterData trong collection
         const totalMasterData = await MasterData.countDocuments();
-        console.log(`[MASTERDATA] Total MasterData in collection: ${totalMasterData}`);
         
         let masterDatas = [];
         try {
             masterDatas = await MasterData.find({ sku: { $in: allSkuList } });
-            console.log(`[MASTERDATA] Found ${masterDatas.length} MasterData records for requested SKUs`);
         } catch (error) {
             console.error('❌ [MASTERDATA] Error loading MasterData:', error);
             masterDatas = [];
@@ -1145,29 +1229,23 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
         for (const md of masterDatas) {
             if (md.sku) {
                 masterMap.set(md.sku, md);
-                console.log(`✅ [MASTERDATA] Mapped SKU: ${md.sku} -> MàuVải: ${md.mauVai || 'N/A'}, TênPhiênBản: ${md.tenPhienBan || 'N/A'}`);
-                console.log(`🔍 [MASTERDATA] Full MasterData fields:`, Object.keys(md.toObject()));
             }
         }
         
         const mappedOrders = processedOrders.map(o => {
-            // Tìm MasterData theo displayMaHang (mã base để hiển thị)
-            const md = masterMap.get(o.displayMaHang);
+            // Tìm MasterData theo maHang (mã SKU riêng biệt)
+            const md = masterMap.get(o.maHang);
             
             return {
                 ...o, // o đã là plain object từ processedOrders
-                maHang: o.displayMaHang, // Hiển thị mã base
-                soLuong: o.displaySoLuong, // Hiển thị số lượng đúng
-                originalMaHang: o.maHang, // Giữ mã combo gốc
-                isCombo: o.isCombo,
-                comboInfo: o.combo ? {
-                    comboCode: o.combo.comboCode,
-                    comboSoLuong: o.combo.soLuong,
-                    originalSoLuong: o.soLuong / (o.combo.soLuong || 1), // Số lượng gốc từ file (chưa nhân combo)
-                    calculatedSoLuong: o.soLuong // Số lượng đã nhân combo trong database
-                } : null,
                 mauVai: md && typeof md.mauVai === 'string' ? md.mauVai : '',
-                tenPhienBan: md && typeof md.tenPhienBan === 'string' ? md.tenPhienBan : ''
+                tenPhienBan: md && typeof md.tenPhienBan === 'string' ? md.tenPhienBan : '',
+                // Thông tin nguồn gốc của SKU
+                sourceInfo: {
+                    isCombined: o.isCombined,
+                    sources: o.sources,
+                    totalQuantity: o.quantity
+                }
             };
         });
 
@@ -1183,7 +1261,6 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
         // Kiểm tra xem tất cả đơn hàng đã hoàn thành chưa
         const allCompleted = orders.every(order => order.verified === true);
         if (allCompleted) {
-            console.log(`All orders completed for maVanDon: ${maVanDon}`);
             return res.json({
                 success: false,
                 message: 'Đơn hàng đã được quét hoàn tất',
@@ -1228,17 +1305,20 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
             });
         }
 
-        // Block tất cả đơn hàng trong mã vận đơn cho user hiện tại
-        for (const order of orders) {
-            if (!order.block || order.checkingBy === userId) {
-                order.block = true;
-                order.checkingBy = userId;
-                order.blockedAt = new Date();
-                await order.save();
-            }
+        // Block tất cả đơn hàng trong mã vận đơn cho user hiện tại với optimistic locking
+        const orderIds = orders.map(order => order._id);
+        const lockResult = await SimpleLocking.blockOrders(orderIds, userId);
+        
+        if (!lockResult.success || lockResult.errors.length > 0) {
+            console.error('❌ [LOCK-ERROR] Failed to lock orders:', lockResult.errors);
+            return res.status(500).json({
+                success: false,
+                message: 'Lỗi khóa đơn hàng: ' + lockResult.errors.join(', ')
+            });
         }
+        
+        console.log(`✅ Successfully blocked ${lockResult.blockedCount} orders for user ${userId}`);
 
-        console.log(`User ${userId} đã block đơn vận đơn ${maVanDon} với ${orders.length} đơn hàng`);
 
         // Lưu user behaviour cho việc load order
         try {
@@ -1268,7 +1348,6 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
         const isVanDonCompleted = allItemsCompleted;
 
         // Trả về đúng cấu trúc cho checker: orders (full info)
-        console.log(`✅ Returning ${mappedOrders.length} orders for maVanDon: ${maVanDon}`);
         res.json({
             success: true,
             message: `Tìm thấy ${mappedOrders.length} đơn hàng trong đơn vận đơn ${maVanDon}`,
@@ -1337,16 +1416,15 @@ app.get('/api/user-behaviour', authFromToken, async (req, res) => {
         const UserBehaviour = require('./models/UserBehaviour');
         const { user, method, limit = 100, page = 1 } = req.query;
         
-        // Chỉ admin mới có thể xem tất cả behaviour
-        if (req.authUser.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin mới có thể xem user behaviour'
-            });
-        }
-        
+        // Admin có thể xem tất cả, checker chỉ có thể xem của mình
         const query = {};
-        if (user) query.user = user;
+        if (req.authUser.role !== 'admin') {
+            // Checker chỉ có thể xem behaviour của chính mình
+            query.user = req.authUser.username;
+        } else {
+            // Admin có thể filter theo user khác
+            if (user) query.user = user;
+        }
         if (method) query.method = method;
         
         const skip = (page - 1) * limit;
@@ -1396,50 +1474,71 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
 
         // Nếu mã quét là mã combo, hướng dẫn quét mã base
         if (maHang && typeof maHang === 'string') {
-            const combo = await ComboData.findOne({ comboCode: maHang });
-            if (combo) {
-                const base = combo.maHang || 'mã base của combo';
+            const combos = await comboCache.getCombosByCode(maHang);
+            if (combos && combos.length > 0) {
+                // Lấy danh sách tất cả mã base trong combo
+                const baseItems = combos.map(combo => `${combo.maHang} (x${combo.soLuong})`).join(', ');
                 return res.json({
                     success: false,
-                    message: `Đây là mã combo (${maHang}). Vui lòng quét mã hàng base: ${base}`
+                    message: `Đây là mã combo (${maHang}). Vui lòng quét mã hàng base: ${baseItems}`
                 });
             }
         }
 
         // Tìm đơn hàng cụ thể - Logic cải thiện cho ComboData:
         // 1. Tìm trực tiếp với maHang (cho trường hợp non-combo)
-        // 2. Nếu không tìm thấy, tìm tất cả combo có mã base = maHang đang quét, 
-        //    rồi tìm order với mã combo phù hợp trong maVanDon
-        let order = await Order.findOne({ maVanDon, maHang });
+        // 2. Tìm tất cả combo có mã base = maHang đang quét
+        // 3. Tính tổng số lượng từ cả đơn riêng và combo
+        let directOrder = await Order.findOne({ maVanDon, maHang });
+        let comboOrders = [];
+        let totalRequiredQuantity = 0;
+        let totalScannedQuantity = 0;
         let isComboOrder = false;
         
-        if (!order) {
-            // Có thể là combo: tìm tất cả combo có mã base = maHang đang quét
-            const ComboData = require('./models/ComboData');
-            const combos = await ComboData.find({ maHang: maHang });
-            console.log(`🔍 Found ${combos.length} combos for base maHang: ${maHang}`);
-            
-            // Tìm order với combo code phù hợp trong maVanDon
-            for (const combo of combos) {
-                const comboOrder = await Order.findOne({ maVanDon, maHang: combo.comboCode });
-                if (comboOrder) {
-                    order = comboOrder;
-                    isComboOrder = true;
-                    console.log(`🔍 Found matching combo: ${combo.comboCode} -> ${combo.maHang}, found order: ${!!order}`);
-                    break; // Tìm thấy order phù hợp thì dừng
-                }
-            }
-        } else {
-            // Kiểm tra xem maHang này có phải là combo code không
-            const ComboData = require('./models/ComboData');
-            const combo = await ComboData.findOne({ comboCode: maHang });
-            if (combo) {
-                isComboOrder = true;
-                console.log(`🔍 Input is combo code: ${maHang} -> ${combo.maHang}`);
+        // Tìm tất cả combo có mã base = maHang đang quét
+        const combos = await comboCache.getCombosByMaHang(maHang);
+        console.log(`🔍 Found ${combos.length} combos for base maHang: ${maHang}`);
+        
+        // Tìm order với combo code phù hợp trong maVanDon
+        for (const combo of combos) {
+            const comboOrder = await Order.findOne({ maVanDon, maHang: combo.comboCode });
+            if (comboOrder) {
+                comboOrders.push({
+                    order: comboOrder,
+                    combo: combo
+                });
+                console.log(`🔍 Found matching combo: ${combo.comboCode} -> ${combo.maHang}, found order: ${!!comboOrder}`);
             }
         }
+        
+        // Tính tổng số lượng cần quét
+        if (directOrder) {
+            // Sản phẩm có đơn riêng
+            totalRequiredQuantity += directOrder.soLuong;
+            totalScannedQuantity += directOrder.scannedQuantity || 0;
+            console.log(`📦 Direct order: ${directOrder.soLuong} required, ${directOrder.scannedQuantity || 0} scanned`);
+        }
+        
+        // Cộng thêm từ combo
+        for (const { order: comboOrder, combo } of comboOrders) {
+            const comboRequiredQuantity = comboOrder.soLuong * combo.soLuong;
+            totalRequiredQuantity += comboRequiredQuantity;
+            totalScannedQuantity += comboOrder.scannedQuantity || 0;
+            console.log(`📦 Combo ${combo.comboCode}: ${comboOrder.soLuong} * ${combo.soLuong} = ${comboRequiredQuantity} required, ${comboOrder.scannedQuantity || 0} scanned`);
+        }
+        
+        // Xác định order chính để cập nhật (ưu tiên đơn riêng, nếu không có thì lấy combo đầu tiên)
+        let mainOrder = directOrder;
+        if (!mainOrder && comboOrders.length > 0) {
+            mainOrder = comboOrders[0].order;
+            isComboOrder = true;
+        }
+        
+        if (directOrder && comboOrders.length > 0) {
+            console.log(`🔍 Product ${maHang} has both direct order and combo orders - total required: ${totalRequiredQuantity}, total scanned: ${totalScannedQuantity}`);
+        }
 
-        if (!order) {
+        if (!mainOrder) {
             return res.json({
                 success: false,
                 message: 'Không tìm thấy mã hàng trong đơn vận đơn này'
@@ -1449,114 +1548,87 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
         // Kiểm tra timeout - nếu block quá 10 phút thì tự động unblock
         const now = new Date();
         const blockTimeout = 10 * 60 * 1000; // 10 phút
-        if (order.block && order.blockedAt && (now - order.blockedAt) > blockTimeout) {
-            order.block = false;
-            order.checkingBy = null;
-            order.blockedAt = null;
+        if (mainOrder.block && mainOrder.blockedAt && (now - mainOrder.blockedAt) > blockTimeout) {
+            mainOrder.block = false;
+            mainOrder.checkingBy = null;
+            mainOrder.blockedAt = null;
             // Reset trạng thái quét khi timeout auto-unblock
-            order.scannedQuantity = 0;
-            order.verified = false;
-            order.verifiedAt = null;
-            await order.save();
-            console.log(`🕐 Tự động unblock đơn hàng ${order.maHang} do timeout và reset trạng thái quét`);
+            mainOrder.scannedQuantity = 0;
+            mainOrder.verified = false;
+            mainOrder.verifiedAt = null;
+            await mainOrder.save();
+            console.log(`🕐 Tự động unblock đơn hàng ${mainOrder.maHang} do timeout và reset trạng thái quét`);
         }
 
         // Nếu đang bị block bởi người khác
-        if (order.block && order.checkingBy !== userId) {
+        if (mainOrder.block && mainOrder.checkingBy !== userId) {
             return res.json({
                 success: false,
                 blocked: true,
-                message: `Mã hàng ${displayMaHang} đang được ${order.checkingBy} kiểm tra. Vui lòng chờ ${order.checkingBy} hoàn thành hoặc thử lại sau.`
+                message: `Mã hàng ${maHang} đang được ${mainOrder.checkingBy} kiểm tra. Vui lòng chờ ${mainOrder.checkingBy} hoàn thành hoặc thử lại sau.`
             });
         }
 
-        // Nếu chưa ai check hoặc chưa bị block, gán checkingBy và block đơn này ngay khi truy xuất
-        if (!order.checkingBy || !order.block) {
-            order.checkingBy = userId;
-            order.block = true;
-            order.blockedAt = new Date();
-            await order.save();
-            console.log(`User ${userId} đã block đơn hàng ${order.maHang}`);
-        }
-
-        // Kiểm tra đã xác nhận chưa
-        if (order.verified) {
-            return res.json({
+        // Block đơn hàng với optimistic locking
+        const lockResult = await SimpleLocking.blockSingleOrder(mainOrder._id, userId);
+        
+        if (!lockResult.success) {
+            console.error('❌ [LOCK-ERROR] Failed to lock order:', lockResult.error);
+            return res.status(500).json({
                 success: false,
-                message: `Mã hàng ${maHang} đã được xác nhận trước đó`,
+                message: 'Lỗi khóa đơn hàng: ' + lockResult.error
+            });
+        }
+        
+        console.log(`✅ Successfully blocked single order ${mainOrder.maDongGoi} for user ${userId}`);
+
+        // Kiểm tra đã xác nhận chưa - cho phép quét lại
+        if (totalScannedQuantity >= totalRequiredQuantity) {
+            // Tính lại progress cho đơn vận đơn
+            const allOrders = await Order.find({ maVanDon });
+            const verifiedOrders = await Order.find({ maVanDon, verified: true });
+            const isCompleted = allOrders.length === verifiedOrders.length;
+            
+            return res.json({
+                success: true,
+                message: `Mã hàng ${maHang} đã đủ số lượng (${totalScannedQuantity}/${totalRequiredQuantity}). Tiếp tục quét đơn hàng khác.`,
                 data: {
-                    maHang: order.maHang,
-                    soLuong: order.soLuong,
+                    maHang: maHang,
+                    soLuong: totalRequiredQuantity,
                     verified: true,
-                    verifiedAt: order.verifiedAt
+                    verifiedAt: mainOrder.verifiedAt,
+                    scannedQuantity: totalScannedQuantity,
+                    progress: {
+                        completed: verifiedOrders.length,
+                        total: allOrders.length,
+                        isCompleted
+                    }
                 }
             });
         }
 
-        // Xác định mã hiển thị và thông tin combo
-        let displayMaHang = maHang; // Mặc định là mã đang quét
-        let comboInfo = null;
+        // Cập nhật số lượng quét cho đơn hàng chính
+        if (!mainOrder.scannedQuantity) {
+            mainOrder.scannedQuantity = 0;
+        }
+        mainOrder.scannedQuantity += 1;
+
+        // Kiểm tra xem đã đủ số lượng chưa
+        const newTotalScanned = totalScannedQuantity + 1;
+        let allOrdersCompleted = true;
         
-        if (isComboOrder) {
-            // Trường hợp combo: hiển thị mã base, lấy thông tin combo
-            const ComboData = require('./models/ComboData');
-            const combo = await ComboData.findOne({ comboCode: order.maHang });
-            if (combo) {
-                displayMaHang = combo.maHang || maHang;
-                comboInfo = {
-                    comboCode: combo.comboCode,
-                    comboSoLuong: combo.soLuong,
-                    originalSoLuong: order.soLuong / (combo.soLuong || 1),
-                    calculatedSoLuong: order.soLuong
-                };
-                console.log(`📦 Combo info: ${combo.comboCode} -> ${combo.maHang} x${combo.soLuong}`);
-            }
+        // Cập nhật trạng thái verified cho đơn hàng chính
+        if (newTotalScanned >= totalRequiredQuantity) {
+            mainOrder.verified = true;
+            mainOrder.verifiedAt = new Date();
         } else {
-            // Trường hợp non-combo: hiển thị mã gốc
-            displayMaHang = order.maHang;
-        }
-
-        // Database lưu mã combo và số lượng gốc (chưa nhân combo)
-        // So sánh scannedQuantity với soLuong đã nhân combo
-        if (!order.scannedQuantity) {
-            order.scannedQuantity = 0;
+            mainOrder.verified = false;
+            allOrdersCompleted = false;
         }
         
-        // Tính số lượng cần quét (đã nhân combo)
-        let requiredQuantity = order.soLuong;
-        if (isComboOrder) {
-            const ComboData = require('./models/ComboData');
-            const combo = await ComboData.findOne({ comboCode: order.maHang });
-            if (combo) {
-                requiredQuantity = order.soLuong * (combo.soLuong || 1);
-                console.log(`📦 Scan logic: ${order.soLuong} * ${combo.soLuong} = ${requiredQuantity} scans needed`);
-            }
-        }
-        
-        if (order.scannedQuantity >= requiredQuantity) {
-            return res.json({
-                success: false,
-                message: `Mã hàng ${displayMaHang} đã đủ số lượng (${order.scannedQuantity}/${requiredQuantity}). Không thể quét thêm.`
-            });
-        }
-        order.scannedQuantity += 1;
-
-        // Chỉ hoàn thành khi quét đủ đúng số lượng (đã nhân combo)
-        if (order.scannedQuantity === requiredQuantity) {
-            order.verified = true;
-            order.verifiedAt = new Date();
-            console.log(`User ${userId} đã hoàn thành đơn hàng ${displayMaHang} (${order.scannedQuantity}/${requiredQuantity})`);
-        } else {
-            order.verified = false;
-        }
-        
-        // KHÔNG cập nhật block/unblock khi quét maHang
-        // Chỉ cập nhật block/unblock khi confirm đơn (quét lại maVanDon)
-
         // Lưu trực tiếp vào database
-        await order.save();
+        await mainOrder.save();
 
-        console.log(`Đã quét mã hàng ${displayMaHang}: ${order.scannedQuantity}/${requiredQuantity} - Status: ${order.verified ? 'COMPLETED' : 'IN_PROGRESS'}`);
         
         // Lưu user behaviour cho việc quét mã hàng
         try {
@@ -1564,16 +1636,18 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
             const behaviour = new UserBehaviour({
                 user: userId,
                 method: 'scanner',
-                description: `Quét mã hàng: ${displayMaHang} - Tiến độ: ${order.scannedQuantity}/${requiredQuantity} - ${order.verified ? 'Hoàn thành' : 'Đang quét'}`,
+                description: `Quét mã hàng: ${maHang} - Tiến độ: ${newTotalScanned}/${totalRequiredQuantity} - ${mainOrder.verified ? 'Hoàn thành' : 'Đang quét'}`,
                 metadata: {
                     maVanDon,
-                    maHang: displayMaHang,
-                    originalMaHang: order.maHang,
-                    scannedQuantity: order.scannedQuantity,
-                    requiredQuantity,
-                    verified: order.verified,
+                    maHang: maHang,
+                    originalMaHang: mainOrder.maHang,
+                    scannedQuantity: newTotalScanned,
+                    requiredQuantity: totalRequiredQuantity,
+                    verified: mainOrder.verified,
                     isCombo: isComboOrder,
-                    comboInfo: comboInfo
+                    hasDirectOrder: !!directOrder,
+                    comboOrdersCount: comboOrders.length,
+                    totalOrders: (directOrder ? 1 : 0) + comboOrders.length
                 },
                 ipAddress: req.ip || req.connection.remoteAddress,
                 userAgent: req.get('User-Agent') || '',
@@ -1592,18 +1666,19 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
 
         res.json({
             success: true,
-            message: order.verified ? 
-                `Hoàn thành mã hàng ${displayMaHang}! (${order.scannedQuantity}/${requiredQuantity})` :
-                `Đã quét mã hàng ${displayMaHang}! (${order.scannedQuantity}/${requiredQuantity})`,
+            message: mainOrder.verified ? 
+                `Hoàn thành mã hàng ${maHang}! (${newTotalScanned}/${totalRequiredQuantity})` :
+                `Đã quét mã hàng ${maHang}! (${newTotalScanned}/${totalRequiredQuantity})`,
             data: {
-                maHang: displayMaHang,
-                soLuongYeuCau: requiredQuantity,
-                soLuongDaQuet: order.scannedQuantity,
-                originalMaHang: order.maHang,
+                maHang: maHang,
+                soLuongYeuCau: totalRequiredQuantity,
+                soLuongDaQuet: newTotalScanned,
+                originalMaHang: mainOrder.maHang,
                 isCombo: isComboOrder,
-                comboInfo: comboInfo,
-                verified: order.verified,
-                verifiedAt: order.verifiedAt,
+                hasDirectOrder: !!directOrder,
+                comboOrdersCount: comboOrders.length,
+                verified: mainOrder.verified,
+                verifiedAt: mainOrder.verifiedAt,
                 progress: {
                     completed: verifiedOrders.length,
                     total: allOrders.length,
@@ -1660,7 +1735,8 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
             // Tính requiredQuantity cho combo items
             let requiredQuantity = order.soLuong;
             const ComboData = require('./models/ComboData');
-            const combo = await ComboData.findOne({ comboCode: order.maHang });
+            const combos = await comboCache.getCombosByCode(order.maHang);
+            const combo = combos && combos.length > 0 ? combos[0] : null;
             if (combo) {
                 requiredQuantity = order.soLuong * (combo.soLuong || 1);
             }
@@ -1691,7 +1767,6 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
             }
         );
 
-        console.log(`User ${userId} đã hoàn thành đơn vận đơn ${maVanDon}`);
         
         // Lưu user behaviour cho việc hoàn thành đơn
         try {
@@ -1847,7 +1922,6 @@ app.post('/api/orders/unblock', async (req, res) => {
             order.verified = false;
             order.verifiedAt = null;
             await order.save();
-            console.log(`User ${userId} đã unblock đơn hàng ${order.maHang} và reset trạng thái quét`);
             
             return res.json({
                 success: true,
@@ -1894,28 +1968,23 @@ app.post('/api/orders/unblock-van-don', authFromToken, async (req, res) => {
             });
         }
 
-        let unblockedCount = 0;
-        // Unblock tất cả đơn hàng mà user hiện tại đang check
-        // Đồng thời reset trạng thái quét để đảm bảo tính nhất quán
-        for (const order of orders) {
-            if (order.checkingBy === userId && order.block) {
-                order.checkingBy = null;
-                order.block = false;
-                order.blockedAt = null;
-                // Reset trạng thái quét khi hủy đơn
-                order.scannedQuantity = 0;
-                order.verified = false;
-                order.verifiedAt = null;
-                await order.save();
-                unblockedCount++;
-            }
+        // Unblock tất cả đơn hàng với optimistic locking
+        const unlockResult = await SimpleLocking.unblockOrders(maVanDon, userId);
+        
+        if (!unlockResult.success) {
+            console.error('❌ [UNLOCK-ERROR] Failed to unlock orders:', unlockResult.errors);
+            return res.status(500).json({
+                success: false,
+                message: 'Lỗi unlock đơn hàng: ' + unlockResult.errors.join(', ')
+            });
         }
+        
+        console.log(`✅ Successfully unblocked ${unlockResult.unblockedCount} orders for user ${userId}`);
 
-        console.log(`User ${userId} đã unblock ${unblockedCount} đơn hàng trong mã vận đơn ${maVanDon}`);
         
         return res.json({
             success: true,
-            message: `Đã unblock ${unblockedCount} đơn hàng thành công`
+            message: `Đã unblock ${unlockResult.unblockedCount} đơn hàng thành công`
         });
 
     } catch (error) {
@@ -2044,25 +2113,15 @@ app.post('/api/check-port-usage', requireLogin, async (req, res) => {
     }
 });
 
-// API claim port khi kết nối
+// API claim port khi kết nối (atomic operation)
 app.post('/api/claim-port', requireLogin, async (req, res) => {
     try {
         const { comPort, machineId, sessionId, screenId } = req.body;
         const username = req.session?.user?.username;
         
-        console.log(`[API /api/claim-port] User: ${username} claiming COM Port: ${comPort}, Machine: ${machineId}, Session: ${sessionId}, Screen: ${screenId}`);
+        console.log(`[API /api/claim-port] User: ${username} attempting to claim COM Port: ${comPort}, Machine: ${machineId}, Session: ${sessionId}, Screen: ${screenId}`);
         
-        // Kiểm tra xem port có đang được sử dụng bởi user khác không
-        const isInUse = await PortUsage.isPortInUse(comPort, username);
-        if (isInUse) {
-            const currentUser = await PortUsage.getCurrentUser(comPort);
-            return res.status(409).json({
-                success: false,
-                message: `COM port ${comPort} đang được sử dụng bởi ${currentUser}. Vui lòng đợi user đó ngắt kết nối.`
-            });
-        }
-        
-        // Claim port với machine/session tracking
+        // Claim port với atomic transaction (đã bao gồm kiểm tra conflict)
         const usage = await PortUsage.claimPort(comPort, username, machineId, sessionId, screenId);
         console.log(`[API /api/claim-port] User ${username} successfully claimed port ${comPort}`);
         
@@ -2074,6 +2133,15 @@ app.post('/api/claim-port', requireLogin, async (req, res) => {
         
     } catch (error) {
         console.error('[API /api/claim-port] Error:', error);
+        
+        // Kiểm tra loại lỗi để trả về response phù hợp
+        if (error.message.includes('đang được sử dụng bởi user')) {
+            return res.status(409).json({
+                success: false,
+                message: error.message
+            });
+        }
+        
         res.status(500).json({
             success: false,
             message: 'Lỗi claim port: ' + error.message
@@ -2185,12 +2253,9 @@ app.post('/api/delete-all-user-ports', requireLogin, async (req, res) => {
         const { userId } = req.body;
         const username = req.session?.user?.username;
         
-        console.log(`[API /api/delete-all-user-ports] User: ${username} deleting all port records for user: ${userId}`);
-        console.log(`[API /api/delete-all-user-ports] Request body:`, req.body);
         
         // Kiểm tra xem có bản ghi nào của user này không
         const existingPorts = await PortUsage.find({ userId: userId });
-        console.log(`[API /api/delete-all-user-ports] Found ${existingPorts.length} existing port records for user ${userId}:`, existingPorts.map(p => ({ comPort: p.comPort, isActive: p.isActive })));
         
         // Xóa hoàn toàn tất cả bản ghi port của user
         const deleted = await PortUsage.deleteAllUserPorts(userId);
@@ -2198,7 +2263,6 @@ app.post('/api/delete-all-user-ports', requireLogin, async (req, res) => {
         // Cleanup timeout ports (heartbeat > 30 seconds)
         const cleaned = await PortUsage.cleanupTimeoutPorts(30);
         
-        console.log(`[API /api/delete-all-user-ports] Deleted ${deleted} port records for user ${userId}, cleaned ${cleaned} timeout ports`);
         res.json({
             success: true,
             message: `Đã xóa ${deleted} bản ghi port của user ${userId}`,
@@ -2847,15 +2911,15 @@ app.post('/api/machine/register-com-ports', async (req, res) => {
 // API nhận input từ COM port và in ra console (KHÔNG CẦN LOGIN)
 app.post('/api/com-input', async (req, res) => {
     try {
-        const { userId, comPort, inputData, timestamp } = req.body;
+        const { userId, comPort, inputData, timestamp, sessionId } = req.body;
         
         // Kiểm tra quyền sử dụng COM port
         if (comPort && userId) {
             const currentUser = await PortUsage.getCurrentUser(comPort);
-            console.log(`🔍 [COM-INPUT] Checking permission for user ${userId} on port ${comPort}, current user: ${currentUser}`);
+            console.log(`🔍 [COM-INPUT] Checking permission for user ${userId} (session: ${sessionId}) on port ${comPort}, current user: ${currentUser}`);
             
             if (currentUser && currentUser !== userId) {
-                console.log(`🚫 [COM-INPUT] User ${userId} không có quyền sử dụng COM port ${comPort} (đang được sử dụng bởi ${currentUser})`);
+                console.log(`🚫 [COM-INPUT] User ${userId} (session: ${sessionId}) không có quyền sử dụng COM port ${comPort} (đang được sử dụng bởi ${currentUser})`);
                 return res.status(403).json({
                     success: false,
                     message: `COM port ${comPort} đang được sử dụng bởi user khác`,
@@ -2865,7 +2929,7 @@ app.post('/api/com-input', async (req, res) => {
             
             // Nếu không có user nào đang sử dụng port, từ chối input
             if (!currentUser) {
-                console.log(`🚫 [COM-INPUT] User ${userId} không có quyền sử dụng COM port ${comPort} (port chưa được claim)`);
+                console.log(`🚫 [COM-INPUT] User ${userId} (session: ${sessionId}) không có quyền sử dụng COM port ${comPort} (port chưa được claim)`);
                 return res.status(403).json({
                     success: false,
                     message: `COM port ${comPort} chưa được claim bởi user nào`,
@@ -2883,6 +2947,7 @@ app.post('/api/com-input', async (req, res) => {
         console.log('📱 COM PORT INPUT RECEIVED');
         console.log('='.repeat(80));
         console.log(`👤 User ID: ${userId || 'Unknown'}`);
+        console.log(`🔑 Session ID: ${sessionId || 'Unknown'}`);
         console.log(`🔌 COM Port: ${comPort || 'Unknown'}`);
         console.log(`📊 Input Data: ${inputData || 'No data'}`);
         console.log(`⏰ Timestamp: ${timestamp || new Date().toISOString()}`);
@@ -3084,6 +3149,42 @@ app.post('/api/cleanup-timeout-ports', requireAdmin, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi cleanup timeout ports: ' + error.message
+        });
+    }
+});
+
+// API kiểm tra trạng thái ComboData cache
+app.get('/api/combo-cache/stats', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        const stats = comboCache.getCacheStats();
+        res.json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        console.error('[API /api/combo-cache/stats] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy thống kê cache: ' + error.message
+        });
+    }
+});
+
+// API refresh ComboData cache
+app.post('/api/combo-cache/refresh', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        await comboCache.refreshCache();
+        const stats = comboCache.getCacheStats();
+        res.json({
+            success: true,
+            message: 'Cache đã được refresh thành công',
+            data: stats
+        });
+    } catch (error) {
+        console.error('[API /api/combo-cache/refresh] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi refresh cache: ' + error.message
         });
     }
 });
