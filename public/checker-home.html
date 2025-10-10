@@ -2533,11 +2533,22 @@ let pageSize = 20;
                 scannedItems = [...this.scannedItems]; // Copy array để đồng bộ
                 orderCheckState = this.state;
                 
+                // Debug logging
+                console.log('🔍 [updateUI] Debug info:', {
+                    currentMaVanDon,
+                    cacheOrdersLength: cacheOrders.length,
+                    scannedItemsLength: scannedItems.length,
+                    state: this.state,
+                    cacheOrders: cacheOrders
+                });
+                
                 // Cập nhật DOM
                 document.getElementById('maVanDonTag').textContent = currentMaVanDon || 'Chưa chọn';
                 renderQueue();
                 renderOrders();
                 updateProgress();
+                
+                console.log('🔍 [updateUI] After renderOrders, DOM rows:', document.getElementById('rows').children.length);
             }
             
             // Hiển thị lỗi
@@ -3056,6 +3067,13 @@ let pageSize = 20;
         }
 
         function renderOrders() {
+            console.log('🔍 [renderOrders] Starting renderOrders with:', {
+                cacheOrdersLength: cacheOrders.length,
+                cacheOrders: cacheOrders,
+                activeView: activeView,
+                currentPage: currentPage
+            });
+            
             const body = document.getElementById('rows');
             body.innerHTML = '';
             // Header
@@ -3073,7 +3091,11 @@ let pageSize = 20;
                 <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Trạng thái</div>
             `;
             body.appendChild(header);
+            
+            console.log('🔍 [renderOrders] Cache orders length:', cacheOrders.length);
+            
             if (!cacheOrders.length) {
+                console.log('🔍 [renderOrders] No cache orders, showing empty message');
                 body.innerHTML += '<div class="empty">Không có dữ liệu để hiển thị.</div>';
                 updateProgress();
                 return;
@@ -3082,6 +3104,14 @@ let pageSize = 20;
             const totalPages = Math.ceil(cacheOrders.length / pageSize);
             const startIdx = (currentPage - 1) * pageSize;
             const endIdx = Math.min(startIdx + pageSize, cacheOrders.length);
+            
+            console.log('🔍 [renderOrders] Pagination info:', {
+                totalPages,
+                startIdx,
+                endIdx,
+                pageSize
+            });
+            
             for (let i = startIdx; i < endIdx; i++) {
                 const o = cacheOrders[i];
                 const r = document.createElement('div');
@@ -3148,6 +3178,8 @@ let pageSize = 20;
                 pager.appendChild(nextBtn);
                 body.appendChild(pager);
             }
+            
+            console.log('🔍 [renderOrders] Completed rendering. Total DOM rows:', body.children.length);
 // Ẩn hoàn toàn thanh phân trang khi chuyển sang chức năng khác ngoài Xem đơn hàng
 window.hideOrderPager = function() {
     const pager = document.getElementById('fixed-pager');
