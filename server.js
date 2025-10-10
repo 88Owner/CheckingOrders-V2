@@ -1077,34 +1077,6 @@ app.delete('/api/orders', authFromToken, async (req, res) => {
     }
 });
 
-// Route lấy combo items cho một mã hàng
-app.get('/api/combo/items/:maHang', authFromToken, async (req, res) => {
-    try {
-        const { maHang } = req.params;
-        
-        // Kiểm tra kết nối MongoDB
-        if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({
-                success: false,
-                message: 'MongoDB chưa kết nối. Vui lòng thử lại sau.'
-            });
-        }
-
-        const combos = await comboCache.getCombosByCode(maHang);
-        
-        res.json({
-            success: true,
-            comboItems: combos || []
-        });
-    } catch (error) {
-        console.error('Error getting combo items:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi lấy thông tin combo: ' + error.message
-        });
-    }
-});
-
 // Route tìm đơn hàng theo mã vận đơn
 app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
     try {
@@ -1547,15 +1519,15 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
             console.log(`📦 Direct order: ${directOrder.soLuong} required, ${directOrder.scannedQuantity || 0} scanned`);
         }
         
-        // Cộng thêm từ combo
+        // Cộng thêm từ combo - GIỮ NGUYÊN LOGIC NGHIỆP VỤ CŨ
         for (const { order: comboOrder, combo } of comboOrders) {
-            const comboRequiredQuantity = comboOrder.soLuong * combo.soLuong;
+            // Logic cũ: 1 combo = 1 lần quét (không nhân với số lượng base products)
+            const comboRequiredQuantity = comboOrder.soLuong; // Chỉ tính số combo, không nhân base products
             totalRequiredQuantity += comboRequiredQuantity;
-            // SỬA: Tính scannedQuantity dựa trên số lượng base product đã quét trong combo
-            // Nếu combo đã được quét đủ thì = comboRequiredQuantity, nếu chưa thì = 0
-            const comboScannedQuantity = (comboOrder.scannedQuantity || 0) >= comboOrder.soLuong ? comboRequiredQuantity : 0;
+            // scannedQuantity của combo order chính là số combo đã quét
+            const comboScannedQuantity = comboOrder.scannedQuantity || 0;
             totalScannedQuantity += comboScannedQuantity;
-            console.log(`📦 Combo ${combo.comboCode}: ${comboOrder.soLuong} * ${combo.soLuong} = ${comboRequiredQuantity} required, ${comboScannedQuantity} scanned`);
+            console.log(`📦 Combo ${combo.comboCode}: ${comboOrder.soLuong} combo required, ${comboScannedQuantity} combo scanned`);
         }
         
         // Xác định order chính để cập nhật (ưu tiên đơn riêng, nếu không có thì lấy combo đầu tiên)
@@ -1758,21 +1730,13 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
             });
         }
 
-        // Kiểm tra tất cả mã hàng đã được quét đủ số lượng chưa
-        // Với combo items, cần kiểm tra scannedQuantity với requiredQuantity (đã nhân combo)
+        // Kiểm tra tất cả mã hàng đã được quét đủ số lượng chưa - GIỮ NGUYÊN LOGIC NGHIỆP VỤ CŨ
+        // Logic cũ: 1 combo = 1 lần quét, không nhân với số lượng base products
         const allCompleted = await Promise.all(orders.map(async (order) => {
             if (!order.verified) return false;
             
-            // Tính requiredQuantity cho combo items
-            let requiredQuantity = order.soLuong;
-            const ComboData = require('./models/ComboData');
-            const combos = await comboCache.getCombosByCode(order.maHang);
-            const combo = combos && combos.length > 0 ? combos[0] : null;
-            if (combo) {
-                requiredQuantity = order.soLuong * (combo.soLuong || 1);
-            }
-            
-            return order.scannedQuantity === requiredQuantity;
+            // Logic cũ: scannedQuantity phải bằng soLuong (không nhân combo)
+            return order.scannedQuantity >= order.soLuong;
         }));
         
         const allItemsCompleted = allCompleted.every(completed => completed);
