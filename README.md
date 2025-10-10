@@ -1,6 +1,6 @@
 # OrderCheck - Hệ thống quản lý đơn hàng và kiểm tra hàng 
 
-## 🚀 Hướng dẫn cài đặt
+##Hướng dẫn cài đặt
 
 ### Cách 1: Sử dụng Docker (Khuyến nghị)
 
@@ -21,11 +21,11 @@ Chỉnh sửa file `.env` nếu cần:
 # MongoDB Local Configuration (cho Docker)
 MONGODB_URI=mongodb://admin:password123@localhost:27017/OrderDetailing?authSource=admin
 
-# Session Secret (thay đổi thành chuỗi ngẫu nhiên)
+# Session Secret
 SESSION_SECRET=your-session-secret-here
 
 # Server Port
-PORT=3001
+PORT=3000
 
 # Environment
 NODE_ENV=development
@@ -44,7 +44,7 @@ docker-compose down
 ```
 
 #### 4. Truy cập ứng dụng
-- **HTTP**: http://localhost:3001
+- **HTTP**: http://localhost:30000
 - **MongoDB**: mongodb://localhost:27017
 
 ### Cách 2: Chạy trực tiếp trên máy
@@ -56,7 +56,7 @@ cd OrderCheck
 ```
 
 #### 2. Cài đặt MongoDB local
-- **Windows**: Tải và cài đặt từ [MongoDB Community Server](https://www.mongodb.com/try/download/community)
+- **Windows**: Tải và cài đặt từ [MongoDB Community Server]
 - **macOS**: `brew install mongodb-community`
 - **Ubuntu**: `sudo apt install mongodb`
 
@@ -86,7 +86,7 @@ MONGODB_URI=mongodb://localhost:27017/OrderDetailing
 SESSION_SECRET=your-session-secret-here
 
 # Server Port
-PORT=3001
+PORT=3000
 
 # Environment
 NODE_ENV=development
@@ -112,48 +112,16 @@ npm run dev
 npm start
 ```
 
-## 🔑 Tài khoản đăng nhập mặc định
+## Tài khoản đăng nhập mặc định
 
 Sau khi khởi tạo dữ liệu, bạn có thể đăng nhập với các tài khoản sau:
 
-- **admin/admin** - Quản trị viên
-- **nv01/123** - Nhân viên kiểm hàng (checker)
-- **nv02/123** - Nhân viên đóng gói (packer)
-- **user/123** - Người dùng thường
+- **admin/admin123** - Quản trị viên
 
-## 🌐 Truy cập ứng dụng
 
-- **HTTP**: http://localhost:3001
-- **HTTPS**: https://localhost:3001 (sau khi tạo SSL certificate)
+## Truy cập ứng dụng
+
+- **HTTP**: http://localhost:3000
+- **HTTPS**: https://localhost:3000
 - **MongoDB Local**: mongodb://localhost:27017
 - **MongoDB Remote**: mongodb://YOUR_SERVER_IP:27017/OrderDetailing
-
-> ⚠️ **Lưu ý**: Nếu sử dụng HTTPS, browser sẽ hiện cảnh báo SSL, click "Advanced" → "Proceed"
-
-## 🌍 Remote Access (Truy cập từ xa)
-
-Để máy khác có thể kết nối tới MongoDB trên server này:
-
-### 1. Test kết nối từ máy khác
-```bash
-# Windows
-scripts\test-remote-connection.bat YOUR_SERVER_IP
-
-# Linux/macOS
-./scripts/test-remote-connection.sh YOUR_SERVER_IP
-```
-
-### 2. Cấu hình ứng dụng từ xa
-```bash
-# Tạo file .env trên máy client
-MONGODB_URI=mongodb://YOUR_SERVER_IP:27017/OrderDetailing
-```
-
-### 3. Các bước cấu hình server
-- ✅ MongoDB đã được cấu hình bind trên tất cả interfaces
-- ✅ Không cần authentication (đơn giản hóa kết nối)
-- ⚠️ **Cần cấu hình**: Firewall cho phép port 27017
-- ⚠️ **Cần cấu hình**: Port forwarding (nếu qua Internet)
-
-> 📖 **Chi tiết**: Xem [REMOTE-ACCESS-GUIDE.md](REMOTE-ACCESS-GUIDE.md) để biết cách cấu hình chi tiết
-
