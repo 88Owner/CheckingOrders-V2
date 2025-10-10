@@ -583,22 +583,68 @@ let pageSize = 20;
                 return false;
             }
             
-            // Kiểm tra đơn có hoàn thành không
-            isOrderCompleted() {
+            // Kiểm tra đơn có hoàn thành không (async version)
+            async isOrderCompleted() {
                 if (!this.currentOrder || !this.cacheOrders.length) return false;
                 
-                const totalRequired = this.cacheOrders.reduce((sum, order) => sum + order.soLuong, 0);
-                const uniqueProducts = new Set(this.scannedItems.map(item => item.maHang));
-                const totalScanned = Array.from(uniqueProducts).reduce((sum, maHang) => {
-                    const scannedItemsForThisProduct = this.scannedItems.filter(item => item.maHang === maHang);
-                    if (scannedItemsForThisProduct.length > 0) {
-                        const latestItem = scannedItemsForThisProduct[scannedItemsForThisProduct.length - 1];
-                        return sum + (latestItem.soLuongDaQuet || 0);
+                // SỬA: Tính tổng số lượng thực tế cần quét (bao gồm combo items)
+                let totalRequired = 0;
+                let totalScanned = 0;
+                
+                // Tính cho từng order trong cacheOrders
+                for (const order of this.cacheOrders) {
+                    // Kiểm tra xem order này có phải combo không
+                    const comboItems = await this.getComboItemsForOrder(order.maHang);
+                    
+                    if (comboItems && comboItems.length > 0) {
+                        // Đây là combo order - tính tổng số lượng base products
+                        const comboRequiredQuantity = order.soLuong * comboItems.reduce((sum, item) => sum + item.soLuong, 0);
+                        totalRequired += comboRequiredQuantity;
+                        
+                        // Tính số lượng đã quét cho combo này
+                        const comboScannedQuantity = (order.scannedQuantity || 0) >= order.soLuong ? comboRequiredQuantity : 0;
+                        totalScanned += comboScannedQuantity;
+                    } else {
+                        // Đây là order thường
+                        totalRequired += order.soLuong;
+                        totalScanned += (order.scannedQuantity || 0);
                     }
-                    return sum;
-                }, 0);
+                }
+                
+                console.log(`🔍 Order completion check: required=${totalRequired}, scanned=${totalScanned}, completed=${totalScanned >= totalRequired}`);
+                return totalScanned >= totalRequired;
+            }
+            
+            // Kiểm tra đơn có hoàn thành không (sync version - fallback)
+            isOrderCompletedSync() {
+                if (!this.currentOrder || !this.cacheOrders.length) return false;
+                
+                // Fallback logic đơn giản - chỉ tính tổng orders
+                const totalRequired = this.cacheOrders.reduce((sum, order) => sum + order.soLuong, 0);
+                const totalScanned = this.cacheOrders.reduce((sum, order) => sum + (order.scannedQuantity || 0), 0);
                 
                 return totalScanned >= totalRequired;
+            }
+            
+            // Lấy combo items cho một order
+            async getComboItemsForOrder(maHang) {
+                try {
+                    const response = await fetch(`/api/combo/items/${maHang}`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${getAuthToken()}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        return data.comboItems || [];
+                    }
+                } catch (error) {
+                    console.error('Error getting combo items:', error);
+                }
+                return [];
             }
             
             // Kiểm tra đơn có đang được quét không
@@ -673,7 +719,7 @@ let pageSize = 20;
                 hideModal();
                 
                 // Kiểm tra trạng thái đơn hiện tại
-                const isCompleted = this.isOrderCompleted();
+                const isCompleted = await this.isOrderCompleted();
                 
                 if (isCompleted) {
                     // Đơn đã hoàn thành - tự động hoàn thành đơn
