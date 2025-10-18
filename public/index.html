@@ -297,6 +297,9 @@
                             <th>Mã đơn hàng</th>
                             <th>Mã hàng</th>
                             <th>Số lượng</th>
+                            <th>Trạng thái</th>
+                            <th>Nhân viên</th>
+                            <th>Thời gian quét</th>
                         </tr>
                     </thead>
                     <tbody id="ordersTableBody">
@@ -487,6 +490,28 @@
 
             orders.forEach(order => {
                 const row = document.createElement('tr');
+                
+                // Format thời gian quét
+                let scanTime = '-';
+                if (order.verified && order.verifiedAt) {
+                    const scanDate = new Date(order.verifiedAt);
+                    scanTime = scanDate.toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }) + ' ' + scanDate.toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+                
+                // Hiển thị nhân viên quét
+                let scannerName = '-';
+                if (order.verified && order.checkingBy) {
+                    scannerName = order.checkingBy;
+                }
+                
                 row.innerHTML = `
                     <td>${order.stt}</td>
                     <td>${order.maDongGoi}</td>
@@ -494,6 +519,9 @@
                     <td>${order.maDonHang}</td>
                     <td>${order.maHang}</td>
                     <td>${order.soLuong}</td>
+                    <td>${order.verified ? '<span style="color: green; font-weight: bold;">✅ Đã xác nhận</span>' : '<span style="color: orange; font-weight: bold;">⏳ Chưa xác nhận</span>'}</td>
+                    <td>${scannerName}</td>
+                    <td>${scanTime}</td>
                 `;
                 tbody.appendChild(row);
             });

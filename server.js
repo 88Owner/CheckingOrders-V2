@@ -295,21 +295,21 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
         const { role } = req.body;
         const accountId = req.params.id;
         
-        // console.log(`[UPDATE ROLE] Admin ${req.session.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
+        console.log(`[UPDATE ROLE] Admin ${req.session.user.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
         
         if (!role || !['user','admin','packer','checker'].includes(role)) {
-            // console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
+            console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
         
         const account = await Account.findById(accountId);
         if (!account) {
-            // console.log(`[UPDATE ROLE] Không tìm thấy account ID: ${accountId}`);
+            console.log(`[UPDATE ROLE] Không tìm thấy account ID: ${accountId}`);
             return res.json({ success: false, message: 'Không tìm thấy tài khoản' });
         }
         
         if (account.username === 'admin') {
-            // console.log(`[UPDATE ROLE] Không thể đổi quyền tài khoản admin gốc`);
+            console.log(`[UPDATE ROLE] Không thể đổi quyền tài khoản admin gốc`);
             return res.json({ success: false, message: 'Không thể đổi quyền tài khoản admin gốc' });
         }
         
@@ -317,21 +317,27 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
         account.role = role;
         await account.save();
         
-        // console.log(`[UPDATE ROLE] Đã save vào database. User: ${account.username}, ${oldRole} -> ${role}`);
+        console.log(`[UPDATE ROLE] Đã save vào database. User: ${account.username}, ${oldRole} -> ${role}`);
         
         // Verify lại từ database để chắc chắn đã update
         const verifyAccount = await Account.findById(accountId);
-        // console.log(`[UPDATE ROLE] Verify từ DB: role = ${verifyAccount.role}`);
+        console.log(`[UPDATE ROLE] Verify từ DB: role = ${verifyAccount.role}`);
         
         if (verifyAccount.role !== role) {
-            // console.error(`[UPDATE ROLE] CẢNH BÁO! Role trong DB (${verifyAccount.role}) khác với role mong đợi (${role})`);
+            console.error(`[UPDATE ROLE] CẢNH BÁO! Role trong DB (${verifyAccount.role}) khác với role mong đợi (${role})`);
             return res.json({
                 success: false,
                 message: 'Lỗi: Role không được lưu vào database'
             });
         }
         
-        // console.log(`[UPDATE ROLE] Thành công! Role đã được lưu vào MongoDB`);
+        console.log(`[UPDATE ROLE] Thành công! Role đã được lưu vào MongoDB`);
+        
+        // Nếu admin đổi role của chính mình, cập nhật session
+        if (req.session.user.username === account.username) {
+            req.session.user.role = role;
+            console.log(`[UPDATE ROLE] Đã cập nhật session role cho admin hiện tại: ${role}`);
+        }
         
         res.json({ 
             success: true, 
@@ -379,6 +385,99 @@ app.get('/api/accounts/:id/verify-role', requireLogin, requireAdmin, async (req,
     } catch (error) {
         console.error(`[VERIFY ROLE] Lỗi:`, error);
         res.status(500).json({ success: false, message: 'Lỗi kiểm tra role: ' + error.message });
+    }
+});
+
+// API đổi mật khẩu cho user (admin only)
+app.post('/api/admin/change-password', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        console.log('🔑 Change password request received');
+        console.log('Request body:', req.body);
+        console.log('Session user:', req.session.user.username);
+        
+        const { accountId, newPassword } = req.body;
+        
+        if (!accountId || !newPassword) {
+            console.log('❌ Missing required fields');
+            return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
+        }
+        
+        if (!newPassword.trim()) {
+            console.log('❌ Password is empty');
+            return res.json({ success: false, message: 'Mật khẩu không được để trống' });
+        }
+        
+        const account = await Account.findById(accountId);
+        if (!account) {
+            console.log('❌ Account not found:', accountId);
+            return res.json({ success: false, message: 'Không tìm thấy tài khoản' });
+        }
+        
+        console.log('✅ Found account:', account.username);
+        
+        // Hash mật khẩu mới
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        // Cập nhật mật khẩu
+        account.password = hashedPassword;
+        await account.save();
+        
+        console.log('✅ Password updated successfully');
+        
+        // Log hoạt động
+        await UserBehaviour.create({
+            user: req.session.user.username,
+            method: 'CHANGE_PASSWORD',
+            description: `Admin ${req.session.user.username} đã đổi mật khẩu cho user ${account.username}`,
+            metadata: {
+                targetUser: account.username,
+                targetUserId: accountId
+            }
+        });
+        
+        console.log('✅ UserBehaviour logged');
+        
+        res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+    } catch (error) {
+        console.error('❌ Error changing password:', error);
+        res.status(500).json({ success: false, message: 'Lỗi đổi mật khẩu: ' + error.message });
+    }
+});
+
+// API xóa tài khoản (admin only)
+app.delete('/api/accounts/:id', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        const accountId = req.params.id;
+        
+        const account = await Account.findById(accountId);
+        if (!account) {
+            return res.json({ success: false, message: 'Không tìm thấy tài khoản' });
+        }
+        
+        // Không cho phép xóa tài khoản admin gốc
+        if (account.username === 'admin') {
+            return res.json({ success: false, message: 'Không thể xóa tài khoản admin gốc' });
+        }
+        
+        // Xóa tài khoản
+        await Account.findByIdAndDelete(accountId);
+        
+        // Log hoạt động
+        await UserBehaviour.create({
+            user: req.session.user.username,
+            method: 'DELETE_ACCOUNT',
+            description: `Admin ${req.session.user.username} đã xóa tài khoản ${account.username}`,
+            metadata: {
+                deletedUser: account.username,
+                deletedUserId: accountId,
+                deletedUserRole: account.role
+            }
+        });
+        
+        res.json({ success: true, message: 'Xóa tài khoản thành công' });
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        res.status(500).json({ success: false, message: 'Lỗi xóa tài khoản: ' + error.message });
     }
 });
 
@@ -1624,6 +1723,10 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
         if (newTotalScanned >= totalRequiredQuantity) {
             mainOrder.verified = true;
             mainOrder.verifiedAt = new Date();
+            // Lưu thông tin nhân viên quét khi hoàn tất
+            if (!mainOrder.checkingBy) {
+                mainOrder.checkingBy = userId;
+            }
         } else {
             mainOrder.verified = false;
         }
@@ -1645,6 +1748,10 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
                 duplicateOrder.scannedQuantity = mainOrder.scannedQuantity;
                 duplicateOrder.verified = mainOrder.verified;
                 duplicateOrder.verifiedAt = mainOrder.verifiedAt;
+                // Đồng bộ thông tin nhân viên quét
+                if (mainOrder.verified && !duplicateOrder.checkingBy) {
+                    duplicateOrder.checkingBy = mainOrder.checkingBy;
+                }
                 await duplicateOrder.save();
             }
         }
@@ -1820,7 +1927,7 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
                 verified: true,         // Đánh dấu đơn đã hoàn thành bằng trường verified
                 verifiedAt: new Date(),
                 block: false,           // Unblock tất cả maHang trong đơn
-                checkingBy: null,       // Xóa checkingBy
+                // Giữ lại checkingBy để theo dõi nhân viên quét
                 blockedAt: null         // Xóa blockedAt
             }
         );
@@ -3243,6 +3350,88 @@ app.post('/api/combo-cache/refresh', requireLogin, requireAdmin, async (req, res
         res.status(500).json({
             success: false,
             message: 'Lỗi refresh cache: ' + error.message
+        });
+    }
+});
+
+// API thống kê số lượng đơn hàng theo nhân viên theo ngày
+app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
+    try {
+        const { date } = req.query;
+        const selectedDate = date ? new Date(date) : new Date();
+        
+        // Lấy ngày bắt đầu và kết thúc của ngày được chọn
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        console.log(`[API /api/stats/orders-by-employee] Thống kê từ ${startOfDay.toISOString()} đến ${endOfDay.toISOString()}`);
+        
+        // Tìm tất cả đơn hàng đã được verify trong ngày
+        const orders = await Order.find({
+            verified: true,
+            verifiedAt: {
+                $gte: startOfDay,
+                $lte: endOfDay
+            }
+        }).select('checkingBy verifiedAt maVanDon maHang soLuong scannedQuantity');
+        
+        console.log(`[API /api/stats/orders-by-employee] Tìm thấy ${orders.length} đơn hàng đã verify`);
+        
+        // Nhóm theo nhân viên
+        const employeeStats = {};
+        let totalOrders = 0;
+        let totalItems = 0;
+        
+        orders.forEach(order => {
+            const employee = order.checkingBy || 'Không xác định';
+            
+            if (!employeeStats[employee]) {
+                employeeStats[employee] = {
+                    employeeName: employee,
+                    totalOrders: 0,
+                    totalItems: 0,
+                    orders: []
+                };
+            }
+            
+            employeeStats[employee].totalOrders++;
+            employeeStats[employee].totalItems += (order.scannedQuantity || order.soLuong || 1);
+            employeeStats[employee].orders.push({
+                maVanDon: order.maVanDon,
+                maHang: order.maHang,
+                soLuong: order.soLuong,
+                scannedQuantity: order.scannedQuantity,
+                verifiedAt: order.verifiedAt
+            });
+            
+            totalOrders++;
+            totalItems += (order.scannedQuantity || order.soLuong || 1);
+        });
+        
+        // Chuyển đổi object thành array và sắp xếp theo số lượng đơn hàng giảm dần
+        const statsArray = Object.values(employeeStats).sort((a, b) => b.totalOrders - a.totalOrders);
+        
+        console.log(`[API /api/stats/orders-by-employee] Thống kê: ${statsArray.length} nhân viên, ${totalOrders} đơn hàng, ${totalItems} sản phẩm`);
+        
+        res.json({
+            success: true,
+            data: {
+                date: selectedDate.toISOString().split('T')[0],
+                totalEmployees: statsArray.length,
+                totalOrders: totalOrders,
+                totalItems: totalItems,
+                employeeStats: statsArray
+            }
+        });
+        
+    } catch (error) {
+        console.error('[API /api/stats/orders-by-employee] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy thống kê: ' + error.message
         });
     }
 });

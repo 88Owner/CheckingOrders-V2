@@ -14,38 +14,47 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-radius: 0;
+            box-shadow: none;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 30px;
+            padding: 20px 30px;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 2rem;
+            margin-bottom: 5px;
         }
 
         .content {
-            padding: 40px;
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .admin-section {
-            margin-bottom: 40px;
-            padding: 30px;
+            margin-bottom: 20px;
+            padding: 20px;
             background: #f8f9ff;
             border-radius: 10px;
             border: 2px solid #e9ecef;
@@ -110,6 +119,99 @@
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         }
 
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .modal-header h3 {
+            color: #667eea;
+            margin: 0;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #667eea;
+        }
+
+        /* Success Modal Styles */
+        .success-modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .success-modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 48px;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
         .btn:disabled {
             background: #ccc;
             cursor: not-allowed;
@@ -120,17 +222,22 @@
         .table-container {
             margin-top: 20px;
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             overflow: hidden;
+            border: 1px solid #e9ecef;
         }
 
         .table-container h3 {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             margin: 0;
-            padding: 15px 20px;
-            font-size: 1.2rem;
+            padding: 18px 25px;
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .table-responsive {
@@ -140,53 +247,137 @@
         .admin-table {
             width: 100%;
             border-collapse: collapse;
+            background: white;
         }
 
         .admin-table th,
         .admin-table td {
-            padding: 12px;
+            padding: 16px 12px;
             text-align: left;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #f1f3f4;
+            vertical-align: middle;
         }
 
         .admin-table th {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             font-weight: 600;
-            color: #333;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .admin-table tbody tr {
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
         }
 
         .admin-table tbody tr:hover {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9ff 0%, #f1f3f4 100%);
+            border-left-color: #667eea;
+            transform: translateX(2px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .admin-table tbody tr:nth-child(even) {
+            background-color: #fafbfc;
+        }
+
+        .admin-table tbody tr:nth-child(even):hover {
+            background: linear-gradient(135deg, #f8f9ff 0%, #f1f3f4 100%);
         }
 
         .role-badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            text-align: center;
-            min-width: 60px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             display: inline-block;
+            min-width: 80px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .role-badge:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
 
         .role-badge.admin {
-            background: #dc3545;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
             color: white;
         }
 
         .role-badge.checker {
-            background: #28a745;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
         }
 
         .role-badge.packer {
-            background: #ffc107;
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
             color: #212529;
         }
 
         .role-badge.user {
-            background: #6c757d;
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
             color: white;
+        }
+
+        /* Enhanced button styles for table actions */
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            margin: 2px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            min-width: 80px;
+        }
+
+        .btn-small:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-small.btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-small.btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            color: #212529;
+        }
+
+        .btn-small.btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        /* Empty state styling */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-message {
+            font-size: 16px;
+            font-weight: 500;
         }
 
         .alert {
@@ -489,7 +680,7 @@
                         <th>Tên đăng nhập</th>
                         <th>Quyền</th>
                         <th>Ngày tạo</th>
-                                    <th>Thao tác</th>
+                        <th>Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody id="accountsTableBody">
@@ -689,6 +880,8 @@
                                     <th>Mã hàng</th>
                                     <th>Số lượng</th>
                                     <th>Trạng thái</th>
+                                    <th>Nhân viên</th>
+                                    <th>Thời gian quét</th>
                                     <th>Ngày import</th>
                     </tr>
                 </thead>
@@ -860,27 +1053,100 @@
         });
 
         // Load accounts
-        async function loadAccounts() {
+        async function loadAccounts(showLoading = true) {
             try {
+                console.log('📋 Loading accounts list, showLoading:', showLoading);
+                
+                if (showLoading) {
+                    // Show loading state in table
+                    const tbody = document.getElementById('accountsTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 20px; color: #667eea;">
+                                    <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
+                                    Đang tải danh sách tài khoản...
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+                
+                console.log('🔄 Fetching accounts from API...');
                 const response = await fetch('/api/accounts', {
                     credentials: 'include'
                 });
+                
+                console.log('📡 Accounts API response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('📄 Accounts API response data:', result);
                 
                 if (result.success) {
+                    console.log('✅ Accounts data received, displaying...');
                     displayAccounts(result.data);
                 } else {
+                    console.error('❌ API returned error:', result.message);
                     showError(result.message);
+                    // Show error state in table
+                    const tbody = document.getElementById('accountsTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 20px; color: #dc3545;">
+                                    <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+                                    Lỗi tải danh sách tài khoản: ${result.message}
+                                </td>
+                            </tr>
+                        `;
+                    }
                 }
             } catch (error) {
+                console.error('❌ Error loading accounts:', error);
                 showError('Lỗi tải danh sách tài khoản: ' + error.message);
+                // Show error state in table
+                const tbody = document.getElementById('accountsTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 20px; color: #dc3545;">
+                                <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+                                Lỗi kết nối: ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                }
             }
         }
 
         // Display accounts
         function displayAccounts(accounts) {
+            console.log('📊 Displaying accounts:', accounts.length, 'accounts');
+            
             const tbody = document.getElementById('accountsTableBody');
+            if (!tbody) {
+                console.error('❌ Cannot find accountsTableBody element');
+                return;
+            }
+            
             tbody.innerHTML = '';
+
+            if (!accounts || accounts.length === 0) {
+                console.log('📋 No accounts to display');
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            <div class="empty-state-icon">👥</div>
+                            <div class="empty-state-message">Không có tài khoản nào</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
 
             accounts.forEach(account => {
                 const row = document.createElement('tr');
@@ -896,8 +1162,9 @@
                                 <option value="packer" ${account.role === 'packer' ? 'selected' : ''}>Packer</option>
                                 <option value="user" ${account.role === 'user' ? 'selected' : ''}>User</option>
                             </select>
-                            <button class="btn btn-success" onclick="saveRole('${account._id}')" style="margin-left: 10px; padding: 8px 16px;">💾 Save</button>
-                            <button class="btn btn-danger" onclick="deleteAccount('${account._id}')" style="margin-left: 5px; padding: 8px 16px;">Xóa</button>
+                            <button class="btn-small btn-success" onclick="saveRole('${account._id}')">💾 Save</button>
+                            <button class="btn-small btn-warning" onclick="showChangePasswordModal('${account._id}', '${account.username}')">🔑 Đổi MK</button>
+                            <button class="btn-small btn-danger" onclick="deleteAccount('${account._id}')">🗑️ Xóa</button>
                         ` : 'Tài khoản gốc'}
                     </td>
                 `;
@@ -940,26 +1207,53 @@
         
         // Delete account
         async function deleteAccount(accountId) {
-            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) {
+            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?\nHành động này không thể hoàn tác!')) {
                 return;
             }
             
             try {
+                console.log('🗑️ Starting delete account process for:', accountId);
+                
+                // Show loading state
+                showSuccess('Đang xóa tài khoản...');
+                
                 const response = await fetch(`/api/accounts/${accountId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
                 
+                console.log('📡 Delete response status:', response.status);
+                
                 const result = await response.json();
+                console.log('📄 Delete response data:', result);
                 
                 if (result.success) {
                     showSuccess('Xóa tài khoản thành công');
-                    loadAccounts();
-                    refreshStats();
+                    
+                    console.log('🔄 Refreshing accounts list...');
+                    // Refresh accounts list with loading state
+                    try {
+                        await loadAccounts(true);
+                        console.log('✅ Accounts list refreshed successfully');
+                    } catch (loadError) {
+                        console.error('❌ Error refreshing accounts:', loadError);
+                        showError('Xóa tài khoản thành công nhưng không thể refresh danh sách. Vui lòng reload trang.');
+                    }
+                    
+                    console.log('🔄 Refreshing stats...');
+                    // Refresh stats
+                    try {
+                        await refreshStats();
+                        console.log('✅ Stats refreshed successfully');
+                    } catch (statsError) {
+                        console.error('❌ Error refreshing stats:', statsError);
+                        // Stats error is not critical, don't show error to user
+                    }
                 } else {
                     showError(result.message);
                 }
             } catch (error) {
+                console.error('❌ Error deleting account:', error);
                 showError('Lỗi xóa tài khoản: ' + error.message);
             }
         }
@@ -1403,7 +1697,7 @@
             if (orders.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" style="text-align: center; color: #666; padding: 20px;">
+                        <td colspan="10" style="text-align: center; color: #666; padding: 20px;">
                             <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
                             <div>Không có đơn hàng nào</div>
                         </td>
@@ -1414,6 +1708,28 @@
 
             orders.forEach(order => {
                 const row = document.createElement('tr');
+                
+                // Format thời gian quét
+                let scanTime = '-';
+                if (order.verified && order.verifiedAt) {
+                    const scanDate = new Date(order.verifiedAt);
+                    scanTime = scanDate.toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }) + ' ' + scanDate.toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+                
+                // Hiển thị nhân viên quét
+                let scannerName = '-';
+                if (order.verified && order.checkingBy) {
+                    scannerName = order.checkingBy;
+                }
+                
                 row.innerHTML = `
                     <td>${order.stt}</td>
                     <td>${order.maDongGoi}</td>
@@ -1422,6 +1738,8 @@
                     <td>${order.maHang}</td>
                     <td>${order.soLuong}</td>
                     <td>${order.verified ? '<span style="color: green; font-weight: bold;">✅ Đã xác nhận</span>' : '<span style="color: orange; font-weight: bold;">⏳ Chưa xác nhận</span>'}</td>
+                    <td>${scannerName}</td>
+                    <td>${scanTime}</td>
                     <td>${new Date(order.importDate).toLocaleDateString('vi-VN')}</td>
                 `;
                 tbody.appendChild(row);
@@ -1767,6 +2085,222 @@ ${machine.comPorts.map(port =>
             // Có thể gửi signal để client tự refresh COM ports
             loadAllMachines();
         }
+
+        // Change Password Modal Functions
+        function showChangePasswordModal(accountId, username) {
+            console.log('🔑 Opening change password modal for:', username);
+            
+            // Remove existing modal if any to avoid duplicates
+            const existingModal = document.getElementById('changePasswordModal');
+            if (existingModal) {
+                existingModal.remove();
+                console.log('🗑️ Removed existing modal');
+            }
+            
+            // Create new modal
+            createChangePasswordModal();
+            
+            const modalElement = document.getElementById('changePasswordModal');
+            if (modalElement) {
+                modalElement.style.display = 'block';
+                console.log('✅ Modal displayed');
+                
+                // Set account info
+                document.getElementById('changePasswordAccountId').value = accountId;
+                document.getElementById('changePasswordUsername').textContent = username;
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+                
+                console.log('✅ Modal data set for account:', username);
+            } else {
+                console.error('❌ Failed to create modal');
+            }
+        }
+
+        function createChangePasswordModal() {
+            const modal = document.createElement('div');
+            modal.id = 'changePasswordModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Đổi mật khẩu</h3>
+                        <span class="close" onclick="closeChangePasswordModal()">&times;</span>
+                    </div>
+                    <form id="changePasswordForm">
+                        <input type="hidden" id="changePasswordAccountId" value="">
+                        <div class="form-group">
+                            <label>Tài khoản: <span id="changePasswordUsername"></span></label>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">Mật khẩu mới</label>
+                            <input type="password" id="newPassword" name="newPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Xác nhận mật khẩu</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword" required>
+                        </div>
+                        <div style="text-align: right; margin-top: 20px;">
+                            <button type="button" class="btn" onclick="closeChangePasswordModal()" style="margin-right: 10px;">Hủy</button>
+                            <button type="submit" class="btn btn-success">Đổi mật khẩu</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Add form submit handler
+            document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+                handleChangePassword(e);
+            });
+        }
+
+        function closeChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) {
+                modal.style.display = 'none';
+                // Clear form data
+                const form = document.getElementById('changePasswordForm');
+                if (form) {
+                    form.reset();
+                }
+                console.log('✅ Change password modal closed');
+            }
+        }
+
+        async function handleChangePassword(e) {
+            e.preventDefault();
+            console.log('🔑 Change password form submitted');
+            
+            const accountId = document.getElementById('changePasswordAccountId').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            console.log('Account ID:', accountId);
+            console.log('New password length:', newPassword.length);
+            
+            // Validate passwords match
+            if (newPassword !== confirmPassword) {
+                showError('Mật khẩu xác nhận không khớp!');
+                return;
+            }
+            
+            // Validate password not empty
+            if (!newPassword.trim()) {
+                showError('Mật khẩu không được để trống!');
+                return;
+            }
+            
+            // Disable submit button to prevent double submission
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Đang xử lý...';
+            
+            try {
+                console.log('🔄 Sending change password request...');
+                
+                const response = await fetch('/api/admin/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        accountId: accountId,
+                        newPassword: newPassword
+                    })
+                });
+                
+                console.log('📡 Response status:', response.status);
+                
+                const result = await response.json();
+                console.log('📄 Response data:', result);
+                
+                if (result.success) {
+                    console.log('✅ Password changed successfully, closing modal...');
+                    closeChangePasswordModal();
+                    // Refresh accounts list to show updated info
+                    await loadAccounts(false);
+                } else {
+                    console.log('❌ Password change failed:', result.message);
+                    showError(result.message || 'Lỗi không xác định');
+                }
+            } catch (error) {
+                console.error('❌ Error changing password:', error);
+                showError('Lỗi đổi mật khẩu: ' + error.message);
+            } finally {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('changePasswordModal');
+            if (event.target === modal) {
+                closeChangePasswordModal();
+            }
+        });
+
+        // Success Modal Functions
+        function showSuccessModal(message) {
+            let successModal = document.getElementById('successModal');
+            if (!successModal) {
+                successModal = document.createElement('div');
+                successModal.id = 'successModal';
+                successModal.className = 'success-modal';
+                successModal.innerHTML = `
+                    <div class="success-modal-content">
+                        <div class="success-icon">✅</div>
+                        <div class="success-message">${message}</div>
+                        <div style="margin-top: 15px; font-size: 14px; color: #666;">
+                            Modal sẽ tự động đóng sau <span id="countdown">2</span> giây...
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(successModal);
+            } else {
+                // Update message if modal already exists
+                const messageElement = successModal.querySelector('.success-message');
+                if (messageElement) {
+                    messageElement.textContent = message;
+                }
+            }
+            
+            successModal.style.display = 'block';
+            
+            // Auto close after 2 seconds with countdown
+            let countdown = 2;
+            const countdownElement = document.getElementById('countdown');
+            
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdownElement) {
+                    countdownElement.textContent = countdown;
+                }
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    closeSuccessModal();
+                }
+            }, 1000);
+        }
+
+        function closeSuccessModal() {
+            const successModal = document.getElementById('successModal');
+            if (successModal) {
+                successModal.style.display = 'none';
+            }
+        }
+
+        // Close success modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const successModal = document.getElementById('successModal');
+            if (event.target === successModal) {
+                closeSuccessModal();
+            }
+        });
     </script>
 </body>
 </html>

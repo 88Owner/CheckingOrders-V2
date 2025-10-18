@@ -88,6 +88,28 @@
         .toast { position: fixed; right: 16px; bottom: 16px; background: #111827; color:#e5e7eb; padding: 10px 14px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); display:none; }
         .toast.show { display:block; }
         
+        /* Stats Styles */
+        .stats-container { padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stats-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .stats-title { font-size: 24px; font-weight: 700; color: var(--primary); margin: 0; }
+        .date-picker-container { display: flex; align-items: center; gap: 12px; }
+        .date-picker { padding: 8px 12px; border: 2px solid #eaeaea; border-radius: 8px; font-size: 14px; }
+        .date-picker:focus { border-color: var(--primary); outline: none; }
+        .btn-refresh { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .btn-refresh:hover { background: var(--accent); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 20px; }
+        .stats-card { background: #f8fafc; border-radius: 10px; padding: 16px; border-left: 4px solid var(--primary); }
+        .stats-card-header { display: flex; justify-content: between; align-items: center; margin-bottom: 8px; }
+        .stats-card-title { font-size: 16px; font-weight: 600; color: #334155; margin: 0; }
+        .stats-card-value { font-size: 28px; font-weight: 700; color: var(--primary); margin: 8px 0; }
+        .stats-card-detail { font-size: 14px; color: #64748b; }
+        .stats-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stats-table th, .stats-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .stats-table th { background: #f8fafc; font-weight: 600; color: #334155; }
+        .stats-table tr:hover { background: #f8fafc; }
+        .loading-stats { text-align: center; padding: 40px; color: #64748b; }
+        .error-stats { text-align: center; padding: 40px; color: var(--err); }
+        
         /* Modal Styles */
         .modal-overlay {
             position: fixed;
@@ -361,6 +383,7 @@
                 </div>
                 <button id="viewBtn" class="nav-btn active">Xem đơn hàng</button>
                 <button id="cancelledBtn" class="nav-btn">Xem đơn hủy</button>
+                <button id="statsBtn" class="nav-btn">Thống kê</button>
                 <button id="uploadBtn" class="nav-btn">Upload file</button>
                 <button id="checkBtn" class="nav-btn">Check đơn</button>
                 <div style="height:16px;"></div>
@@ -368,7 +391,7 @@
                     <span class="tag" id="userTag">...</span>
                     <span class="tag" id="maVanDonTag">Chưa chọn</span>
                 </div>
-                <button id="logoutBtn" class="btn danger" style="margin-top:18px;">Đăng xuất</button>
+                <button id="logoutBtn" class="btn danger" style="margin-top:18px; display: none;">Đăng xuất</button>
             </div>
             <div class="content" id="content">
                 <div id="metaWrap" class="meta">
@@ -2767,6 +2790,114 @@ let pageSize = 20;
                 document.title = titleRole + ' - Một trang duy nhất';
                 const h1 = document.querySelector('h1');
                 if (h1) h1.textContent = titleRole;
+                
+                // Tạo text hiển thị tên user ở góc trên bên phải
+                let userText = document.getElementById('userText');
+                if (!userText) {
+                    userText = document.createElement('div');
+                    userText.id = 'userText';
+                    userText.style.cssText = `
+                        position: fixed;
+                        top: 16px;
+                        right: 140px;
+                        color: #e2e8f0;
+                        font-weight: 600;
+                        font-size: 14px;
+                        z-index: 1001;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        background: rgba(30, 41, 59, 0.9);
+                        padding: 8px 12px;
+                        border-radius: 8px;
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(71, 85, 105, 0.3);
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                    `;
+                    userText.innerHTML = `
+                        <span style="color: #3b82f6; font-size: 16px;">👤</span>
+                        <span id="headerUsername">${data.username}</span>
+                        <span style="color: #94a3b8; font-size: 12px;">(${titleRole})</span>
+                    `;
+                    document.body.appendChild(userText);
+                } else {
+                    // Cập nhật tên user nếu đã tồn tại
+                    const usernameSpan = document.getElementById('headerUsername');
+                    if (usernameSpan) {
+                        usernameSpan.textContent = data.username;
+                    }
+                }
+                
+                // Tạo nút logout ở góc trên bên phải
+                let logoutBtn = document.getElementById('headerLogoutBtn');
+                if (!logoutBtn) {
+                    logoutBtn = document.createElement('button');
+                    logoutBtn.id = 'headerLogoutBtn';
+                    logoutBtn.textContent = 'Đăng xuất';
+                    logoutBtn.style.cssText = `
+                        position: fixed;
+                        top: 16px;
+                        right: 16px;
+                        padding: 12px 24px;
+                        font-size: 14px;
+                        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                        border: none;
+                        border-radius: 8px;
+                        color: white;
+                        cursor: pointer;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                        z-index: 1001;
+                        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+                        border: 1px solid rgba(185, 28, 28, 0.3);
+                        min-height: 44px;
+                        min-width: 100px;
+                    `;
+                    logoutBtn.onmouseover = function() {
+                        this.style.transform = 'translateY(-1px)';
+                        this.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.4)';
+                        this.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+                    };
+                    logoutBtn.onmouseout = function() {
+                        this.style.transform = 'translateY(0)';
+                        this.style.boxShadow = '0 2px 8px rgba(220, 38, 38, 0.3)';
+                        this.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+                    };
+                    document.body.appendChild(logoutBtn);
+                }
+                
+                // Hiển thị cả text và button
+                userText.style.display = 'flex';
+                logoutBtn.style.display = 'block';
+                
+                // Thêm event listener cho nút logout
+                const headerLogoutBtn = document.getElementById('headerLogoutBtn');
+                if (headerLogoutBtn) {
+                    headerLogoutBtn.onclick = async () => {
+                        showConfirmModal(
+                            'Xác nhận đăng xuất',
+                            'Bạn có chắc chắn muốn đăng xuất?\nĐơn hàng hiện tại sẽ được mở khóa.',
+                            async () => {
+                                try {
+                                    // Gửi yêu cầu mở khóa cho đơn hiện tại
+                                    if (currentMaVanDon) {
+                                        await fetch('/api/orders/unblock-van-don', {
+                                            method: 'POST',
+                                            credentials: 'include',
+                                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+                                            body: JSON.stringify({ maVanDon: currentMaVanDon })
+                                        });
+                                    }
+                                } catch {}
+                                
+                                // Đăng xuất
+                                await fetch('/api/logout', { method: 'POST' });
+                                window.location.href = '/login';
+                            }
+                        );
+                    };
+                }
+                
                 return true;
             } catch (e) {
                 // In case of unexpected failure, redirect to login (safe fallback)
@@ -3049,6 +3180,106 @@ let pageSize = 20;
             }
             
             body.innerHTML = '';
+            
+            // Thêm search box cho chế độ view
+            if (activeView === 'view') {
+                const searchContainer = document.createElement('div');
+                searchContainer.style.cssText = `
+                    background: #1e293b;
+                    padding: 16px;
+                    margin-bottom: 16px;
+                    border-radius: 8px;
+                    border: 1px solid #334155;
+                `;
+                
+                searchContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label style="color: #e2e8f0; font-weight: 600; white-space: nowrap;">🔍 Tìm theo mã vận đơn:</label>
+                        <input type="text" id="searchMaVanDon" placeholder="Nhập mã vận đơn để tìm kiếm..." style="
+                            flex: 1;
+                            padding: 10px 12px;
+                            border-radius: 6px;
+                            border: 2px solid #475569;
+                            background: #334155;
+                            color: #e2e8f0;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        " onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" 
+                        onblur="this.style.borderColor='#475569'; this.style.boxShadow='none'">
+                        <button id="searchBtn" style="
+                            padding: 10px 20px;
+                            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(59, 130, 246, 0.4)'" 
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(59, 130, 246, 0.3)'">
+                            Tìm kiếm
+                        </button>
+                        <button id="clearSearchBtn" style="
+                            padding: 10px 20px;
+                            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(107, 114, 128, 0.4)'" 
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(107, 114, 128, 0.3)'">
+                            Xóa
+                        </button>
+                    </div>
+                `;
+                
+                body.appendChild(searchContainer);
+                
+                // Thêm event listeners cho search
+                const searchInput = document.getElementById('searchMaVanDon');
+                const searchBtn = document.getElementById('searchBtn');
+                const clearSearchBtn = document.getElementById('clearSearchBtn');
+                
+                const performSearch = () => {
+                    const searchValue = searchInput.value.trim().toLowerCase();
+                    if (searchValue) {
+                        // Lọc đơn hàng theo mã vận đơn
+                        const filteredOrders = cacheOrders.filter(order => 
+                            order.maVanDon.toLowerCase().includes(searchValue)
+                        );
+                        displayFilteredOrders(filteredOrders, searchValue);
+                    } else {
+                        // Hiển thị tất cả đơn hàng và khôi phục phân trang
+                        window.currentSearchValue = '';
+                        renderOrders();
+                    }
+                };
+                
+                const clearSearch = () => {
+                    searchInput.value = '';
+                    window.currentSearchValue = '';
+                    renderOrders(); // Sử dụng renderOrders() để khôi phục phân trang
+                };
+                
+                searchBtn.onclick = performSearch;
+                clearSearchBtn.onclick = clearSearch;
+                
+                // Tìm kiếm khi nhấn Enter
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        performSearch();
+                    }
+                });
+                
+                // Lưu reference để sử dụng trong displayFilteredOrders
+                window.currentSearchValue = '';
+                window.displayFilteredOrders = displayFilteredOrders;
+            }
+            
             // Header
             const header = document.createElement('div');
             header.className = 'row header';
@@ -3062,6 +3293,8 @@ let pageSize = 20;
                 <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Mẫu Vải</div>
                 <div style="flex:1 1 320px;min-width:180px;font-weight:600;padding:8px 12px;">Tên phiên bản sản phẩm</div>
                 <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Trạng thái</div>
+                <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Nhân viên</div>
+                <div style="flex:0 0 140px;min-width:100px;font-weight:600;padding:8px 8px;">Thời gian quét</div>
             `;
             body.appendChild(header);
             
@@ -3117,6 +3350,27 @@ let pageSize = 20;
                 // Sử dụng logic server: hiển thị số lượng combo
                 const displayQuantity = o.soLuong;
                 
+                // Format thời gian quét
+                let scanTime = '-';
+                if (o.verified && o.verifiedAt) {
+                    const scanDate = new Date(o.verifiedAt);
+                    scanTime = scanDate.toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }) + ' ' + scanDate.toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+                
+                // Hiển thị nhân viên quét
+                let scannerName = '-';
+                if (o.verified && o.checkingBy) {
+                    scannerName = o.checkingBy;
+                }
+
                 r.innerHTML = `
                     <div style="flex:0 0 48px;min-width:40px;text-align:center;padding:8px 4px;">${o.stt}</div>
                     <div style="flex:0 0 160px;min-width:120px;padding:8px 8px;">${escapeHtml(o.maVanDon)}</div>
@@ -3130,6 +3384,8 @@ let pageSize = 20;
                             ${status.text}
                         </span>
                     </div>
+                    <div style="flex:0 0 120px;min-width:80px;padding:8px 8px;">${scannerName}</div>
+                    <div style="flex:0 0 140px;min-width:100px;padding:8px 8px;">${scanTime}</div>
                 `;
                 body.appendChild(r);
                 renderedCount++;
@@ -3141,8 +3397,8 @@ let pageSize = 20;
             const oldPager = document.getElementById('fixed-pager');
             if (oldPager) oldPager.remove();
 
-            // Tạo thanh phân trang ngay dưới bảng - chỉ cho chế độ view
-            if (activeView === 'view' && totalPages > 1) {
+            // Tạo thanh phân trang ngay dưới bảng - chỉ cho chế độ view và không có search
+            if (activeView === 'view' && totalPages > 1 && !window.currentSearchValue) {
                 const pager = document.createElement('div');
                 pager.id = 'order-pager';
                 pager.style.display = 'flex';
@@ -3181,6 +3437,136 @@ window.showOrderPager = function(show) {
 }
 // Gọi showOrderPager(false) khi chuyển sang chức năng khác ngoài Xem đơn hàng
             updateProgress();
+        }
+
+        // Hàm hiển thị đơn hàng đã lọc (cho chức năng search)
+        function displayFilteredOrders(filteredOrders, searchValue) {
+            const body = document.getElementById('rows');
+            if (!body) return;
+            
+            // Lưu giá trị search hiện tại
+            window.currentSearchValue = searchValue;
+            
+            // Tìm và xóa header cũ (nếu có)
+            const existingHeader = body.querySelector('.row.header');
+            if (existingHeader) {
+                existingHeader.remove();
+            }
+            
+            // Tạo header mới
+            const header = document.createElement('div');
+            header.className = 'row header';
+            header.style.display = 'flex';
+            header.style.fontSize = '18px';
+            header.innerHTML = `
+                <div style="flex:0 0 48px;min-width:40px;text-align:center;font-weight:600;padding:8px 4px;">STT</div>
+                <div style="flex:0 0 160px;min-width:120px;font-weight:600;padding:8px 8px;">Mã vận đơn</div>
+                <div style="flex:0 0 130px;min-width:100px;font-weight:600;padding:8px 8px;">Mã hàng</div>
+                <div style="flex:0 0 56px;min-width:40px;text-align:center;font-weight:600;padding:8px 4px;">SL</div>
+                <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Mẫu Vải</div>
+                <div style="flex:1 1 320px;min-width:180px;font-weight:600;padding:8px 12px;">Tên phiên bản sản phẩm</div>
+                <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Trạng thái</div>
+                <div style="flex:0 0 120px;min-width:80px;font-weight:600;padding:8px 8px;">Nhân viên</div>
+                <div style="flex:0 0 140px;min-width:100px;font-weight:600;padding:8px 8px;">Thời gian quét</div>
+            `;
+            body.appendChild(header);
+            
+            // Xóa các row cũ (trừ search box và header)
+            const existingRows = body.querySelectorAll('.row:not(.header)');
+            existingRows.forEach(row => {
+                if (!row.querySelector('#searchMaVanDon')) { // Không xóa search box
+                    row.remove();
+                }
+            });
+            
+            if (!filteredOrders || !Array.isArray(filteredOrders) || !filteredOrders.length) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty';
+                emptyDiv.textContent = searchValue ? `Không tìm thấy đơn hàng nào với mã vận đơn "${searchValue}"` : 'Không có dữ liệu để hiển thị.';
+                body.appendChild(emptyDiv);
+                updateProgress();
+                return;
+            }
+            
+            // Xóa phân trang khi đang search
+            const existingPager = document.getElementById('order-pager');
+            if (existingPager) {
+                existingPager.remove();
+            }
+            
+            // Hiển thị kết quả tìm kiếm
+            filteredOrders.forEach((o, index) => {
+                const r = document.createElement('div');
+                const status = getStatus(o);
+                
+                // Áp dụng màu sắc cho hàng dựa trên trạng thái
+                let rowClass = 'row';
+                if (status.badge === 'b-completed') {
+                    rowClass += ' status-completed';
+                } else if (status.badge === 'b-processing') {
+                    rowClass += ' status-processing';
+                } else {
+                    rowClass += ' status-pending';
+                }
+                
+                r.className = rowClass;
+                r.style.display = 'flex';
+                r.style.fontSize = '17px';
+                
+                // Highlight mã vận đơn nếu đang search
+                let maVanDonDisplay = escapeHtml(o.maVanDon);
+                if (searchValue) {
+                    const regex = new RegExp(`(${escapeRegex(searchValue)})`, 'gi');
+                    maVanDonDisplay = maVanDonDisplay.replace(regex, '<mark style="background: #fbbf24; color: #1f2937; padding: 1px 2px; border-radius: 2px;">$1</mark>');
+                }
+                
+                // Format thời gian quét
+                let scanTime = '-';
+                if (o.verified && o.verifiedAt) {
+                    const scanDate = new Date(o.verifiedAt);
+                    scanTime = scanDate.toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }) + ' ' + scanDate.toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+                
+                // Hiển thị nhân viên quét
+                let scannerName = '-';
+                if (o.verified && o.checkingBy) {
+                    scannerName = o.checkingBy;
+                }
+
+                r.innerHTML = `
+                    <div style="flex:0 0 48px;min-width:40px;text-align:center;padding:8px 4px;">${index + 1}</div>
+                    <div style="flex:0 0 160px;min-width:120px;padding:8px 8px;">${maVanDonDisplay}</div>
+                    <div style="flex:0 0 130px;min-width:100px;padding:8px 8px;">${escapeHtml(o.maHang)}</div>
+                    <div style="flex:0 0 56px;min-width:40px;text-align:center;padding:8px 4px;">${o.soLuong}</div>
+                    <div style="flex:0 0 120px;min-width:80px;padding:8px 8px;">${escapeHtml(o.mauVai)}</div>
+                    <div style="flex:1 1 320px;min-width:180px;padding:8px 12px;">${escapeHtml(o.tenPhienBan)}</div>
+                    <div style="flex:0 0 120px;min-width:80px;padding:8px 8px;">
+                        <span class="badge ${status.badge}" title="${status.tooltip || status.text}">
+                            <span class="status-indicator ${status.badge.replace('b-', '')}"></span>
+                            ${status.text}
+                        </span>
+                    </div>
+                    <div style="flex:0 0 120px;min-width:80px;padding:8px 8px;">${scannerName}</div>
+                    <div style="flex:0 0 140px;min-width:100px;padding:8px 8px;">${scanTime}</div>
+                `;
+                body.appendChild(r);
+            });
+            
+            // Cập nhật progress với thông tin search
+            updateProgress();
+        }
+
+        // Hàm escape regex để tránh lỗi khi search
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         function getStatus(o) {
@@ -3683,10 +4069,197 @@ window.showOrderPager = function(show) {
                 }
             } else {
                 progressText = `${completed}/${total} hoàn thành · ${scanned}/${required} đã quét`;
+                
+                // Thêm thông tin search nếu đang search
+                if (window.currentSearchValue) {
+                    progressText += ` · Tìm kiếm: "${window.currentSearchValue}"`;
+                }
             }
             
             document.getElementById('progressText').textContent = progressText;
             document.getElementById('bar').style.width = percent + '%';
+        }
+
+        // Hàm load thống kê theo nhân viên theo ngày
+        async function loadStats() {
+            try {
+                setStatus('Đang tải thống kê...', 'info');
+                
+                // Lấy ngày hiện tại làm mặc định
+                const today = new Date().toISOString().split('T')[0];
+                const selectedDate = document.getElementById('statsDatePicker')?.value || today;
+                
+                console.log('Loading stats for date:', selectedDate);
+                
+                const response = await fetch(`/api/stats/orders-by-employee?date=${selectedDate}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getAuthToken()
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.message || 'Lỗi khi tải thống kê');
+                }
+                
+                console.log('Stats loaded:', result.data);
+                
+                // Hiển thị thống kê
+                displayStats(result.data);
+                
+                setStatus(`Đã tải thống kê ngày ${result.data.date}`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                setStatus('Lỗi khi tải thống kê: ' + error.message, 'err');
+                displayStatsError(error.message);
+            }
+        }
+        
+        // Hàm hiển thị thống kê
+        function displayStats(data) {
+            const body = document.getElementById('rows');
+            body.innerHTML = '';
+            
+            // Container chính
+            const statsContainer = document.createElement('div');
+            statsContainer.className = 'stats-container';
+            
+            // Header với date picker
+            const statsHeader = document.createElement('div');
+            statsHeader.className = 'stats-header';
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            statsHeader.innerHTML = `
+                <h2 class="stats-title">Thống kê đơn hàng theo nhân viên</h2>
+                <div class="date-picker-container">
+                    <label style="font-weight: 600; color: #334155;">Ngày:</label>
+                    <input type="date" id="statsDatePicker" class="date-picker" value="${data.date || today}">
+                    <button class="btn-refresh" onclick="loadStats()">Tải lại</button>
+                </div>
+            `;
+            
+            statsContainer.appendChild(statsHeader);
+            
+            // Cards tổng quan
+            const statsGrid = document.createElement('div');
+            statsGrid.className = 'stats-grid';
+            
+            statsGrid.innerHTML = `
+                <div class="stats-card">
+                    <div class="stats-card-title">Tổng nhân viên</div>
+                    <div class="stats-card-value">${data.totalEmployees}</div>
+                    <div class="stats-card-detail">Nhân viên hoạt động</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-card-title">Tổng đơn hàng</div>
+                    <div class="stats-card-value">${data.totalOrders}</div>
+                    <div class="stats-card-detail">Đơn đã hoàn thành</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-card-title">Tổng sản phẩm</div>
+                    <div class="stats-card-value">${data.totalItems}</div>
+                    <div class="stats-card-detail">Sản phẩm đã quét</div>
+                </div>
+            `;
+            
+            statsContainer.appendChild(statsGrid);
+            
+            // Bảng chi tiết theo nhân viên
+            if (data.employeeStats && data.employeeStats.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'stats-table';
+                
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Nhân viên</th>
+                            <th>Số đơn hàng</th>
+                            <th>Số sản phẩm</th>
+                            <th>Hiệu suất TB</th>
+                            <th>Tỷ lệ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.employeeStats.map((emp, index) => {
+                            const percentage = data.totalOrders > 0 ? Math.round((emp.totalOrders / data.totalOrders) * 100) : 0;
+                            const avgPerOrder = emp.totalOrders > 0 ? Math.round(emp.totalItems / emp.totalOrders) : 0;
+                            
+                            return `
+                                <tr>
+                                    <td style="font-weight: 600; color: #3b82f6;">${escapeHtml(emp.employeeName)}</td>
+                                    <td style="text-align: center; font-weight: 600;">${emp.totalOrders}</td>
+                                    <td style="text-align: center;">${emp.totalItems}</td>
+                                    <td style="text-align: center; color: #059669;">${avgPerOrder} sản phẩm/đơn</td>
+                                    <td style="text-align: center;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                                                <div style="height: 100%; background: linear-gradient(90deg, #3b82f6, #1d4ed8); width: ${percentage}%; transition: width 0.3s ease;"></div>
+                                            </div>
+                                            <span style="font-weight: 600; color: #374151; min-width: 35px;">${percentage}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                `;
+                
+                statsContainer.appendChild(table);
+            } else {
+                const noDataMessage = document.createElement('div');
+                noDataMessage.style.cssText = `
+                    text-align: center; 
+                    padding: 40px; 
+                    color: #64748b; 
+                    background: #f8fafc; 
+                    border-radius: 8px; 
+                    margin-top: 20px;
+                `;
+                noDataMessage.innerHTML = `
+                    <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
+                    <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Không có dữ liệu</div>
+                    <div>Không có đơn hàng nào được hoàn thành trong ngày này</div>
+                `;
+                statsContainer.appendChild(noDataMessage);
+            }
+            
+            body.appendChild(statsContainer);
+            
+            // Event listener cho date picker
+            const datePicker = document.getElementById('statsDatePicker');
+            if (datePicker) {
+                datePicker.addEventListener('change', loadStats);
+            }
+        }
+        
+        // Hàm hiển thị lỗi thống kê
+        function displayStatsError(errorMessage) {
+            const body = document.getElementById('rows');
+            body.innerHTML = '';
+            
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'stats-container';
+            
+            errorContainer.innerHTML = `
+                <div class="error-stats">
+                    <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                    <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Lỗi tải thống kê</div>
+                    <div style="color: #64748b;">${escapeHtml(errorMessage)}</div>
+                    <button class="btn" style="margin-top: 20px;" onclick="loadStats()">🔄 Thử lại</button>
+                </div>
+            `;
+            
+            body.appendChild(errorContainer);
         }
 
         // Hàm load dữ liệu real-time từ database cho chế độ view
@@ -3729,7 +4302,21 @@ window.showOrderPager = function(show) {
                                      JSON.stringify(newOrders.map(o => ({ id: o._id, verified: o.verified, block: o.block })));
                     
                     setCacheOrders(newOrders, source);
-                    renderOrders();
+                    
+                    // Nếu đang có search active, áp dụng lại search
+                    if (window.currentSearchValue && window.displayFilteredOrders) {
+                        const searchInput = document.getElementById('searchMaVanDon');
+                        if (searchInput && searchInput.value.trim()) {
+                            const filteredOrders = newOrders.filter(order => 
+                                order.maVanDon.toLowerCase().includes(searchInput.value.trim().toLowerCase())
+                            );
+                            window.displayFilteredOrders(filteredOrders, searchInput.value.trim());
+                        } else {
+                            renderOrders();
+                        }
+                    } else {
+                        renderOrders();
+                    }
                     
                     if (hasChanges) {
                         
@@ -4059,6 +4646,17 @@ window.showOrderPager = function(show) {
                 // Load dữ liệu đơn hủy
                 loadCancelledOrders();
                 setStatus('', '');
+            } else if (view === 'stats') {
+                // stats: hiển thị thống kê theo nhân viên theo ngày
+                uploadPanel.style.display = 'none';
+                uploadMasterPanel.style.display = 'none';
+                uploadComboPanel.style.display = 'none';
+                rows.style.display = '';
+                inputWrap.style.display = 'none';
+                metaWrap.style.display = '';
+                // Load và hiển thị thống kê
+                loadStats();
+                setStatus('', '');
             } else {
                 // view: only list all orders - load real-time data from database
                 uploadPanel.style.display = 'none';
@@ -4077,32 +4675,10 @@ window.showOrderPager = function(show) {
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            // Diagnostic overlay for login/token issues
+            // Diagnostic overlay for login/token issues (đã ẩn)
             function showDiagnostics(token, meResult, error) {
-                let diag = document.getElementById('diagnosticOverlay');
-                if (!diag) {
-                    diag = document.createElement('div');
-                    diag.id = 'diagnosticOverlay';
-                    diag.style.position = 'fixed';
-                    diag.style.top = '10px';
-                    diag.style.right = '10px';
-                    diag.style.zIndex = '9999';
-                    diag.style.background = '#fff';
-                    diag.style.border = '2px solid #667eea';
-                    diag.style.borderRadius = '10px';
-                    diag.style.padding = '14px 18px';
-                    diag.style.fontSize = '13px';
-                    diag.style.color = '#222';
-                    diag.style.boxShadow = '0 2px 12px #667eea33';
-                    diag.style.maxWidth = '420px';
-                    diag.style.wordBreak = 'break-all';
-                    document.body.appendChild(diag);
-                }
-                diag.innerHTML = `<b>Diagnostic:</b><br>
-                    <b>Token:</b> <span style='color:#764ba2'>${token ? token : '(none)'}</span><br>
-                    <b>/api/me:</b> <span style='color:#22c55e'>${meResult ? JSON.stringify(meResult) : '(no response)'}</span><br>
-                    <b>Last error:</b> <span style='color:#ef4444'>${error ? error : '(none)'}</span><br>
-                    <button style='margin-top:8px;padding:4px 10px;border-radius:6px;background:#667eea;color:#fff;border:none;cursor:pointer;' onclick='this.parentElement.style.display="none"'>Ẩn overlay</button>`;
+                // Diagnostic đã được ẩn để giao diện sạch sẽ hơn
+                return;
             }
 
             // Run diagnostics before ensureChecker
@@ -4126,7 +4702,7 @@ window.showOrderPager = function(show) {
                 if (layout) layout.style.gridTemplateColumns = '1fr';
                 const hint = document.getElementById('hint');
                 if (hint) hint.textContent = '- Nhập mã vận đơn (Enter) để tải đơn, sau đó nhập mã hàng để quét. Mọi thao tác trong 1 ô nhập.';
-                // Thêm nút logout cho packer nếu chưa có
+                // Thêm nút logout cho packer nếu chưa có (đã ẩn vì có nút ở header)
                 let logoutPacker = document.getElementById('logoutBtnPacker');
                 if (!logoutPacker) {
                     logoutPacker = document.createElement('button');
@@ -4134,9 +4710,10 @@ window.showOrderPager = function(show) {
                     logoutPacker.textContent = 'Đăng xuất';
                     logoutPacker.className = 'btn danger';
                     logoutPacker.style.margin = '18px 0';
+                    logoutPacker.style.display = 'none'; // Ẩn nút logout packer
                     document.body.appendChild(logoutPacker);
                 }
-                logoutPacker.style.display = '';
+                logoutPacker.style.display = 'none'; // Đảm bảo ẩn
                 logoutPacker.onclick = async () => {
                     showConfirmModal(
                         'Xác nhận đăng xuất',
@@ -4186,6 +4763,9 @@ window.showOrderPager = function(show) {
             }
             const resetBtn = document.getElementById('resetBtn');
             if (resetBtn) resetBtn.addEventListener('click', resetPage);
+            
+            // Xóa event listener cũ của nút logout vì đã có trong header
+            /*
             document.getElementById('logoutBtn').addEventListener('click', async () => {
                 showConfirmModal(
                     'Xác nhận đăng xuất',
@@ -4260,6 +4840,8 @@ window.showOrderPager = function(show) {
                 }
                 );
             });
+            */
+            
             if (userRole === 'checker') {
                 // Đảm bảo các nút chức năng luôn hoạt động
                 const uploadBtn = document.getElementById('uploadBtn');
@@ -4312,6 +4894,7 @@ window.showOrderPager = function(show) {
                 }
                 viewBtn.addEventListener('click', async () => await switchView('view'));
                 cancelledBtn.addEventListener('click', async () => await switchView('cancelled'));
+                statsBtn.addEventListener('click', async () => await switchView('stats'));
                 uploadBtn.addEventListener('click', async () => await switchView('upload'));
                 checkBtn.addEventListener('click', async () => await switchView('check'));
                 
@@ -4718,6 +5301,7 @@ window.showOrderPager = function(show) {
                     {
                         text: 'Đăng xuất',
                         class: 'secondary',
+                        style: 'display: none;', // Ẩn nút logout trong modal
                         onclick: async () => {
                             await fetch('/api/logout', { method: 'POST', credentials: 'include' });
                             location.href = '/login';
@@ -4732,7 +5316,8 @@ window.showOrderPager = function(show) {
             
             const allButtons = document.querySelectorAll('.btn');
             allButtons.forEach(btn => {
-                if (!btn.textContent.includes('Làm mới') && !btn.textContent.includes('Đăng xuất')) {
+                // Không disable nút logout vì đã có nút riêng ở header
+                if (!btn.textContent.includes('Làm mới') && !btn.textContent.includes('Đăng xuất') && btn.id !== 'headerLogoutBtn') {
                     btn.disabled = true;
                 }
             });

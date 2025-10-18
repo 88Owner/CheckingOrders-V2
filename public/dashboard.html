@@ -335,6 +335,8 @@
                                 <th>Mã hàng</th>
                                 <th>Số lượng</th>
                                 <th>Trạng thái</th>
+                                <th>Nhân viên</th>
+                                <th>Thời gian quét</th>
                                 <th>Ngày import</th>
                             </tr>
                         </thead>
@@ -384,7 +386,7 @@
             tbody.innerHTML = '';
 
             if (orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Chưa có đơn hàng nào</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #666;">Chưa có đơn hàng nào</td></tr>';
                 return;
             }
 
@@ -395,6 +397,27 @@
                 const statusText = order.verified ? 'Đã xác nhận' : 
                                   (order.scannedQuantity > 0) ? 'Đang xử lý' : 'Chờ xử lý';
 
+                // Format thời gian quét
+                let scanTime = '-';
+                if (order.verified && order.verifiedAt) {
+                    const scanDate = new Date(order.verifiedAt);
+                    scanTime = scanDate.toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }) + ' ' + scanDate.toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+                
+                // Hiển thị nhân viên quét
+                let scannerName = '-';
+                if (order.verified && order.checkingBy) {
+                    scannerName = order.checkingBy;
+                }
+
                 row.innerHTML = `
                     <td>${order.stt}</td>
                     <td>${order.maVanDon}</td>
@@ -402,6 +425,8 @@
                     <td>${order.maHang}</td>
                     <td>${order.soLuong}</td>
                     <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>${scannerName}</td>
+                    <td>${scanTime}</td>
                     <td>${new Date(order.importDate).toLocaleDateString('vi-VN')}</td>
                 `;
                 tbody.appendChild(row);
