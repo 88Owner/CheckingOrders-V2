@@ -98,11 +98,18 @@
         .btn-refresh { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
         .btn-refresh:hover { background: var(--accent); }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 20px; }
-        .stats-card { background: #f8fafc; border-radius: 10px; padding: 16px; border-left: 4px solid var(--primary); }
-        .stats-card-header { display: flex; justify-content: between; align-items: center; margin-bottom: 8px; }
-        .stats-card-title { font-size: 16px; font-weight: 600; color: #334155; margin: 0; }
-        .stats-card-value { font-size: 28px; font-weight: 700; color: var(--primary); margin: 8px 0; }
-        .stats-card-detail { font-size: 14px; color: #64748b; }
+    .stats-card { background: linear-gradient(180deg, #ffffff, #fbfdff); border-radius: 12px; padding: 18px; border-left: 6px solid var(--primary); box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06); display:flex; flex-direction:column; gap:8px; }
+    .stats-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .stats-card-title { font-size: 15px; font-weight: 700; color: #0f172a; margin: 0; display:flex; align-items:center; gap:10px; }
+    .stat-icon { width:36px; height:36px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:18px; color:white; box-shadow: 0 6px 12px rgba(15,23,42,0.08); }
+    .stat-icon.orders { background: linear-gradient(135deg,#3b82f6,#1d4ed8); }
+    .stat-icon.items { background: linear-gradient(135deg,#34d399,#10b981); }
+    .stat-icon.employees { background: linear-gradient(135deg,#f59e0b,#f97316); }
+    .stats-card-value { font-size: 34px; font-weight: 900; color: #0f172a; margin: 4px 0; letter-spacing: -0.02em; }
+    .stats-card-value .muted { font-size: 14px; font-weight: 600; color: #64748b; display:block; margin-top:6px; }
+    .stats-card-detail { font-size: 13px; color: #475569; }
+    .card-progress { height:10px; background:#eef2ff; border-radius:999px; overflow:hidden; margin-top:8px; }
+    .card-progress > .fill { height:100%; width:0%; background: linear-gradient(90deg,#3b82f6,#6366f1); transition: width .5s ease; }
         .stats-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .stats-table th, .stats-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         .stats-table th { background: #f8fafc; font-weight: 600; color: #334155; }
@@ -3634,7 +3641,7 @@ window.showOrderPager = function(show) {
         }
 
         // Hàm load dữ liệu đơn hủy từ UserBehaviour
-        // Biến lưu trữ dữ liệu đơn hủy gốc và bộ lọc
+        // Biến lưu trữ dữ liệu đơn hủy gốc, bộ lọc và phân trang
         let allCancelledOrders = [];
         let cancelledFilters = {
             dateFrom: '',
@@ -3642,13 +3649,24 @@ window.showOrderPager = function(show) {
             user: '',
             searchText: ''
         };
+        let cancelledPage = 1;
+        const CANCELLED_PAGE_SIZE = 50;
 
         async function loadCancelledOrders() {
             try {
                 setStatus('Đang tải danh sách đơn hủy...', 'info');
-                
-                // Gọi API để lấy user behaviour với action "Hủy đơn"
-                const response = await fetch('/api/user-behaviour?method=scanner&limit=1000', {
+                // Lấy giá trị ngày từ UI (nếu có) để truyền lên server và giảm tải
+                const uiDateFrom = document.getElementById('cancelledDateFrom')?.value || cancelledFilters.dateFrom || '';
+                const uiDateTo = document.getElementById('cancelledDateTo')?.value || cancelledFilters.dateTo || '';
+
+                // Gọi API để lấy user behaviour với action "Hủy đơn"; truyền filter ngày nếu có
+                const params = new URLSearchParams();
+                params.set('method', 'scanner');
+                params.set('limit', '2000'); // client-side pagination will slice
+                if (uiDateFrom) params.set('dateFrom', uiDateFrom);
+                if (uiDateTo) params.set('dateTo', uiDateTo);
+
+                const response = await fetch('/api/user-behaviour?' + params.toString(), {
                     method: 'GET',
                     credentials: 'include',
                     headers: {
@@ -3670,20 +3688,26 @@ window.showOrderPager = function(show) {
                 // Lọc các behaviour có chứa "Hủy đơn" trong description
                 const behaviours = result.data?.behaviours || result.data || [];
                 const cancelledBehaviours = behaviours.filter(behaviour => 
-                    behaviour.description && behaviour.description.includes('Hủy đơn')
+                    behaviour.description && behaviour.description.toLowerCase().includes('hủy đơn')
                 );
-                
+
                 // Chuyển đổi dữ liệu để hiển thị
                 const cancelledOrders = cancelledBehaviours.map(behaviour => {
-                    // Parse thông tin từ description
-                    const description = behaviour.description;
-                    const maVanDonMatch = description.match(/đơn\s+([A-Z0-9]+)/i);
-                    const maVanDon = maVanDonMatch ? maVanDonMatch[1] : 'N/A';
-                    
+                    const description = behaviour.description || '';
+
+                    // Thử lấy maVanDon từ metadata nếu có, ngược lại parse từ description (hỗ trợ dấu '-')
+                    let maVanDon = (behaviour.metadata && (behaviour.metadata.maVanDon || behaviour.metadata.orderId)) || '';
+                    if (!maVanDon) {
+                        const maVanDonMatch = description.match(/(?:đơn\s*)?([A-Za-z0-9\-]+)/i);
+                        maVanDon = maVanDonMatch ? maVanDonMatch[1] : 'N/A';
+                    }
+
                     // Parse số lượng hàng thiếu từ metadata hoặc description
                     let missingQuantity = 0;
-                    if (behaviour.metadata && behaviour.metadata.missingItems) {
-                        missingQuantity = behaviour.metadata.missingItems.reduce((sum, item) => sum + (item.soLuongThieu || 0), 0);
+                    let missingItemsDetail = null;
+                    if (behaviour.metadata && behaviour.metadata.missingItems && Array.isArray(behaviour.metadata.missingItems)) {
+                        missingItemsDetail = behaviour.metadata.missingItems.map(it => ({ name: it.maHang || it.name || '', qty: it.soLuongThieu || it.qty || 0 }));
+                        missingQuantity = missingItemsDetail.reduce((sum, item) => sum + (item.qty || 0), 0);
                     } else {
                         // Fallback: parse từ description
                         const missingMatch = description.match(/thiếu\s+(\d+)/i);
@@ -3691,14 +3715,15 @@ window.showOrderPager = function(show) {
                             missingQuantity = parseInt(missingMatch[1]);
                         }
                     }
-                    
+
                     return {
                         id: behaviour._id,
                         maVanDon: maVanDon,
-                        user: behaviour.user,
+                        user: behaviour.user || (behaviour.metadata && behaviour.metadata.user) || 'unknown',
                         time: new Date(behaviour.time),
                         description: description,
                         missingQuantity: missingQuantity,
+                        missingItemsDetail: missingItemsDetail,
                         metadata: behaviour.metadata || {}
                     };
                 });
@@ -3706,6 +3731,10 @@ window.showOrderPager = function(show) {
                 // Lưu dữ liệu gốc
                 allCancelledOrders = cancelledOrders;
                 
+                // Lưu dữ liệu gốc và reset phân trang
+                allCancelledOrders = cancelledOrders;
+                cancelledPage = 1;
+
                 // Áp dụng bộ lọc
                 applyCancelledFilters();
                 
@@ -3926,7 +3955,11 @@ window.showOrderPager = function(show) {
                 overflow-y: auto;
             `;
             
-            if (!cacheOrders.length) {
+            // Paginate cacheOrders for display
+            const startIdx = (cancelledPage - 1) * CANCELLED_PAGE_SIZE;
+            const pageSlice = cacheOrders.slice(startIdx, startIdx + CANCELLED_PAGE_SIZE);
+
+            if (!pageSlice.length) {
                 tableBody.innerHTML = `
                     <div style="
                         padding: 40px 20px; 
@@ -3939,8 +3972,8 @@ window.showOrderPager = function(show) {
                         <div>Không có đơn hủy nào phù hợp với bộ lọc</div>
                     </div>
                 `;
-            } else {
-            cacheOrders.forEach((order, index) => {
+        } else {
+        pageSlice.forEach((order, index) => {
                     const row = document.createElement('div');
                     row.style.cssText = `
                         padding: 16px 20px;
@@ -3975,7 +4008,10 @@ window.showOrderPager = function(show) {
                                 font-size: 12px;
                             ">Hủy</span>
                         </div>
-                        <div style="flex: 1 1 300px; min-width: 200px; padding: 0 12px; color: #cbd5e1; line-height: 1.4;">${escapeHtml(order.description)}</div>
+                        <div style="flex: 1 1 300px; min-width: 200px; padding: 0 12px; color: #cbd5e1; line-height: 1.4;">
+                            ${escapeHtml(order.description)}
+                            ${order.missingItemsDetail && order.missingItemsDetail.length ? '<div style="margin-top:8px;color:#fecaca;font-size:13px;"><strong>Chi tiết thiếu:</strong> ' + order.missingItemsDetail.map(it => escapeHtml(it.name) + ' ×' + it.qty).join(', ') + '</div>' : ''}
+                        </div>
                     `;
                     
                     tableBody.appendChild(row);
@@ -3984,23 +4020,52 @@ window.showOrderPager = function(show) {
             
             tableContainer.appendChild(tableBody);
             body.appendChild(tableContainer);
+
+            // Pagination controls
+            const totalPages = Math.max(1, Math.ceil(cacheOrders.length / CANCELLED_PAGE_SIZE));
+            const pagination = document.createElement('div');
+            pagination.style.cssText = 'display:flex; gap:8px; align-items:center; justify-content:right; margin-top:12px;';
+
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'btn secondary';
+            prevBtn.textContent = '‹ Trước';
+            prevBtn.disabled = cancelledPage <= 1;
+            prevBtn.onclick = () => { if (cancelledPage > 1) { cancelledPage--; renderCancelledOrders(); ensureInputFocus(); } };
+
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'btn secondary';
+            nextBtn.textContent = 'Kế Tiếp ›';
+            nextBtn.disabled = cancelledPage >= totalPages;
+            nextBtn.onclick = () => { if (cancelledPage < totalPages) { cancelledPage++; renderCancelledOrders(); ensureInputFocus(); } };
+
+            const pageInfo = document.createElement('div');
+            pageInfo.style.cssText = 'color:#64748b; font-weight:600;';
+            pageInfo.textContent = `Trang ${cancelledPage} / ${totalPages}`;
+
+            pagination.appendChild(prevBtn);
+            pagination.appendChild(pageInfo);
+            pagination.appendChild(nextBtn);
+            body.appendChild(pagination);
             
             // Event listeners
-            document.getElementById('applyCancelledFilters').onclick = () => {
+            document.getElementById('applyCancelledFilters').onclick = async () => {
                 cancelledFilters.dateFrom = document.getElementById('cancelledDateFrom').value;
                 cancelledFilters.dateTo = document.getElementById('cancelledDateTo').value;
                 cancelledFilters.user = document.getElementById('cancelledUserFilter').value;
                 cancelledFilters.searchText = document.getElementById('cancelledSearchText').value;
-                applyCancelledFilters();
+                cancelledPage = 1;
+                // Reload from server when date filters change to reduce client data
+                await loadCancelledOrders();
             };
             
-            document.getElementById('clearCancelledFilters').onclick = () => {
+            document.getElementById('clearCancelledFilters').onclick = async () => {
                 cancelledFilters = { dateFrom: '', dateTo: '', user: '', searchText: '' };
                 document.getElementById('cancelledDateFrom').value = '';
                 document.getElementById('cancelledDateTo').value = '';
                 document.getElementById('cancelledUserFilter').value = '';
                 document.getElementById('cancelledSearchText').value = '';
-                applyCancelledFilters();
+                cancelledPage = 1;
+                await loadCancelledOrders();
             };
             
             
@@ -4154,21 +4219,27 @@ window.showOrderPager = function(show) {
             const statsGrid = document.createElement('div');
             statsGrid.className = 'stats-grid';
             
+            // Helper for pretty numbers
+            function fmt(n) { return (typeof n === 'number') ? n.toLocaleString('vi-VN') : n; }
+
+            const completionPercent = data.totalOrders > 0 ? Math.round((data.totalCompleted || 0) / data.totalOrders * 100) : 0;
+
             statsGrid.innerHTML = `
                 <div class="stats-card">
-                    <div class="stats-card-title">Tổng nhân viên</div>
-                    <div class="stats-card-value">${data.totalEmployees}</div>
-                    <div class="stats-card-detail">Nhân viên hoạt động</div>
+                    <div class="stats-card-header"><div class="stats-card-title"><span class="stat-icon employees">👥</span> Tổng nhân viên</div></div>
+                    <div class="stats-card-value">${fmt(data.totalEmployees)}<span class="muted"> hoạt động</span></div>
+                    <div class="stats-card-detail">Số nhân viên tham gia kiểm đơn hôm nay</div>
                 </div>
                 <div class="stats-card">
-                    <div class="stats-card-title">Tổng đơn hàng</div>
-                    <div class="stats-card-value">${data.totalOrders}</div>
-                    <div class="stats-card-detail">Đơn đã hoàn thành</div>
+                    <div class="stats-card-header"><div class="stats-card-title"><span class="stat-icon orders">📦</span> Tổng đơn hàng</div></div>
+                    <div class="stats-card-value">${fmt(data.totalOrders)}<span class="muted"> tổng</span></div>
+                    <div class="stats-card-detail">Đã hoàn thành: ${fmt(data.totalCompleted || 0)} · Chưa hoàn thành: ${fmt((data.totalOrders || 0) - (data.totalCompleted || 0))}</div>
+                    <div class="card-progress"><div class="fill" style="width:${completionPercent}%;"></div></div>
                 </div>
                 <div class="stats-card">
-                    <div class="stats-card-title">Tổng sản phẩm</div>
-                    <div class="stats-card-value">${data.totalItems}</div>
-                    <div class="stats-card-detail">Sản phẩm đã quét</div>
+                    <div class="stats-card-header"><div class="stats-card-title"><span class="stat-icon items">📦</span> Tổng sản phẩm</div></div>
+                    <div class="stats-card-value">${fmt(data.totalItems)}<span class="muted"> mục</span></div>
+                    <div class="stats-card-detail">Số sản phẩm đã quét trong ngày</div>
                 </div>
             `;
             
@@ -4178,42 +4249,28 @@ window.showOrderPager = function(show) {
             if (data.employeeStats && data.employeeStats.length > 0) {
                 const table = document.createElement('table');
                 table.className = 'stats-table';
-                
+
                 table.innerHTML = `
                     <thead>
                         <tr>
                             <th>Nhân viên</th>
                             <th>Số đơn hàng</th>
                             <th>Số sản phẩm</th>
-                            <th>Hiệu suất TB</th>
-                            <th>Tỷ lệ</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.employeeStats.map((emp, index) => {
-                            const percentage = data.totalOrders > 0 ? Math.round((emp.totalOrders / data.totalOrders) * 100) : 0;
-                            const avgPerOrder = emp.totalOrders > 0 ? Math.round(emp.totalItems / emp.totalOrders) : 0;
-                            
+                        ${data.employeeStats.map((emp) => {
                             return `
                                 <tr>
                                     <td style="font-weight: 600; color: #3b82f6;">${escapeHtml(emp.employeeName)}</td>
-                                    <td style="text-align: center; font-weight: 600;">${emp.totalOrders}</td>
-                                    <td style="text-align: center;">${emp.totalItems}</td>
-                                    <td style="text-align: center; color: #059669;">${avgPerOrder} sản phẩm/đơn</td>
-                                    <td style="text-align: center;">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <div style="flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
-                                                <div style="height: 100%; background: linear-gradient(90deg, #3b82f6, #1d4ed8); width: ${percentage}%; transition: width 0.3s ease;"></div>
-                                            </div>
-                                            <span style="font-weight: 600; color: #374151; min-width: 35px;">${percentage}%</span>
-                                        </div>
-                                    </td>
+                                    <td style="text-align: center; font-weight: 600;">${fmt(emp.totalOrders)}</td>
+                                    <td style="text-align: center;">${fmt(emp.totalItems)}</td>
                                 </tr>
                             `;
                         }).join('')}
                     </tbody>
                 `;
-                
+
                 statsContainer.appendChild(table);
             } else {
                 const noDataMessage = document.createElement('div');

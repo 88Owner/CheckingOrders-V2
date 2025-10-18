@@ -1053,7 +1053,7 @@
         });
 
         // Load accounts
-        async function loadAccounts(showLoading = true) {
+    async function loadAccounts(showLoading = true, suppressAlerts = false) {
             try {
                 console.log('📋 Loading accounts list, showLoading:', showLoading);
                 
@@ -1091,7 +1091,7 @@
                     displayAccounts(result.data);
                 } else {
                     console.error('❌ API returned error:', result.message);
-                    showError(result.message);
+                    if (!suppressAlerts) showError(result.message);
                     // Show error state in table
                     const tbody = document.getElementById('accountsTableBody');
                     if (tbody) {
@@ -1107,7 +1107,7 @@
                 }
             } catch (error) {
                 console.error('❌ Error loading accounts:', error);
-                showError('Lỗi tải danh sách tài khoản: ' + error.message);
+                if (!suppressAlerts) showError('Lỗi tải danh sách tài khoản: ' + error.message);
                 // Show error state in table
                 const tbody = document.getElementById('accountsTableBody');
                 if (tbody) {
@@ -2220,8 +2220,14 @@ ${machine.comPorts.map(port =>
                 if (result.success) {
                     console.log('✅ Password changed successfully, closing modal...');
                     closeChangePasswordModal();
-                    // Refresh accounts list to show updated info
-                    await loadAccounts(false);
+                    // Show success message to the user
+                    try {
+                        showSuccess(result.message || 'Đổi mật khẩu thành công');
+                    } catch(e) { console.warn('Could not show success alert', e); }
+                    // Also show modal confirmation (optional)
+                    try { showSuccessModal(result.message || 'Đổi mật khẩu thành công'); } catch(e) {}
+                    // Refresh accounts list to show updated info (run in background so failures don't overwrite the success message)
+                    loadAccounts(false, true).catch(err => console.warn('Failed to refresh accounts after password change:', err));
                 } else {
                     console.log('❌ Password change failed:', result.message);
                     showError(result.message || 'Lỗi không xác định');

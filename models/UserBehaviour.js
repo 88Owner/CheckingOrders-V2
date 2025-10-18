@@ -16,10 +16,11 @@ const UserBehaviourSchema = new mongoose.Schema({
     },
     
     // Loại thao tác
+    // Allow any string so we can record both generic interaction types (keyboard/mouse)
+    // and specific admin actions (e.g. CHANGE_PASSWORD, DELETE_ACCOUNT).
     method: {
         type: String,
         required: true,
-        enum: ['keyboard', 'mouse', 'scanner', 'api', 'system'],
         index: true
     },
     

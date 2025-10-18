@@ -22,6 +22,7 @@ const DataOrder = require('./models/DataOrder');
 const ComboData = require('./models/ComboData');
 const ScannerAssignment = require('./models/ScannerAssignment');
 const PortUsage = require('./models/PortUsage');
+const UserBehaviour = require('./models/UserBehaviour');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -392,51 +393,55 @@ app.get('/api/accounts/:id/verify-role', requireLogin, requireAdmin, async (req,
 app.post('/api/admin/change-password', requireLogin, requireAdmin, async (req, res) => {
     try {
         console.log('🔑 Change password request received');
-        console.log('Request body:', req.body);
-        console.log('Session user:', req.session.user.username);
-        
+        // Avoid logging sensitive fields like passwords
+        console.log('Session user:', req.session.user?.username || 'unknown');
+
         const { accountId, newPassword } = req.body;
-        
+
         if (!accountId || !newPassword) {
             console.log('❌ Missing required fields');
             return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
         }
-        
-        if (!newPassword.trim()) {
+
+        const trimmed = String(newPassword || '').trim();
+        if (!trimmed) {
             console.log('❌ Password is empty');
             return res.json({ success: false, message: 'Mật khẩu không được để trống' });
         }
-        
+
         const account = await Account.findById(accountId);
         if (!account) {
             console.log('❌ Account not found:', accountId);
             return res.json({ success: false, message: 'Không tìm thấy tài khoản' });
         }
-        
-        console.log('✅ Found account:', account.username);
-        
+
+        console.log('Found account:', account.username);
+
         // Hash mật khẩu mới
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        
+        const hashedPassword = await bcrypt.hash(trimmed, 10);
+
         // Cập nhật mật khẩu
         account.password = hashedPassword;
         await account.save();
-        
-        console.log('✅ Password updated successfully');
-        
-        // Log hoạt động
-        await UserBehaviour.create({
-            user: req.session.user.username,
-            method: 'CHANGE_PASSWORD',
-            description: `Admin ${req.session.user.username} đã đổi mật khẩu cho user ${account.username}`,
-            metadata: {
-                targetUser: account.username,
-                targetUserId: accountId
-            }
-        });
-        
-        console.log('✅ UserBehaviour logged');
-        
+
+        console.log('Password updated successfully for user:', account.username);
+
+        // Log hoạt động (do not include password in logs or metadata)
+        try {
+            await UserBehaviour.create({
+                user: req.session.user.username,
+                method: 'CHANGE_PASSWORD',
+                description: `Admin ${req.session.user.username} đã đổi mật khẩu cho user ${account.username}`,
+                metadata: {
+                    targetUser: account.username,
+                    targetUserId: accountId
+                }
+            });
+            console.log('✅ UserBehaviour logged');
+        } catch (logErr) {
+            console.warn('⚠️ Failed to log UserBehaviour for CHANGE_PASSWORD:', logErr.message || logErr);
+        }
+
         res.json({ success: true, message: 'Đổi mật khẩu thành công' });
     } catch (error) {
         console.error('❌ Error changing password:', error);
@@ -463,16 +468,20 @@ app.delete('/api/accounts/:id', requireLogin, requireAdmin, async (req, res) => 
         await Account.findByIdAndDelete(accountId);
         
         // Log hoạt động
-        await UserBehaviour.create({
-            user: req.session.user.username,
-            method: 'DELETE_ACCOUNT',
-            description: `Admin ${req.session.user.username} đã xóa tài khoản ${account.username}`,
-            metadata: {
-                deletedUser: account.username,
-                deletedUserId: accountId,
-                deletedUserRole: account.role
-            }
-        });
+        try {
+            await UserBehaviour.create({
+                user: req.session.user.username,
+                method: 'DELETE_ACCOUNT',
+                description: `Admin ${req.session.user.username} đã xóa tài khoản ${account.username}`,
+                metadata: {
+                    deletedUser: account.username,
+                    deletedUserId: accountId,
+                    deletedUserRole: account.role
+                }
+            });
+        } catch (logErr) {
+            console.warn('⚠️ Failed to log UserBehaviour for DELETE_ACCOUNT:', logErr.message || logErr);
+        }
         
         res.json({ success: true, message: 'Xóa tài khoản thành công' });
     } catch (error) {
