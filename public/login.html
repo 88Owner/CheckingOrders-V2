@@ -1808,7 +1808,7 @@
                         try { 
                             sessionStorage.setItem('auth_token', result.token);
                             // Checker/packer UI expects checkerAuthToken key
-                            if (role === 'checker' || role === 'packer') sessionStorage.setItem('checkerAuthToken', result.token);
+                            if (role === 'checker' || role === 'packer' || role === 'warehouse_manager' || role === 'warehouse_staff') sessionStorage.setItem('checkerAuthToken', result.token);
                         } catch {}
                     }
                     
@@ -1872,6 +1872,14 @@
                     } else if (role === 'packer') {
                         showLoginSuccessAnimation(() => {
                             window.location.href = '/dashboard';
+                        });
+                    } else if (role === 'warehouse_manager') {
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = '/warehouse-manager';
+                        });
+                    } else if (role === 'warehouse_staff') {
+                        showLoginSuccessAnimation(() => {
+                            window.location.href = '/warehouse-staff';
                         });
                     } else {
                         showLoginSuccessAnimation(() => {

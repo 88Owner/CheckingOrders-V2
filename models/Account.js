@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const accountSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'admin', 'packer', 'checker'], default: 'user' },
+    role: { type: String, enum: ['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff'], default: 'user' },
     
     // Thông tin máy tính
     machineInfo: {

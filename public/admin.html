@@ -329,6 +329,16 @@
             color: white;
         }
 
+        .role-badge.warehouse_manager {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+        }
+
+        .role-badge.warehouse_staff {
+            background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
+            color: white;
+        }
+
         /* Enhanced button styles for table actions */
         .btn-small {
             padding: 8px 16px;
@@ -665,8 +675,10 @@
                             <option value="admin">Admin</option>
                             <option value="checker">Checker</option>
                             <option value="packer">Packer</option>
-                        <option value="user">User</option>
-                    </select>
+                            <option value="warehouse_manager">Quản lý kho phôi</option>
+                            <option value="warehouse_staff">Nhân viên kho phôi</option>
+                            <option value="user">User</option>
+                        </select>
                 </div>
                     <button type="submit" class="btn btn-success">Tạo tài khoản</button>
             </form>
@@ -1160,6 +1172,8 @@
                                 <option value="admin" ${account.role === 'admin' ? 'selected' : ''}>Admin</option>
                                 <option value="checker" ${account.role === 'checker' ? 'selected' : ''}>Checker</option>
                                 <option value="packer" ${account.role === 'packer' ? 'selected' : ''}>Packer</option>
+                                <option value="warehouse_manager" ${account.role === 'warehouse_manager' ? 'selected' : ''}>Quản lý kho phôi</option>
+                                <option value="warehouse_staff" ${account.role === 'warehouse_staff' ? 'selected' : ''}>Nhân viên kho phôi</option>
                                 <option value="user" ${account.role === 'user' ? 'selected' : ''}>User</option>
                             </select>
                             <button class="btn-small btn-success" onclick="saveRole('${account._id}')">💾 Save</button>

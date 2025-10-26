@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhân viên kho phôi - Shisonson</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+            border-radius: 15px;
+            border: 2px solid #28a745;
+        }
+
+        .welcome-section h2 {
+            color: #28a745;
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .welcome-section p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .function-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 2px solid #f0f0f0;
+            transition: all 0.3s ease;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .function-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border-color: #28a745;
+        }
+
+        .function-icon {
+            font-size: 5rem;
+            margin-bottom: 25px;
+            color: #28a745;
+        }
+
+        .function-title {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .function-description {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 25px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 2px solid #28a745;
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .info-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border-left: 4px solid #28a745;
+        }
+
+        .info-section h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        .info-section ul {
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .info-section li {
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .function-icon {
+                font-size: 4rem;
+            }
+
+            .function-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+            <h1>👷 Nhân viên kho phôi</h1>
+            <p>Hệ thống xuất dữ liệu nhập phôi - Shisonson</p>
+        </div>
+
+        <div class="content">
+            <div class="welcome-section">
+                <h2>Xin chào, <span id="userName">Nhân viên kho phôi</span>!</h2>
+                <p>Bạn có thể thực hiện chức năng xuất file nhập phôi dưới đây</p>
+            </div>
+
+            <div class="function-card">
+                <div class="function-icon">📊</div>
+                <div class="function-title">Xuất file nhập phôi</div>
+                <div class="function-description">
+                    Tạo và tải xuống file Excel chứa dữ liệu nhập phôi tổng hợp từ hệ thống.<br>
+                    File này bao gồm tất cả thông tin về mẫu vải, kích thước và các dữ liệu liên quan.
+                </div>
+                <button class="btn" onclick="exportNhapPhoi()">
+                    📥 Xuất file nhập phôi
+                </button>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p style="text-align: center; margin-top: 10px;" id="progressText">Đang xử lý...</p>
+            </div>
+
+            <!-- Alerts -->
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
+
+            <!-- Info section -->
+            <div class="info-section">
+                <h3>ℹ️ Thông tin về chức năng</h3>
+                <ul>
+                    <li><strong>File xuất:</strong> Định dạng Excel (.xlsx)</li>
+                    <li><strong>Nội dung:</strong> Dữ liệu tổng hợp về mẫu vải và kích thước</li>
+                    <li><strong>Tên file:</strong> Tự động đặt tên theo ngày xuất</li>
+                    <li><strong>Quyền hạn:</strong> Chỉ có thể xuất dữ liệu, không thể chỉnh sửa</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Khởi tạo trang - Server đã xử lý authentication
+        async function initializePage() {
+            try {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                
+                const res = await fetch('/api/me', { headers, credentials: 'include' });
+                const result = await res.json();
+                
+                if (result.success && result.data) {
+                    document.getElementById('userName').textContent = result.data.username;
+                    console.log('✅ Page initialized for user:', result.data.username, result.data.role);
+                } else {
+                    console.log('❌ Failed to get user info, but server already authenticated');
+                }
+            } catch (error) {
+                console.error('Error initializing page:', error);
+            }
+        }
+
+        // Đăng xuất
+        async function logout() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                await fetch('/api/logout', { 
+                    method: 'POST', 
+                    credentials: 'include', 
+                    headers: { 'Authorization': 'Bearer ' + token } 
+                });
+                window.location.href = '/login';
+            }
+        }
+
+        // Xuất file nhập phôi
+        async function exportNhapPhoi() {
+            showProgress();
+            updateProgress(25, 'Đang chuẩn bị dữ liệu...');
+
+            try {
+                updateProgress(50, 'Đang tạo file Excel...');
+                
+                const response = await fetch('/api/export-nhap-phoi', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                updateProgress(75, 'Đang tải xuống...');
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `NhapPhoi_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    updateProgress(100, 'Hoàn thành!');
+                    showSuccess('File nhập phôi đã được tải xuống thành công!');
+                } else {
+                    const result = await response.json();
+                    showError(result.message || 'Lỗi xuất file');
+                }
+
+            } catch (error) {
+                showError('Lỗi xuất file: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    hideProgress();
+                }, 2000);
+            }
+        }
+
+        // Utility functions
+        function showProgress() {
+            document.getElementById('progressContainer').style.display = 'block';
+        }
+
+        function hideProgress() {
+            document.getElementById('progressContainer').style.display = 'none';
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        function showSuccess(message) {
+            hideAlerts();
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 5000);
+        }
+
+        function showError(message) {
+            hideAlerts();
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(hideAlerts, 8000);
+        }
+
+        function hideAlerts() {
+            document.getElementById('successAlert').style.display = 'none';
+            document.getElementById('errorAlert').style.display = 'none';
+        }
+
+        // Khởi tạo
+        initializePage();
+    </script>
+</body>
+</html>

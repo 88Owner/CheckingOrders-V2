@@ -23,6 +23,8 @@ const ComboData = require('./models/ComboData');
 const ScannerAssignment = require('./models/ScannerAssignment');
 const PortUsage = require('./models/PortUsage');
 const UserBehaviour = require('./models/UserBehaviour');
+const MauVai = require('./models/MauVai');
+const KichThuoc = require('./models/KichThuoc');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -50,8 +52,10 @@ app.use(session({
     cookie: {
         secure: false, // Set to true if using HTTPS
         httpOnly: true,
-        maxAge: 14 * 24 * 60 * 60 * 1000 // 14 days
-    }
+        maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
+        sameSite: 'lax' // Thêm sameSite để tránh vấn đề với cookie
+    },
+    name: 'sessionId' // Đặt tên session cookie cụ thể
 }));
 
 // JWT middleware for token-based authentication
@@ -74,10 +78,17 @@ function authFromToken(req, res, next) {
 
 // Login middleware
 function requireLogin(req, res, next) {
+    console.log('🔍 requireLogin middleware - Session user:', req.session.user);
+    console.log('🔍 requireLogin middleware - Session ID:', req.sessionID);
+    console.log('🔍 requireLogin middleware - Cookies:', req.headers.cookie);
+    
     if (req.session.user) {
+        console.log('✅ User authenticated, proceeding...');
         return next();
     }
-    return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập' });
+    console.log('❌ No session user, redirecting to login');
+    // Redirect to login page instead of returning JSON
+    return res.redirect('/login');
 }
 
 // Admin middleware
@@ -126,6 +137,8 @@ app.post('/api/login', async (req, res) => {
             role: account.role,
             token: token
         };
+        
+        console.log('🔐 Login successful - Session created:', req.session.user);
 
         // Lấy thông tin COM port đã được phân quyền cho user từ collection scannerassignments
         const scannerAssignment = await ScannerAssignment.findOne({ userId: account.username });
@@ -141,7 +154,9 @@ app.post('/api/login', async (req, res) => {
             assignedComPort: assignedComPort,
             allowedPorts: allowedPorts,
             redirect: account.role === 'admin' ? '/admin' : 
-                     (account.role === 'checker' || account.role === 'packer') ? '/checker-home' : '/'
+                     (account.role === 'checker' || account.role === 'packer') ? '/checker-home' :
+                     account.role === 'warehouse_manager' ? '/warehouse-manager' :
+                     account.role === 'warehouse_staff' ? '/warehouse-staff' : '/'
         });
 
     } catch (error) {
@@ -159,7 +174,7 @@ app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
             return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
         }
 
-        if (!['user', 'admin', 'packer', 'checker'].includes(role)) {
+        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff'].includes(role)) {
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
 
@@ -298,7 +313,7 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
         
         console.log(`[UPDATE ROLE] Admin ${req.session.user.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
         
-        if (!role || !['user','admin','packer','checker'].includes(role)) {
+        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff'].includes(role)) {
             console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
@@ -630,6 +645,9 @@ app.get('/api/ports/available', requireLogin, async (req, res) => {
 // Hỗn hợp: nếu có JWT thì ưu tiên JWT, nếu không có thì dùng session
 app.get('/api/me', async (req, res) => {
     try {
+        console.log('🔍 /api/me called - Session user:', req.session.user);
+        console.log('🔍 /api/me called - Authorization header:', req.headers.authorization);
+        
         let username = null;
         let role = null;
 
@@ -639,15 +657,20 @@ app.get('/api/me', async (req, res) => {
                 const decoded = jwt.verify(auth.substring(7), config.SESSION_SECRET);
                 username = decoded.username;
                 role = decoded.role;
-            } catch {}
+                console.log('✅ JWT token valid - Username:', username, 'Role:', role);
+            } catch (error) {
+                console.log('❌ JWT token invalid:', error.message);
+            }
         }
         
         if (!username && req.session.user) {
             username = req.session.user.username;
             role = req.session.user.role;
+            console.log('✅ Session user found - Username:', username, 'Role:', role);
         }
 
         if (!username) {
+            console.log('❌ No username found, returning success: false');
             return res.json({ success: false });
         }
 
@@ -758,6 +781,38 @@ app.post('/api/logout', async (req, res) => {
 app.get('/check', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'check.html'));
 });
+
+// Route trang warehouse manager
+app.get('/warehouse-manager', requireWarehouseLogin, (req, res) => {
+    console.log('🔍 Warehouse Manager Access - Session user:', req.session.user);
+    if (req.session.user.role !== 'warehouse_manager') {
+        console.log('❌ Role mismatch - Expected: warehouse_manager, Got:', req.session.user.role);
+        return res.redirect('/login');
+    }
+    console.log('✅ Warehouse Manager access granted');
+    res.sendFile(path.join(__dirname, 'public', 'warehouse-manager.html'));
+});
+
+// Route trang warehouse staff
+app.get('/warehouse-staff', requireWarehouseLogin, (req, res) => {
+    console.log('🔍 Warehouse Staff Access - Session user:', req.session.user);
+    if (req.session.user.role !== 'warehouse_staff') {
+        console.log('❌ Role mismatch - Expected: warehouse_staff, Got:', req.session.user.role);
+        return res.redirect('/login');
+    }
+    console.log('✅ Warehouse Staff access granted');
+    res.sendFile(path.join(__dirname, 'public', 'warehouse-staff.html'));
+});
+
+// Route debug session
+app.get('/debug-session', (req, res) => {
+    res.json({
+        sessionUser: req.session.user,
+        sessionID: req.sessionID,
+        cookies: req.headers.cookie,
+        sessionStore: req.sessionStore ? 'Available' : 'Not available'
+    });
+});
 // Route chính: điều hướng theo role để đảm bảo checker chỉ làm việc trên 1 màn hình
 app.get('/', (req, res) => {
     if (!req.session.user) {
@@ -769,6 +824,12 @@ app.get('/', (req, res) => {
     }
     if (role === 'admin') {
         return res.redirect('/admin');
+    }
+    if (role === 'warehouse_manager') {
+        return res.redirect('/warehouse-manager');
+    }
+    if (role === 'warehouse_staff') {
+        return res.redirect('/warehouse-staff');
     }
     return res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -848,11 +909,6 @@ async function connectToMongoDB() {
 
 // Khởi tạo kết nối MongoDB
 connectToMongoDB();
-
-// Route trang check đơn hàng
-app.get('/check', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'check.html'));
-});
 
 // Route kiểm tra trạng thái kết nối MongoDB
 app.post('/api/logout', async (req, res) => {
@@ -1122,6 +1178,371 @@ app.post('/upload', upload.single('xlsxFile'), async (req, res) => {
         res.status(500).json({
             success: false,
             message: errorMessage
+        });
+    }
+});
+
+// Middleware đặc biệt cho warehouse routes
+function requireWarehouseLogin(req, res, next) {
+    console.log('🏭 Warehouse Login Check - Session user:', req.session.user);
+    console.log('🏭 Warehouse Login Check - Session ID:', req.sessionID);
+    console.log('🏭 Warehouse Login Check - Cookies:', req.headers.cookie);
+    
+    if (!req.session.user) {
+        console.log('❌ No session user in warehouse middleware');
+        return res.redirect('/login');
+    }
+    
+    console.log('✅ Session user found in warehouse middleware:', req.session.user);
+    return next();
+}
+
+// Middleware kiểm tra quyền warehouse manager
+function requireWarehouseManager(req, res, next) {
+    if (req.session.user && req.session.user.role === 'warehouse_manager') {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+}
+
+// Middleware kiểm tra quyền warehouse staff hoặc manager
+function requireWarehouseAccess(req, res, next) {
+    if (req.session.user && (req.session.user.role === 'warehouse_manager' || req.session.user.role === 'warehouse_staff')) {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+}
+
+// Route upload file Mẫu vải
+app.post('/api/upload-mau-vai', requireLogin, requireWarehouseManager, upload.single('xlsxFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        // Read workbook and parse to JSON rows
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!jsonData || jsonData.length <= 1) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'File Excel trống hoặc chỉ có header' });
+        }
+
+        // Bỏ qua dòng header và lấy dữ liệu
+        const dataRows = jsonData.slice(1).filter(row => row[0] && row[1]); // MaMau và TenMau không được rỗng
+
+        if (dataRows.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Không có dữ liệu hợp lệ trong file' });
+        }
+
+        // Kiểm tra kết nối MongoDB
+        if (mongoose.connection.readyState !== 1) {
+            throw new Error('MongoDB chưa kết nối. Vui lòng thử lại sau.');
+        }
+
+        // Chuẩn hóa dữ liệu
+        const mauVaiData = dataRows.map((row, index) => ({
+            maMau: String(row[0] || '').trim(),
+            tenMau: String(row[1] || '').trim(),
+            createdBy: req.session.user.username
+        })).filter(item => item.maMau && item.tenMau);
+
+        if (mauVaiData.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Không có dữ liệu hợp lệ sau khi chuẩn hóa' });
+        }
+
+        // Xử lý upsert: update nếu có, thêm mới nếu chưa có
+        let insertedCount = 0;
+        let updatedCount = 0;
+        const processedData = [];
+
+        for (const item of mauVaiData) {
+            try {
+                const result = await MauVai.findOneAndUpdate(
+                    { maMau: item.maMau }, // Tìm theo maMau
+                    {
+                        $set: {
+                            tenMau: item.tenMau,
+                            createdBy: item.createdBy,
+                            importDate: new Date()
+                        }
+                    },
+                    { 
+                        upsert: true, // Tạo mới nếu không tìm thấy
+                        new: true, // Trả về document sau khi update
+                        runValidators: true
+                    }
+                );
+                
+                if (result.isNew) {
+                    insertedCount++;
+                } else {
+                    updatedCount++;
+                }
+                
+                processedData.push(result);
+            } catch (error) {
+                console.error('Error processing item:', item, error);
+                // Tiếp tục với item tiếp theo
+            }
+        }
+
+        // Xóa file tạm
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            success: true,
+            message: `Import thành công! Thêm mới: ${insertedCount}, Cập nhật: ${updatedCount}`,
+            data: processedData.slice(0, 10) // Trả về 10 bản ghi đầu để preview
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi xử lý file Mẫu vải:', error);
+
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (deleteError) {
+                console.log('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xử lý file Mẫu vải: ' + error.message
+        });
+    }
+});
+
+// Route upload file Kích thước
+app.post('/api/upload-kich-thuoc', requireLogin, requireWarehouseManager, upload.single('xlsxFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        // Read workbook and parse to JSON rows
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!jsonData || jsonData.length <= 1) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'File Excel trống hoặc chỉ có header' });
+        }
+
+        // Bỏ qua dòng header và lấy dữ liệu
+        const dataRows = jsonData.slice(1).filter(row => row[0] && row[1] && row[2]); // Sz_SKU, KichThuoc, DienTich không được rỗng
+
+        if (dataRows.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Không có dữ liệu hợp lệ trong file' });
+        }
+
+        // Kiểm tra kết nối MongoDB
+        if (mongoose.connection.readyState !== 1) {
+            throw new Error('MongoDB chưa kết nối. Vui lòng thử lại sau.');
+        }
+
+        // Chuẩn hóa dữ liệu
+        const kichThuocData = dataRows.map((row, index) => ({
+            szSku: String(row[0] || '').trim(),
+            kichThuoc: String(row[1] || '').trim(),
+            dienTich: parseFloat(row[2]) || 0,
+            createdBy: req.session.user.username
+        })).filter(item => item.szSku && item.kichThuoc && item.dienTich > 0);
+
+        if (kichThuocData.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Không có dữ liệu hợp lệ sau khi chuẩn hóa' });
+        }
+
+        // Xử lý upsert: update nếu có, thêm mới nếu chưa có
+        let insertedCount = 0;
+        let updatedCount = 0;
+        const processedData = [];
+
+        for (const item of kichThuocData) {
+            try {
+                const result = await KichThuoc.findOneAndUpdate(
+                    { szSku: item.szSku }, // Tìm theo szSku
+                    {
+                        $set: {
+                            kichThuoc: item.kichThuoc,
+                            dienTich: item.dienTich,
+                            createdBy: item.createdBy,
+                            importDate: new Date()
+                        }
+                    },
+                    { 
+                        upsert: true, // Tạo mới nếu không tìm thấy
+                        new: true, // Trả về document sau khi update
+                        runValidators: true
+                    }
+                );
+                
+                if (result.isNew) {
+                    insertedCount++;
+                } else {
+                    updatedCount++;
+                }
+                
+                processedData.push(result);
+            } catch (error) {
+                console.error('Error processing item:', item, error);
+                // Tiếp tục với item tiếp theo
+            }
+        }
+
+        // Xóa file tạm
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            success: true,
+            message: `Import thành công! Thêm mới: ${insertedCount}, Cập nhật: ${updatedCount}`,
+            data: processedData.slice(0, 10) // Trả về 10 bản ghi đầu để preview
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi xử lý file Kích thước:', error);
+
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (deleteError) {
+                console.log('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xử lý file Kích thước: ' + error.message
+        });
+    }
+});
+
+// Route xuất file nhập phôi
+app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        // Kiểm tra kết nối MongoDB
+        if (mongoose.connection.readyState !== 1) {
+            throw new Error('MongoDB chưa kết nối. Vui lòng thử lại sau.');
+        }
+
+        // Lấy dữ liệu từ các collection
+        const [mauVaiData, kichThuocData, ordersData] = await Promise.all([
+            MauVai.find({}).sort({ maMau: 1 }),
+            KichThuoc.find({}).sort({ szSku: 1 }),
+            Order.find({}).sort({ stt: 1 })
+        ]);
+
+        // Tạo workbook mới
+        const workbook = XLSX.utils.book_new();
+
+        // Sheet 1: Mẫu vải
+        if (mauVaiData.length > 0) {
+            const mauVaiSheet = XLSX.utils.json_to_sheet(mauVaiData.map(item => ({
+                'Mã mẫu': item.maMau,
+                'Tên mẫu': item.tenMau,
+                'Ngày import': new Date(item.importDate).toLocaleDateString('vi-VN'),
+                'Người tạo': item.createdBy || ''
+            })));
+            XLSX.utils.book_append_sheet(workbook, mauVaiSheet, 'Mẫu vải');
+        }
+
+        // Sheet 2: Kích thước
+        if (kichThuocData.length > 0) {
+            const kichThuocSheet = XLSX.utils.json_to_sheet(kichThuocData.map(item => ({
+                'Sz_SKU': item.szSku,
+                'Kích thước': item.kichThuoc,
+                'Diện tích': item.dienTich,
+                'Ngày import': new Date(item.importDate).toLocaleDateString('vi-VN'),
+                'Người tạo': item.createdBy || ''
+            })));
+            XLSX.utils.book_append_sheet(workbook, kichThuocSheet, 'Kích thước');
+        }
+
+        // Sheet 3: Đơn hàng
+        if (ordersData.length > 0) {
+            const ordersSheet = XLSX.utils.json_to_sheet(ordersData.map(item => ({
+                'STT': item.stt,
+                'Mã đóng gói': item.maDongGoi,
+                'Mã vận đơn': item.maVanDon,
+                'Mã đơn hàng': item.maDonHang,
+                'Mã hàng': item.maHang,
+                'Số lượng': item.soLuong,
+                'Trạng thái': item.verified ? 'Đã xác nhận' : 'Chưa xác nhận',
+                'Số lượng đã quét': item.scannedQuantity || 0,
+                'Người kiểm tra': item.checkingBy || '',
+                'Ngày xác nhận': item.verifiedAt ? new Date(item.verifiedAt).toLocaleDateString('vi-VN') : '',
+                'Ngày import': new Date(item.importDate).toLocaleDateString('vi-VN')
+            })));
+            XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Đơn hàng');
+        }
+
+        // Sheet 4: Tổng hợp
+        const summaryData = [
+            {
+                'Loại dữ liệu': 'Mẫu vải',
+                'Số lượng': mauVaiData.length,
+                'Ghi chú': 'Dữ liệu mẫu vải đã import'
+            },
+            {
+                'Loại dữ liệu': 'Kích thước',
+                'Số lượng': kichThuocData.length,
+                'Ghi chú': 'Dữ liệu kích thước đã import'
+            },
+            {
+                'Loại dữ liệu': 'Đơn hàng',
+                'Số lượng': ordersData.length,
+                'Ghi chú': 'Tổng số đơn hàng trong hệ thống'
+            },
+            {
+                'Loại dữ liệu': 'Đơn hàng đã xác nhận',
+                'Số lượng': ordersData.filter(o => o.verified).length,
+                'Ghi chú': 'Số đơn hàng đã được kiểm tra'
+            },
+            {
+                'Loại dữ liệu': 'Đơn hàng chưa xác nhận',
+                'Số lượng': ordersData.filter(o => !o.verified).length,
+                'Ghi chú': 'Số đơn hàng chưa được kiểm tra'
+            }
+        ];
+
+        const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(workbook, summarySheet, 'Tổng hợp');
+
+        // Tạo buffer từ workbook
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        // Set headers để download file
+        const fileName = `NhapPhoi_${new Date().toISOString().split('T')[0]}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Length', buffer.length);
+
+        // Gửi file
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('❌ Lỗi xuất file nhập phôi:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xuất file nhập phôi: ' + error.message
         });
     }
 });
