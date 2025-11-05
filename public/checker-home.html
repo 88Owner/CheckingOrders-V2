@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -3188,6 +3188,15 @@ let pageSize = 20;
             
             body.innerHTML = '';
             
+            // Nếu đang ở chế độ check, chỉ hiển thị khi có đơn hàng được chọn
+            if (activeView === 'check') {
+                // Nếu không có đơn hàng được chọn hoặc không có cacheOrders, không hiển thị gì
+                if (!currentMaVanDon || !cacheOrders || !Array.isArray(cacheOrders) || cacheOrders.length === 0) {
+                    return;
+                }
+                // Nếu có đơn hàng, tiếp tục hiển thị (không có search box)
+            }
+            
             // Thêm search box cho chế độ view
             if (activeView === 'view') {
                 const searchContainer = document.createElement('div');
@@ -3200,7 +3209,7 @@ let pageSize = 20;
                 `;
                 
                 searchContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                         <label style="color: #e2e8f0; font-weight: 600; white-space: nowrap;">🔍 Tìm theo mã vận đơn:</label>
                         <input type="text" id="searchMaVanDon" placeholder="Nhập mã vận đơn để tìm kiếm..." style="
                             flex: 1;
@@ -3242,6 +3251,30 @@ let pageSize = 20;
                             Xóa
                         </button>
                     </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label style="color: #e2e8f0; font-weight: 600; white-space: nowrap;">📅 Từ ngày:</label>
+                        <input type="date" id="dateFrom" style="
+                            padding: 10px 12px;
+                            border-radius: 6px;
+                            border: 2px solid #475569;
+                            background: #334155;
+                            color: #e2e8f0;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        " onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" 
+                        onblur="this.style.borderColor='#475569'; this.style.boxShadow='none'">
+                        <label style="color: #e2e8f0; font-weight: 600; white-space: nowrap;">Đến ngày:</label>
+                        <input type="date" id="dateTo" style="
+                            padding: 10px 12px;
+                            border-radius: 6px;
+                            border: 2px solid #475569;
+                            background: #334155;
+                            color: #e2e8f0;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        " onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" 
+                        onblur="this.style.borderColor='#475569'; this.style.boxShadow='none'">
+                    </div>
                 `;
                 
                 body.appendChild(searchContainer);
@@ -3251,17 +3284,176 @@ let pageSize = 20;
                 const searchBtn = document.getElementById('searchBtn');
                 const clearSearchBtn = document.getElementById('clearSearchBtn');
                 
-                const performSearch = () => {
+                // Biến để quản lý request và debounce
+                let currentSearchController = null;
+                let searchTimeout = null;
+                let searchPagination = { page: 1, pageSize: 20, total: 0, totalPages: 1 };
+                
+                const performSearch = async (page = 1) => {
+                    // Cancel request cũ nếu có
+                    if (currentSearchController) {
+                        currentSearchController.abort();
+                        currentSearchController = null;
+                    }
+                    
+                    // Clear timeout cũ nếu có
+                    if (searchTimeout) {
+                        clearTimeout(searchTimeout);
+                        searchTimeout = null;
+                    }
+                    // Không dừng polling khi tìm kiếm - để tự động refresh search results
                     const searchValue = searchInput.value.trim().toLowerCase();
+                    const dateFrom = dateFromInput ? dateFromInput.value : '';
+                    const dateTo = dateToInput ? dateToInput.value : '';
+                    
+                    // Clear danh sách cũ trước khi tìm kiếm
+                    const body = document.getElementById('rows');
+                    if (body) {
+                        // Xóa tất cả rows (trừ search box)
+                        const existingRows = body.querySelectorAll('.row');
+                        existingRows.forEach(row => {
+                            // Chỉ xóa nếu không phải là search box
+                            if (!row.querySelector('#searchMaVanDon')) {
+                                row.remove();
+                            }
+                        });
+                        // Xóa header cũ nếu có
+                        const existingHeader = body.querySelector('.row.header');
+                        if (existingHeader) existingHeader.remove();
+                        // Xóa pager cũ nếu có
+                        const existingPager = document.getElementById('order-pager');
+                        if (existingPager) existingPager.remove();
+                        // Xóa TẤT CẢ các message cũ (.empty div)
+                        const existingEmptyDivs = body.querySelectorAll('.empty');
+                        existingEmptyDivs.forEach(div => div.remove());
+                    }
+                    
+                    // Hiển thị loading
+                    if (body) {
+                        const loadingDiv = document.createElement('div');
+                        loadingDiv.className = 'empty';
+                        loadingDiv.id = 'search-loading-indicator';
+                        loadingDiv.textContent = 'Đang tìm kiếm...';
+                        body.appendChild(loadingDiv);
+                    }
+                    
+                    // Cập nhật URL parameters
+                    const url = new URL(window.location.href);
+                    if (dateFrom) {
+                        url.searchParams.set('dateFrom', dateFrom);
+                    } else {
+                        url.searchParams.delete('dateFrom');
+                    }
+                    if (dateTo) {
+                        url.searchParams.set('dateTo', dateTo);
+                    } else {
+                        url.searchParams.delete('dateTo');
+                    }
                     if (searchValue) {
-                        // Lọc đơn hàng theo mã vận đơn
-                        const filteredOrders = cacheOrders.filter(order => 
-                            order.maVanDon.toLowerCase().includes(searchValue)
-                        );
-                        displayFilteredOrders(filteredOrders, searchValue);
+                        url.searchParams.set('maVanDon', searchValue);
+                    } else {
+                        url.searchParams.delete('maVanDon');
+                    }
+                    window.history.replaceState({}, '', url);
+                    
+                    if (searchValue || dateFrom || dateTo) {
+                        try {
+                            // Tạo AbortController cho request này
+                            currentSearchController = new AbortController();
+                            const controller = currentSearchController;
+                            
+                            // Build query parameters cho API mới - kết hợp cả maVanDon và date
+                            const params = new URLSearchParams();
+                            if (searchValue) {
+                                params.append('maVanDon', searchValue);
+                            }
+                            if (dateFrom) {
+                                params.append('dateFrom', dateFrom);
+                            }
+                            if (dateTo) {
+                                params.append('dateTo', dateTo);
+                            }
+                            // Thêm phân trang
+                            params.append('page', page.toString());
+                            params.append('pageSize', '20');
+                            
+                            // Gọi API mới cho checker
+                            const response = await fetch(`/api/orders/checker?${params.toString()}`, {
+                                credentials: 'include',
+                                headers: { 'Authorization': 'Bearer ' + getAuthToken() },
+                                signal: controller.signal
+                            });
+                            
+                            // Kiểm tra nếu request đã bị cancel
+                            if (controller !== currentSearchController) {
+                                return; // Request đã bị thay thế bởi request mới
+                            }
+                            
+                            const result = await response.json();
+                            
+                            // Kiểm tra lại sau khi parse JSON
+                            if (controller !== currentSearchController) {
+                                return; // Request đã bị thay thế bởi request mới
+                            }
+                            
+                            // Xóa loading
+                            if (body) {
+                                const loadingDiv = document.getElementById('search-loading-indicator');
+                                if (loadingDiv) {
+                                    loadingDiv.remove();
+                                }
+                                // Xóa tất cả các .empty div cũ (để đảm bảo không còn message cũ)
+                                const oldEmptyDivs = body.querySelectorAll('.empty');
+                                oldEmptyDivs.forEach(div => div.remove());
+                            }
+                            
+                            // Xóa loading và reset controller
+                            currentSearchController = null;
+                            
+                            if (result.success && result.data && result.data.orders) {
+                                // Lưu thông tin phân trang
+                                if (result.data.pagination) {
+                                    searchPagination = result.data.pagination;
+                                    // Lưu vào window để polling có thể lấy page hiện tại
+                                    window.currentSearchPage = result.data.pagination.page;
+                                }
+                                // Đánh dấu có search active để polling biết
+                                window.hasActiveSearch = true;
+                                // Hiển thị kết quả từ server với phân trang
+                                displayFilteredOrders(result.data.orders, searchValue, dateFrom, dateTo, result.data.pagination);
+                                setStatus(`Tìm thấy ${result.data.pagination?.total || result.data.orders.length} đơn hàng (trang ${result.data.pagination?.page || page}/${result.data.pagination?.totalPages || 1})`, 'ok');
+                            } else {
+                                // Hiển thị thông báo không tìm thấy
+                                displayFilteredOrders([], searchValue, dateFrom, dateTo);
+                                setStatus(result.message || 'Không tìm thấy đơn hàng nào', 'warn');
+                            }
+                        } catch (error) {
+                            // Bỏ qua lỗi nếu request bị abort
+                            if (error.name === 'AbortError') {
+                                return;
+                            }
+                            console.error('Lỗi tìm kiếm:', error);
+                            
+                            // Reset controller
+                            currentSearchController = null;
+                            // Xóa loading
+                            if (body) {
+                                const loadingDiv = document.getElementById('search-loading-indicator');
+                                if (loadingDiv) {
+                                    loadingDiv.remove();
+                                }
+                                // Xóa tất cả các .empty div cũ (để đảm bảo không còn message cũ)
+                                const oldEmptyDivs = body.querySelectorAll('.empty');
+                                oldEmptyDivs.forEach(div => div.remove());
+                            }
+                            setStatus('Lỗi khi tìm kiếm đơn hàng: ' + error.message, 'err');
+                            displayFilteredOrders([], searchValue, dateFrom, dateTo);
+                        }
                     } else {
                         // Hiển thị tất cả đơn hàng và khôi phục phân trang
                         window.currentSearchValue = '';
+                        window.hasActiveSearch = false;
+                        window.currentSearchPage = undefined;
                         renderOrders();
                     }
                 };
@@ -3269,25 +3461,83 @@ let pageSize = 20;
                 const clearSearch = () => {
                     searchInput.value = '';
                     window.currentSearchValue = '';
+                    window.hasActiveSearch = false;
+                    window.currentSearchPage = undefined;
+                    
+                    // Xóa giá trị date inputs
+                    const dateFromEl = document.getElementById('dateFrom');
+                    const dateToEl = document.getElementById('dateTo');
+                    if (dateFromEl) dateFromEl.value = '';
+                    if (dateToEl) dateToEl.value = '';
+                    
+                    // Xóa tham số dateFrom, dateTo và maVanDon khỏi URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('dateFrom');
+                    url.searchParams.delete('dateTo');
+                    url.searchParams.delete('maVanDon');
+                    window.history.replaceState({}, '', url);
+                    
                     renderOrders(); // Sử dụng renderOrders() để khôi phục phân trang
+                    startPolling(); // Khởi động lại polling
                 };
                 
-                searchBtn.onclick = performSearch;
+                searchBtn.onclick = () => performSearch(1);
                 clearSearchBtn.onclick = clearSearch;
+                
+                // Lưu reference để có thể gọi từ phân trang
+                window.performSearch = performSearch;
                 
                 // Tìm kiếm khi nhấn Enter
                 searchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        performSearch();
+                        performSearch(1);
                     }
                 });
+                
+                // Tự động tìm kiếm khi thay đổi date inputs với debounce
+                const dateFromInput = document.getElementById('dateFrom');
+                const dateToInput = document.getElementById('dateTo');
+                
+                // Debounce function để tránh gọi quá nhiều lần
+                const debouncedSearch = () => {
+                    // Clear timeout cũ
+                    if (searchTimeout) {
+                        clearTimeout(searchTimeout);
+                    }
+                    // Set timeout mới - đợi 300ms sau khi người dùng ngừng thay đổi
+                    searchTimeout = setTimeout(() => {
+                        performSearch(1); // Reset về trang 1 khi thay đổi filter
+                        searchTimeout = null;
+                    }, 300);
+                };
+                
+                if (dateFromInput) {
+                    dateFromInput.addEventListener('change', debouncedSearch);
+                }
+                
+                if (dateToInput) {
+                    dateToInput.addEventListener('change', debouncedSearch);
+                }
+                
+                // Khôi phục giá trị date từ URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const savedDateFrom = urlParams.get('dateFrom');
+                const savedDateTo = urlParams.get('dateTo');
+                
+                if (savedDateFrom && document.getElementById('dateFrom')) {
+                    document.getElementById('dateFrom').value = savedDateFrom;
+                }
+                
+                if (savedDateTo && document.getElementById('dateTo')) {
+                    document.getElementById('dateTo').value = savedDateTo;
+                }
                 
                 // Lưu reference để sử dụng trong displayFilteredOrders
                 window.currentSearchValue = '';
                 window.displayFilteredOrders = displayFilteredOrders;
             }
             
-            // Header
+            // Header - chỉ tạo khi đã qua được các kiểm tra ở trên
             const header = document.createElement('div');
             header.className = 'row header';
             header.style.display = 'flex';
@@ -3339,7 +3589,8 @@ let pageSize = 20;
                 const o = cacheOrders[i];
                 
                 const r = document.createElement('div');
-                const status = getStatus(o);
+                // Truyền cacheOrders vào getStatus để tính đúng trạng thái mã vận đơn
+                const status = getStatus(o, cacheOrders);
                 
                 // Áp dụng màu sắc cho hàng dựa trên trạng thái
                 let rowClass = 'row';
@@ -3443,16 +3694,46 @@ window.showOrderPager = function(show) {
     if (pager) pager.style.visibility = show ? 'visible' : 'hidden';
 }
 // Gọi showOrderPager(false) khi chuyển sang chức năng khác ngoài Xem đơn hàng
+            
+            // Tự động áp dụng filter nếu có date parameters trong URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const savedDateFrom = urlParams.get('dateFrom');
+            const savedDateTo = urlParams.get('dateTo');
+            
+                if (savedDateFrom || savedDateTo) {
+                setTimeout(() => {
+                    const dateFromEl = document.getElementById('dateFrom');
+                    const dateToEl = document.getElementById('dateTo');
+                    if (dateFromEl && savedDateFrom) dateFromEl.value = savedDateFrom;
+                    if (dateToEl && savedDateTo) dateToEl.value = savedDateTo;
+                    if (window.performSearch) {
+                        window.performSearch(1);
+                    }
+                }, 100);
+            }
+            
             updateProgress();
         }
 
         // Hàm hiển thị đơn hàng đã lọc (cho chức năng search)
-        function displayFilteredOrders(filteredOrders, searchValue) {
+        function displayFilteredOrders(filteredOrders, searchValue, dateFrom = null, dateTo = null, pagination = null) {
             const body = document.getElementById('rows');
             if (!body) return;
             
             // Lưu giá trị search hiện tại
             window.currentSearchValue = searchValue;
+            // Đánh dấu có search active (nếu có searchValue hoặc date filter)
+            window.hasActiveSearch = !!(searchValue || dateFrom || dateTo);
+            
+            // Xóa TẤT CẢ các message cũ (.empty div) trước khi hiển thị kết quả mới
+            const existingEmptyDivs = body.querySelectorAll('.empty');
+            existingEmptyDivs.forEach(div => div.remove());
+            
+            // Xóa loading indicator nếu còn
+            const loadingDiv = document.getElementById('search-loading-indicator');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
             
             // Tìm và xóa header cũ (nếu có)
             const existingHeader = body.querySelector('.row.header');
@@ -3487,24 +3768,86 @@ window.showOrderPager = function(show) {
             });
             
             if (!filteredOrders || !Array.isArray(filteredOrders) || !filteredOrders.length) {
+                // Đảm bảo đã xóa tất cả message cũ
+                const allEmptyDivs = body.querySelectorAll('.empty');
+                allEmptyDivs.forEach(div => div.remove());
+                
                 const emptyDiv = document.createElement('div');
                 emptyDiv.className = 'empty';
-                emptyDiv.textContent = searchValue ? `Không tìm thấy đơn hàng nào với mã vận đơn "${searchValue}"` : 'Không có dữ liệu để hiển thị.';
+                emptyDiv.id = 'no-results-message';
+                
+                let message = 'Không có dữ liệu để hiển thị.';
+                if (searchValue && (dateFrom || dateTo)) {
+                    message = `Không tìm thấy đơn hàng nào với mã vận đơn "${searchValue}" trong khoảng thời gian đã chọn.`;
+                } else if (searchValue) {
+                    message = `Không tìm thấy đơn hàng nào với mã vận đơn "${searchValue}".`;
+                } else if (dateFrom || dateTo) {
+                    message = 'Không tìm thấy đơn hàng nào trong khoảng thời gian đã chọn.';
+                }
+                
+                emptyDiv.textContent = message;
                 body.appendChild(emptyDiv);
                 updateProgress();
                 return;
             }
             
-            // Xóa phân trang khi đang search
+            // Xóa phân trang cũ nếu có
             const existingPager = document.getElementById('order-pager');
             if (existingPager) {
                 existingPager.remove();
             }
             
+            // Hiển thị phân trang cho kết quả tìm kiếm nếu có
+            if (pagination && pagination.totalPages > 1) {
+                const searchPager = document.createElement('div');
+                searchPager.id = 'order-pager';
+                searchPager.style.display = 'flex';
+                searchPager.style.justifyContent = 'center';
+                searchPager.style.gap = '12px';
+                searchPager.style.margin = '18px 0 0 0';
+                
+                const prevBtn = document.createElement('button');
+                prevBtn.textContent = '← Trang trước';
+                prevBtn.className = 'btn';
+                prevBtn.disabled = pagination.page === 1;
+                prevBtn.onclick = () => {
+                    const searchInput = document.getElementById('searchMaVanDon');
+                    const dateFromInput = document.getElementById('dateFrom');
+                    const dateToInput = document.getElementById('dateTo');
+                    if (window.performSearch) {
+                        window.performSearch(pagination.page - 1);
+                    }
+                };
+                
+                const nextBtn = document.createElement('button');
+                nextBtn.textContent = 'Trang sau →';
+                nextBtn.className = 'btn';
+                nextBtn.disabled = pagination.page >= pagination.totalPages;
+                nextBtn.onclick = () => {
+                    const searchInput = document.getElementById('searchMaVanDon');
+                    const dateFromInput = document.getElementById('dateFrom');
+                    const dateToInput = document.getElementById('dateTo');
+                    if (window.performSearch) {
+                        window.performSearch(pagination.page + 1);
+                    }
+                };
+                
+                const info = document.createElement('span');
+                info.textContent = `Trang ${pagination.page} / ${pagination.totalPages} (Tổng: ${pagination.total} đơn hàng)`;
+                info.style.fontWeight = 'bold';
+                info.style.fontSize = '16px';
+                
+                searchPager.appendChild(prevBtn);
+                searchPager.appendChild(info);
+                searchPager.appendChild(nextBtn);
+                body.appendChild(searchPager);
+            }
+            
             // Hiển thị kết quả tìm kiếm
             filteredOrders.forEach((o, index) => {
                 const r = document.createElement('div');
-                const status = getStatus(o);
+                // Truyền filteredOrders vào getStatus để tính đúng trạng thái mã vận đơn
+                const status = getStatus(o, filteredOrders);
                 
                 // Áp dụng màu sắc cho hàng dựa trên trạng thái
                 let rowClass = 'row';
@@ -3576,10 +3919,10 @@ window.showOrderPager = function(show) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
-        function getStatus(o) {
+        function getStatus(o, ordersList = null) {
             // Nếu đang ở chế độ view (xem đơn), hiển thị trạng thái theo logic mới
             if (activeView === 'view') {
-                return getOrderStatus(o);
+                return getOrderStatus(o, ordersList);
             }
             
             // Nếu đang ở chế độ check, hiển thị tiến độ quét chi tiết
@@ -3619,14 +3962,17 @@ window.showOrderPager = function(show) {
             return { text: `${scanned}/${required}`, badge: 'b-info' };
         }
         
-        function getOrderStatus(o) {
+        function getOrderStatus(o, ordersList = null) {
             // Logic trạng thái đơn hàng dựa trên trạng thái của toàn bộ maVanDon:
             // [Chưa xử lý]: maVanDon chưa hoàn thành và không có block
             // [Đang xử lý]: maVanDon chưa hoàn thành và có block  
             // [Hoàn thành]: maVanDon đã hoàn thành (tất cả maHang đã verified = true)
             
+            // Sử dụng ordersList nếu có (khi đang search), nếu không dùng cacheOrders
+            const sourceOrders = ordersList || cacheOrders;
+            
             // Kiểm tra trạng thái của toàn bộ maVanDon
-            const vanDonOrders = cacheOrders.filter(order => order.maVanDon === o.maVanDon);
+            const vanDonOrders = sourceOrders.filter(order => order.maVanDon === o.maVanDon);
             const totalItems = vanDonOrders.length;
             const completedItems = vanDonOrders.filter(order => order.verified).length;
             const isVanDonCompleted = totalItems > 0 && totalItems === completedItems;
@@ -4412,12 +4758,39 @@ window.showOrderPager = function(show) {
             stopPolling();
             pollingInterval = setInterval(() => {
                 if (activeView === 'view') {
-                    const now = Date.now();
-                    // Chỉ polling nếu đã qua ít nhất 3 giây từ lần polling cuối
-                    if (now - lastPollingTime >= 3000) {
-                        lastPollingTime = now;
-                        loadAllOrdersFromDB(false, 'polling');
+                    // Nếu đang có search/filter active, refresh search thay vì load tất cả
+                    if (window.currentSearchValue || window.hasActiveSearch) {
+                        const searchInput = document.getElementById('searchMaVanDon');
+                        const dateFromInput = document.getElementById('dateFrom');
+                        const dateToInput = document.getElementById('dateTo');
+                        
+                        const hasSearchValue = searchInput && searchInput.value.trim();
+                        const hasDateFrom = dateFromInput && dateFromInput.value;
+                        const hasDateTo = dateToInput && dateToInput.value;
+                        
+                        if (hasSearchValue || hasDateFrom || hasDateTo) {
+                            // Có search/filter active, gọi lại performSearch để refresh
+                            if (window.performSearch) {
+                                // Lấy page hiện tại từ window hoặc pagination
+                                let currentSearchPage = window.currentSearchPage || 1;
+                                const pager = document.getElementById('order-pager');
+                                if (pager) {
+                                    const pageInfo = pager.querySelector('span');
+                                    if (pageInfo) {
+                                        const match = pageInfo.textContent.match(/Trang (\d+)/);
+                                        if (match) currentSearchPage = parseInt(match[1], 10);
+                                    }
+                                }
+                                // Gọi performSearch với page hiện tại để refresh mà không reset về trang 1
+                                window.performSearch(currentSearchPage);
+                            }
+                        } else {
+                            // Không có search, load tất cả
+                            loadAllOrdersFromDB(false, 'polling');
+                        }
                     } else {
+                        // Không có search active, load tất cả
+                        loadAllOrdersFromDB(false, 'polling');
                     }
                 }
             }, 5000);
@@ -4651,6 +5024,35 @@ window.showOrderPager = function(show) {
                 if (view !== 'view') {
                     stopPolling();
                 }
+                
+                // Nếu chuyển sang chế độ check, clear tất cả search state
+                if (view === 'check') {
+                    // Clear search state
+                    window.currentSearchValue = '';
+                    window.hasActiveSearch = false;
+                    
+                    // Clear search inputs nếu có
+                    const searchInput = document.getElementById('searchMaVanDon');
+                    if (searchInput) searchInput.value = '';
+                    
+                    const dateFromInput = document.getElementById('dateFrom');
+                    if (dateFromInput) dateFromInput.value = '';
+                    
+                    const dateToInput = document.getElementById('dateTo');
+                    if (dateToInput) dateToInput.value = '';
+                    
+                    // Clear URL params
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('dateFrom');
+                    url.searchParams.delete('dateTo');
+                    url.searchParams.delete('maVanDon');
+                    window.history.replaceState({}, '', url);
+                    
+                    // Nếu chưa có đơn hàng được chọn, clear cacheOrders
+                    if (!currentMaVanDon) {
+                        cacheOrders = [];
+                    }
+                }
             }
             const input = document.getElementById('codeInput');
             const spin = document.getElementById('spin');
@@ -4692,6 +5094,9 @@ window.showOrderPager = function(show) {
                 
                 input.placeholder = currentMaVanDon ? 'Nhập mã hàng rồi nhấn Enter' : 'Nhập mã vận đơn rồi nhấn Enter';
                 setStatus(currentMaVanDon ? 'Nhập mã hàng để quét.' : 'Nhập mã vận đơn để tải đơn và khóa đơn.', '');
+                
+                // Render lại để đảm bảo không hiển thị dữ liệu search cũ
+                renderOrders();
             } else if (view === 'cancelled') {
                 // cancelled: hiển thị danh sách đơn hủy
                 uploadPanel.style.display = 'none';

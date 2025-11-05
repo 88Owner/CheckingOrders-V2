@@ -1547,6 +1547,165 @@ app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (re
     }
 });
 
+// Route lấy danh sách orders cho checker với date filtering
+app.get('/api/orders/checker', authFromToken, async (req, res) => {
+    try {
+        // Chỉ cho phép checker và admin truy cập
+        if (req.authUser.role !== 'checker' && req.authUser.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ checker mới có quyền truy cập'
+            });
+        }
+
+        const { dateFrom, dateTo, maVanDon, page = 1, pageSize = 20 } = req.query;
+        const pageNum = parseInt(page, 10);
+        const pageSizeNum = parseInt(pageSize, 10);
+
+        // Build query với date filtering
+        // Hàm helper để build date query
+        const buildDateQuery = () => {
+            if (!dateFrom && !dateTo) return null;
+            
+            const dateConditions = [];
+            if (dateFrom && dateTo) {
+                const fromDate = new Date(dateFrom);
+                const toDate = new Date(dateTo);
+                toDate.setHours(23, 59, 59, 999);
+                dateConditions.push(
+                    { importDate: { $gte: fromDate, $lte: toDate } },
+                    { verifiedAt: { $gte: fromDate, $lte: toDate } },
+                    { blockedAt: { $gte: fromDate, $lte: toDate } }
+                );
+            } else if (dateFrom) {
+                const fromDate = new Date(dateFrom);
+                dateConditions.push(
+                    { importDate: { $gte: fromDate } },
+                    { verifiedAt: { $gte: fromDate } },
+                    { blockedAt: { $gte: fromDate } }
+                );
+            } else if (dateTo) {
+                const toDate = new Date(dateTo);
+                toDate.setHours(23, 59, 59, 999);
+                dateConditions.push(
+                    { importDate: { $lte: toDate } },
+                    { verifiedAt: { $lte: toDate } },
+                    { blockedAt: { $lte: toDate } }
+                );
+            }
+            
+            return dateConditions.length > 0 ? { $or: dateConditions } : null;
+        };
+
+        // Build query cho Order/DataOrder
+        const buildQuery = () => {
+            const query = {};
+            const conditions = [];
+            
+            // Thêm điều kiện mã vận đơn
+            if (maVanDon) {
+                conditions.push({ maVanDon: { $regex: new RegExp(maVanDon, 'i') } });
+            }
+            
+            // Thêm điều kiện ngày (nếu có)
+            const dateQuery = buildDateQuery();
+            if (dateQuery) {
+                conditions.push(dateQuery);
+            }
+            
+            // Kết hợp các điều kiện
+            if (conditions.length === 0) {
+                return {};
+            } else if (conditions.length === 1) {
+                return conditions[0];
+            } else {
+                return { $and: conditions };
+            }
+        };
+
+        const query = buildQuery();
+
+        // Nếu có filter theo ngày HOẶC chỉ tìm theo maVanDon (không có date), truy vấn từ cả Order và DataOrder
+        let orders = [];
+        let totalOrders = 0;
+        
+        if (dateFrom || dateTo || (maVanDon && !dateFrom && !dateTo)) {
+            // Truy vấn từ cả Order và DataOrder khi:
+            // 1. Có filter ngày
+            // 2. Hoặc chỉ tìm theo maVanDon (không có date) - để tìm được đơn hàng cũ đã backup
+            const [ordersFromOrder, ordersFromDataOrder, countFromOrder, countFromDataOrder] = await Promise.all([
+                Order.find(query).sort({ importDate: -1 }).lean(),
+                DataOrder.find(query).sort({ importDate: -1 }).lean(),
+                Order.countDocuments(query),
+                DataOrder.countDocuments(query)
+            ]);
+            
+            // Merge và sort kết quả
+            orders = [...ordersFromOrder, ...ordersFromDataOrder];
+            orders.sort((a, b) => {
+                const dateA = new Date(a.importDate || 0);
+                const dateB = new Date(b.importDate || 0);
+                return dateB - dateA; // Sort descending
+            });
+            
+            totalOrders = countFromOrder + countFromDataOrder;
+            
+            // Áp dụng phân trang sau khi merge
+            const startIdx = (pageNum - 1) * pageSizeNum;
+            const endIdx = startIdx + pageSizeNum;
+            orders = orders.slice(startIdx, endIdx);
+        } else {
+            // Không có filter ngày và không có maVanDon - chỉ truy vấn từ Order (hiển thị đơn hàng hiện tại)
+            totalOrders = await Order.countDocuments(query);
+            orders = await Order.find(query)
+                .sort({ importDate: -1 })
+                .skip((pageNum - 1) * pageSizeNum)
+                .limit(pageSizeNum)
+                .lean();
+        }
+
+        // Map MasterData như API cũ
+        const skuList = orders.map(o => o.maHang).filter(Boolean);
+        const masterDatas = await MasterData.find({ sku: { $in: skuList } });
+        const masterMap = new Map();
+        for (const md of masterDatas) {
+            if (md.sku) masterMap.set(md.sku, md);
+        }
+
+        const mappedOrders = orders.map(o => {
+            let md = masterMap.get(o.maHang);
+            // orders có thể là plain object (từ .lean()) hoặc Mongoose document
+            const orderObj = o.toObject ? o.toObject() : o;
+            return {
+                ...orderObj,
+                mauVai: md && typeof md.mauVai === 'string' ? md.mauVai : '',
+                tenPhienBan: md && typeof md.tenPhienBan === 'string' ? md.tenPhienBan : '',
+                masterData: md || null
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                orders: mappedOrders,
+                pagination: {
+                    page: pageNum,
+                    pageSize: pageSizeNum,
+                    total: totalOrders,
+                    totalPages: Math.ceil(totalOrders / pageSizeNum)
+                },
+                filters: { dateFrom, dateTo, maVanDon }
+            }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi API orders/checker:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy đơn hàng cho checker: ' + error.message
+        });
+    }
+});
+
 // Route lấy danh sách orders
 const MasterData = require('./models/MasterData');
 app.get('/api/orders', authFromToken, async (req, res) => {
