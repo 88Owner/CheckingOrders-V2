@@ -402,7 +402,6 @@
             </div>
             <div class="content" id="content">
                 <div id="metaWrap" class="meta">
-                    <span id="progressText" style="font-size: 16px; font-weight: 600;">0/0 hoàn thành · 0/0 đã quét</span>
                     <div class="progress"><div class="bar" id="bar"></div></div>
                 </div>
                 <div id="queue" class="queue"></div>
@@ -3417,10 +3416,32 @@ let pageSize = 20;
                                     // Lưu vào window để polling có thể lấy page hiện tại
                                     window.currentSearchPage = result.data.pagination.page;
                                 }
+                                
+                                // QUAN TRỌNG: Lưu tất cả các đơn hàng trong cùng maVanDon để tính trạng thái đúng
+                                // Khi search, chỉ có các đơn khớp được trả về, nhưng để tính trạng thái maVanDon
+                                // cần tất cả các đơn trong cùng maVanDon
+                                const uniqueMaVanDons = [...new Set(result.data.orders.map(o => o.maVanDon))];
+                                const allOrdersForStatus = new Map(); // Map<maVanDon, orders[]>
+                                
+                                // Lấy tất cả các đơn hàng trong cùng maVanDon từ cacheOrders
+                                for (const maVanDon of uniqueMaVanDons) {
+                                    const cachedOrders = cacheOrders.filter(o => o.maVanDon === maVanDon);
+                                    if (cachedOrders.length > 0) {
+                                        allOrdersForStatus.set(maVanDon, cachedOrders);
+                                    } else {
+                                        // Nếu không có trong cache, chỉ dùng các đơn từ search result
+                                        allOrdersForStatus.set(maVanDon, result.data.orders.filter(o => o.maVanDon === maVanDon));
+                                    }
+                                }
+                                
+                                // Lưu vào window để getOrderStatus có thể sử dụng
+                                window.searchOrdersForStatus = allOrdersForStatus;
+                                
                                 // Đánh dấu có search active để polling biết
                                 window.hasActiveSearch = true;
                                 // Hiển thị kết quả từ server với phân trang
                                 displayFilteredOrders(result.data.orders, searchValue, dateFrom, dateTo, result.data.pagination);
+                                
                                 setStatus(`Tìm thấy ${result.data.pagination?.total || result.data.orders.length} đơn hàng (trang ${result.data.pagination?.page || page}/${result.data.pagination?.totalPages || 1})`, 'ok');
                             } else {
                                 // Hiển thị thông báo không tìm thấy
@@ -3454,6 +3475,7 @@ let pageSize = 20;
                         window.currentSearchValue = '';
                         window.hasActiveSearch = false;
                         window.currentSearchPage = undefined;
+                        window.searchOrdersForStatus = null; // Xóa dữ liệu search orders
                         renderOrders();
                     }
                 };
@@ -3463,6 +3485,7 @@ let pageSize = 20;
                     window.currentSearchValue = '';
                     window.hasActiveSearch = false;
                     window.currentSearchPage = undefined;
+                    window.searchOrdersForStatus = null; // Xóa dữ liệu search orders
                     
                     // Xóa giá trị date inputs
                     const dateFromEl = document.getElementById('dateFrom');
@@ -3968,13 +3991,29 @@ window.showOrderPager = function(show) {
             // [Đang xử lý]: maVanDon chưa hoàn thành và có block  
             // [Hoàn thành]: maVanDon đã hoàn thành (tất cả maHang đã verified = true)
             
-            // Sử dụng ordersList nếu có (khi đang search), nếu không dùng cacheOrders
-            const sourceOrders = ordersList || cacheOrders;
+            // QUAN TRỌNG: Khi search, cần sử dụng tất cả các đơn hàng trong cùng maVanDon
+            // để tính trạng thái đúng, không chỉ các đơn khớp với từ khóa search
+            let sourceOrders = [];
+            
+            // Nếu đang search và có lưu ordersForStatus, sử dụng nó
+            if (window.hasActiveSearch && window.searchOrdersForStatus) {
+                const ordersForThisVanDon = window.searchOrdersForStatus.get(o.maVanDon);
+                if (ordersForThisVanDon && ordersForThisVanDon.length > 0) {
+                    sourceOrders = ordersForThisVanDon;
+                } else {
+                    // Fallback: tìm trong cacheOrders
+                    sourceOrders = cacheOrders.filter(order => order.maVanDon === o.maVanDon);
+                }
+            } else {
+                // Không search: sử dụng cacheOrders
+                sourceOrders = cacheOrders && cacheOrders.length > 0 
+                    ? cacheOrders.filter(order => order.maVanDon === o.maVanDon)
+                    : (ordersList ? ordersList.filter(order => order.maVanDon === o.maVanDon) : []);
+            }
             
             // Kiểm tra trạng thái của toàn bộ maVanDon
-            const vanDonOrders = sourceOrders.filter(order => order.maVanDon === o.maVanDon);
-            const totalItems = vanDonOrders.length;
-            const completedItems = vanDonOrders.filter(order => order.verified).length;
+            const totalItems = sourceOrders.length;
+            const completedItems = sourceOrders.filter(order => order.verified).length;
             const isVanDonCompleted = totalItems > 0 && totalItems === completedItems;
             
             if (isVanDonCompleted) {
@@ -4467,30 +4506,39 @@ window.showOrderPager = function(show) {
             // Tính phần trăm dựa trên số sản phẩm đã hoàn thành
             const percent = total ? Math.round((completed / total) * 100) : 0;
             
-            // Hiển thị thông tin chi tiết hơn
-            let progressText = '';
-            if (activeView === 'cancelled') {
-                // Đơn hủy: hiển thị tổng số đơn hủy
-                const totalMissing = cacheOrders.reduce((sum, order) => sum + (order.missingQuantity || 0), 0);
-                progressText = `${total} đơn hủy · ${totalMissing} hàng thiếu`;
-            } else if (activeView === 'check') {
-                progressText = `${completed}/${total} hoàn thành · ${scanned}/${required} đã quét`;
-                if (inProgress > 0) {
-                    progressText += ` · ${inProgress} đang quét`;
-                }
-            } else {
-                progressText = `${completed}/${total} hoàn thành · ${scanned}/${required} đã quét`;
-                
-                // Thêm thông tin search nếu đang search
-                if (window.currentSearchValue) {
-                    progressText += ` · Tìm kiếm: "${window.currentSearchValue}"`;
-                }
-            }
-            
-            document.getElementById('progressText').textContent = progressText;
+            // Cập nhật progress bar
             document.getElementById('bar').style.width = percent + '%';
         }
 
+        // Hàm load danh sách ngày có đơn hàng
+        async function loadAvailableDates() {
+            try {
+                const response = await fetch('/api/stats/available-dates', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getAuthToken()
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.dates) {
+                    return result.data.dates;
+                }
+                
+                return [];
+            } catch (error) {
+                console.error('Error loading available dates:', error);
+                return [];
+            }
+        }
+        
         // Hàm load thống kê theo nhân viên theo ngày
         async function loadStats() {
             try {
@@ -4498,7 +4546,10 @@ window.showOrderPager = function(show) {
                 
                 // Lấy ngày hiện tại làm mặc định
                 const today = new Date().toISOString().split('T')[0];
-                const selectedDate = document.getElementById('statsDatePicker')?.value || today;
+                // Ưu tiên lấy từ select, sau đó từ date picker
+                const selectedDate = document.getElementById('statsDateSelect')?.value || 
+                                    document.getElementById('statsDatePicker')?.value || 
+                                    today;
                 
                 console.log('Loading stats for date:', selectedDate);
                 
@@ -4536,7 +4587,7 @@ window.showOrderPager = function(show) {
         }
         
         // Hàm hiển thị thống kê
-        function displayStats(data) {
+        async function displayStats(data) {
             const body = document.getElementById('rows');
             body.innerHTML = '';
             
@@ -4544,18 +4595,43 @@ window.showOrderPager = function(show) {
             const statsContainer = document.createElement('div');
             statsContainer.className = 'stats-container';
             
-            // Header với date picker
+            // Header với date picker và date select
             const statsHeader = document.createElement('div');
             statsHeader.className = 'stats-header';
             
             const today = new Date().toISOString().split('T')[0];
             
+            // Load danh sách ngày có đơn hàng
+            const availableDates = await loadAvailableDates();
+            
+            // Tạo options cho select
+            const dateOptions = availableDates.map(date => {
+                const dateObj = new Date(date);
+                const dateStr = dateObj.toLocaleDateString('vi-VN', { 
+                    weekday: 'short', 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit' 
+                });
+                const isSelected = date === (data.date || today);
+                return `<option value="${date}" ${isSelected ? 'selected' : ''}>${dateStr} (${date})</option>`;
+            }).join('');
+            
             statsHeader.innerHTML = `
                 <h2 class="stats-title">Thống kê đơn hàng theo nhân viên</h2>
-                <div class="date-picker-container">
-                    <label style="font-weight: 600; color: #334155;">Ngày:</label>
-                    <input type="date" id="statsDatePicker" class="date-picker" value="${data.date || today}">
-                    <button class="btn-refresh" onclick="loadStats()">Tải lại</button>
+                <div class="date-picker-container" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-weight: 600; color: #334155;">Chọn ngày từ danh sách:</label>
+                        <select id="statsDateSelect" class="date-picker" style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px; min-width: 200px;">
+                            <option value="">-- Chọn ngày --</option>
+                            ${dateOptions}
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-weight: 600; color: #334155;">Hoặc nhập ngày:</label>
+                        <input type="date" id="statsDatePicker" class="date-picker" value="${data.date || today}" style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <button class="btn-refresh" onclick="loadStats()" style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Tải lại</button>
                 </div>
             `;
             
@@ -4568,24 +4644,33 @@ window.showOrderPager = function(show) {
             // Helper for pretty numbers
             function fmt(n) { return (typeof n === 'number') ? n.toLocaleString('vi-VN') : n; }
 
-            const completionPercent = data.totalOrders > 0 ? Math.round((data.totalCompleted || 0) / data.totalOrders * 100) : 0;
+            const completionPercent = data.totalOrders > 0 ? Math.round((data.totalVerifiedOrders || 0) / data.totalOrders * 100) : 0;
+            const scanProgressPercent = data.totalItems > 0 ? Math.round((data.totalScannedItems || 0) / data.totalItems * 100) : 0;
 
             statsGrid.innerHTML = `
                 <div class="stats-card">
                     <div class="stats-card-header"><div class="stats-card-title"><span class="stat-icon employees">👥</span> Tổng nhân viên</div></div>
-                    <div class="stats-card-value">${fmt(data.totalEmployees)}<span class="muted"> hoạt động</span></div>
-                    <div class="stats-card-detail">Số nhân viên tham gia kiểm đơn hôm nay</div>
+                    <div class="stats-card-value">${fmt(data.totalEmployees || 0)}<span class="muted"> người</span></div>
+                    <div class="stats-card-detail">Số nhân viên tham gia kiểm đơn trong ngày</div>
                 </div>
                 <div class="stats-card">
                     <div class="stats-card-header"><div class="stats-card-title"><span class="stat-icon orders">📦</span> Tổng đơn hàng</div></div>
-                    <div class="stats-card-value">${fmt(data.totalOrders)}<span class="muted"> tổng</span></div>
-                    <div class="stats-card-detail">Đã hoàn thành: ${fmt(data.totalCompleted || 0)} · Chưa hoàn thành: ${fmt((data.totalOrders || 0) - (data.totalCompleted || 0))}</div>
+                    <div class="stats-card-value">${fmt(data.totalOrders || 0)}<span class="muted"> đơn</span></div>
+                    <div class="stats-card-detail">
+                        Hoàn thành: ${fmt(data.totalVerifiedOrders || 0)} · 
+                        Đang quét: ${fmt(data.totalInProgressOrders || 0)} · 
+                        Chưa xử lý: ${fmt(data.totalPendingOrders || 0)}
+                    </div>
                     <div class="card-progress"><div class="fill" style="width:${completionPercent}%;"></div></div>
                 </div>
                 <div class="stats-card">
                     <div class="stats-card-header"><div class="stats-card-title"><span class="stat-icon items">📦</span> Tổng sản phẩm</div></div>
-                    <div class="stats-card-value">${fmt(data.totalItems)}<span class="muted"> mục</span></div>
-                    <div class="stats-card-detail">Số sản phẩm đã quét trong ngày</div>
+                    <div class="stats-card-value">${fmt(data.totalItems || 0)}<span class="muted"> sản phẩm</span></div>
+                    <div class="stats-card-detail">
+                        Đã quét: ${fmt(data.totalScannedItems || 0)} / ${fmt(data.totalItems || 0)} 
+                        (${data.completionRate || 0}%)
+                    </div>
+                    <div class="card-progress"><div class="fill" style="width:${scanProgressPercent}%; background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div></div>
                 </div>
             `;
             
@@ -4593,32 +4678,190 @@ window.showOrderPager = function(show) {
             
             // Bảng chi tiết theo nhân viên
             if (data.employeeStats && data.employeeStats.length > 0) {
-                const table = document.createElement('table');
-                table.className = 'stats-table';
+                const employeeTitle = document.createElement('h3');
+                employeeTitle.style.cssText = 'margin-top: 30px; margin-bottom: 15px; color: #334155; font-size: 18px; font-weight: 600;';
+                employeeTitle.textContent = 'Thống kê theo nhân viên';
+                statsContainer.appendChild(employeeTitle);
+                
+                // Phân trang cho bảng nhân viên
+                const employeePageSize = 10;
+                let employeeCurrentPage = 1;
+                const employeeTotalPages = Math.ceil(data.employeeStats.length / employeePageSize);
+                
+                const renderEmployeeTable = (page) => {
+                    const startIdx = (page - 1) * employeePageSize;
+                    const endIdx = Math.min(startIdx + employeePageSize, data.employeeStats.length);
+                    const employeesToShow = data.employeeStats.slice(startIdx, endIdx);
+                    
+                    // Xóa bảng cũ nếu có
+                    const oldTable = document.getElementById('employeeStatsTable');
+                    const oldPager = document.getElementById('employeeStatsPager');
+                    if (oldTable) oldTable.remove();
+                    if (oldPager) oldPager.remove();
+                    
+                    const table = document.createElement('table');
+                    table.id = 'employeeStatsTable';
+                    table.className = 'stats-table';
 
-                table.innerHTML = `
-                    <thead>
-                        <tr>
-                            <th>Nhân viên</th>
-                            <th>Số đơn hàng</th>
-                            <th>Số sản phẩm</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.employeeStats.map((emp) => {
-                            return `
-                                <tr>
-                                    <td style="font-weight: 600; color: #3b82f6;">${escapeHtml(emp.employeeName)}</td>
-                                    <td style="text-align: center; font-weight: 600;">${fmt(emp.totalOrders)}</td>
-                                    <td style="text-align: center;">${fmt(emp.totalItems)}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                `;
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Nhân viên</th>
+                                <th>Số đơn hàng</th>
+                                <th>Số sản phẩm</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${employeesToShow.map((emp) => {
+                                return `
+                                    <tr>
+                                        <td style="font-weight: 600; color: #3b82f6;">${escapeHtml(emp.employeeName)}</td>
+                                        <td style="text-align: center; font-weight: 600;">${fmt(emp.totalOrders)}</td>
+                                        <td style="text-align: center;">${fmt(emp.totalItems)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    `;
 
-                statsContainer.appendChild(table);
-            } else {
+                    statsContainer.appendChild(table);
+                    
+                    // Thêm phân trang
+                    if (employeeTotalPages > 1) {
+                        const pager = document.createElement('div');
+                        pager.id = 'employeeStatsPager';
+                        pager.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 12px; margin: 18px 0;';
+                        
+                        const prevBtn = document.createElement('button');
+                        prevBtn.textContent = '← Trang trước';
+                        prevBtn.className = 'btn';
+                        prevBtn.style.cssText = 'padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;';
+                        prevBtn.disabled = page === 1;
+                        prevBtn.onclick = () => {
+                            employeeCurrentPage--;
+                            renderEmployeeTable(employeeCurrentPage);
+                        };
+                        
+                        const nextBtn = document.createElement('button');
+                        nextBtn.textContent = 'Trang sau →';
+                        nextBtn.className = 'btn';
+                        nextBtn.style.cssText = 'padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;';
+                        nextBtn.disabled = page >= employeeTotalPages;
+                        nextBtn.onclick = () => {
+                            employeeCurrentPage++;
+                            renderEmployeeTable(employeeCurrentPage);
+                        };
+                        
+                        const info = document.createElement('span');
+                        info.textContent = `Trang ${page} / ${employeeTotalPages} (Tổng: ${data.employeeStats.length} nhân viên)`;
+                        info.style.cssText = 'font-weight: 600; font-size: 14px; color: #334155;';
+                        
+                        pager.appendChild(prevBtn);
+                        pager.appendChild(info);
+                        pager.appendChild(nextBtn);
+                        statsContainer.appendChild(pager);
+                    }
+                };
+                
+                renderEmployeeTable(employeeCurrentPage);
+            }
+            
+            // Bảng thống kê theo mã vận đơn (nếu có)
+            if (data.vanDonStats && data.vanDonStats.length > 0) {
+                const vanDonTitle = document.createElement('h3');
+                vanDonTitle.style.cssText = 'margin-top: 30px; margin-bottom: 15px; color: #334155; font-size: 18px; font-weight: 600;';
+                vanDonTitle.textContent = `Thống kê theo mã vận đơn (Tổng: ${data.vanDonStats.length} mã vận đơn)`;
+                statsContainer.appendChild(vanDonTitle);
+                
+                // Phân trang cho bảng mã vận đơn
+                const vanDonPageSize = 15;
+                let vanDonCurrentPage = 1;
+                const vanDonTotalPages = Math.ceil(data.vanDonStats.length / vanDonPageSize);
+                
+                const renderVanDonTable = (page) => {
+                    const startIdx = (page - 1) * vanDonPageSize;
+                    const endIdx = Math.min(startIdx + vanDonPageSize, data.vanDonStats.length);
+                    const vanDonsToShow = data.vanDonStats.slice(startIdx, endIdx);
+                    
+                    // Xóa bảng cũ nếu có
+                    const oldTable = document.getElementById('vanDonStatsTable');
+                    const oldPager = document.getElementById('vanDonStatsPager');
+                    if (oldTable) oldTable.remove();
+                    if (oldPager) oldPager.remove();
+                    
+                    const vanDonTable = document.createElement('table');
+                    vanDonTable.id = 'vanDonStatsTable';
+                    vanDonTable.className = 'stats-table';
+
+                    vanDonTable.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Mã vận đơn</th>
+                                <th>Tổng đơn hàng</th>
+                                <th>Đã hoàn thành</th>
+                                <th>Tổng sản phẩm</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${vanDonsToShow.map((vd) => {
+                                const isCompleted = vd.verifiedOrders === vd.totalOrders && vd.totalOrders > 0;
+                                return `
+                                    <tr style="${isCompleted ? 'background: #f0fdf4;' : ''}">
+                                        <td style="font-weight: 600; color: #1e40af;">${escapeHtml(vd.maVanDon)}</td>
+                                        <td style="text-align: center; font-weight: 600;">${fmt(vd.totalOrders)}</td>
+                                        <td style="text-align: center; ${isCompleted ? 'color: #16a34a; font-weight: 600;' : ''}">
+                                            ${fmt(vd.verifiedOrders)} ${isCompleted ? 'S2' : ''}
+                                        </td>
+                                        <td style="text-align: center;">${fmt(vd.totalItems)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    `;
+
+                    statsContainer.appendChild(vanDonTable);
+                    
+                    // Thêm phân trang
+                    if (vanDonTotalPages > 1) {
+                        const pager = document.createElement('div');
+                        pager.id = 'vanDonStatsPager';
+                        pager.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 12px; margin: 18px 0;';
+                        
+                        const prevBtn = document.createElement('button');
+                        prevBtn.textContent = '← Trang trước';
+                        prevBtn.className = 'btn';
+                        prevBtn.style.cssText = 'padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;';
+                        prevBtn.disabled = page === 1;
+                        prevBtn.onclick = () => {
+                            vanDonCurrentPage--;
+                            renderVanDonTable(vanDonCurrentPage);
+                        };
+                        
+                        const nextBtn = document.createElement('button');
+                        nextBtn.textContent = 'Trang sau →';
+                        nextBtn.className = 'btn';
+                        nextBtn.style.cssText = 'padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;';
+                        nextBtn.disabled = page >= vanDonTotalPages;
+                        nextBtn.onclick = () => {
+                            vanDonCurrentPage++;
+                            renderVanDonTable(vanDonCurrentPage);
+                        };
+                        
+                        const info = document.createElement('span');
+                        info.textContent = `Trang ${page} / ${vanDonTotalPages} (Tổng: ${data.vanDonStats.length} mã vận đơn)`;
+                        info.style.cssText = 'font-weight: 600; font-size: 14px; color: #334155;';
+                        
+                        pager.appendChild(prevBtn);
+                        pager.appendChild(info);
+                        pager.appendChild(nextBtn);
+                        statsContainer.appendChild(pager);
+                    }
+                };
+                
+                renderVanDonTable(vanDonCurrentPage);
+            }
+            
+            if ((!data.employeeStats || data.employeeStats.length === 0) && (!data.vanDonStats || data.vanDonStats.length === 0)) {
                 const noDataMessage = document.createElement('div');
                 noDataMessage.style.cssText = `
                     text-align: center; 
@@ -4631,17 +4874,37 @@ window.showOrderPager = function(show) {
                 noDataMessage.innerHTML = `
                     <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
                     <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Không có dữ liệu</div>
-                    <div>Không có đơn hàng nào được hoàn thành trong ngày này</div>
+                    <div>Không có đơn hàng nào trong ngày này</div>
                 `;
                 statsContainer.appendChild(noDataMessage);
             }
             
             body.appendChild(statsContainer);
             
-            // Event listener cho date picker
+            // Event listener cho date picker và date select
             const datePicker = document.getElementById('statsDatePicker');
+            const dateSelect = document.getElementById('statsDateSelect');
+            
             if (datePicker) {
-                datePicker.addEventListener('change', loadStats);
+                datePicker.addEventListener('change', function() {
+                    // Đồng bộ với select
+                    if (dateSelect) {
+                        dateSelect.value = this.value;
+                    }
+                    loadStats();
+                });
+            }
+            
+            if (dateSelect) {
+                dateSelect.addEventListener('change', function() {
+                    // Đồng bộ với date picker
+                    if (datePicker && this.value) {
+                        datePicker.value = this.value;
+                    }
+                    if (this.value) {
+                        loadStats();
+                    }
+                });
             }
         }
         

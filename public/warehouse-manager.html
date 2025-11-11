@@ -351,6 +351,11 @@
                     Load file Kích thước
                 </button>
                 
+                <button id="masterDataVaiBtn" class="nav-btn">
+                    <span class="icon"></span>
+                    Load file MasterDataVai
+                </button>
+                
                 <button id="exportBtn" class="nav-btn">
                     <span class="icon"></span>
                     Xuất file nhập phôi
@@ -388,6 +393,13 @@
                             <h3 style="color: var(--primary); margin-bottom: 12px;">Load file Kích thước</h3>
                             <p style="color: #666; margin-bottom: 20px;">Upload file Excel chứa dữ liệu kích thước với 3 cột: Sz_SKU, KichThuoc và DienTich</p>
                             <button class="btn" onclick="showSection('kichThuoc')">Bắt đầu</button>
+                        </div>
+                        
+                        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
+                            <div style="font-size: 48px; color: var(--primary); margin-bottom: 16px;">📦</div>
+                            <h3 style="color: var(--primary); margin-bottom: 12px;">Load file MasterDataVai</h3>
+                            <p style="color: #666; margin-bottom: 20px;">Upload file Excel chứa dữ liệu MasterDataVai với 5 cột: Sku, Tên, Mẫu, Ngang, Cao</p>
+                            <button class="btn" onclick="showSection('masterDataVai')">Bắt đầu</button>
                         </div>
                         
                         <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
@@ -481,6 +493,47 @@
                     </div>
                 </div>
 
+                <!-- MasterDataVai Section -->
+                <div id="masterDataVaiSection" class="content-section">
+                    <div class="section-title">
+                        <span class="icon"></span>
+                        Load file MasterDataVai
+                    </div>
+                    
+                    <div class="upload-area" onclick="document.getElementById('masterDataVaiFile').click()">
+                        <div class="upload-icon"></div>
+                        <div class="upload-text">Click để chọn file Excel</div>
+                        <div class="upload-subtext">Hỗ trợ file .xlsx và .xls với 5 cột: Sku, Tên, Mẫu, Ngang, Cao</div>
+                    </div>
+                    <input type="file" id="masterDataVaiFile" class="file-input" accept=".xlsx,.xls" />
+                    
+                    <div style="text-align: center;">
+                        <button class="btn" onclick="uploadMasterDataVai()" disabled id="uploadMasterDataVaiBtn">
+                            Upload MasterDataVai
+                        </button>
+                    </div>
+                    
+                    <div class="progress-container" id="masterDataVaiProgressContainer">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="masterDataVaiProgressFill"></div>
+                        </div>
+                        <p style="text-align: center; margin-top: 10px;" id="masterDataVaiProgressText">Đang xử lý...</p>
+                    </div>
+                    
+                    <div class="alert alert-success" id="masterDataVaiSuccessAlert"></div>
+                    <div class="alert alert-error" id="masterDataVaiErrorAlert"></div>
+                    
+                    <div class="data-preview" id="masterDataVaiDataPreview">
+                        <h3 id="masterDataVaiPreviewTitle">Dữ liệu đã import</h3>
+                        <table class="data-table" id="masterDataVaiDataTable">
+                            <thead id="masterDataVaiTableHead">
+                            </thead>
+                            <tbody id="masterDataVaiTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Export Section -->
                 <div id="exportSection" class="content-section">
                     <div class="section-title">
@@ -521,6 +574,7 @@
     <script>
         let selectedMauVaiFile = null;
         let selectedKichThuocFile = null;
+        let selectedMasterDataVaiFile = null;
 
         // Khởi tạo trang - Server đã xử lý authentication
         async function initializePage() {
@@ -577,6 +631,7 @@
         document.getElementById('welcomeBtn').addEventListener('click', () => showSection('welcome'));
         document.getElementById('mauVaiBtn').addEventListener('click', () => showSection('mauVai'));
         document.getElementById('kichThuocBtn').addEventListener('click', () => showSection('kichThuoc'));
+        document.getElementById('masterDataVaiBtn').addEventListener('click', () => showSection('masterDataVai'));
         document.getElementById('exportBtn').addEventListener('click', () => showSection('export'));
         document.getElementById('logoutBtn').addEventListener('click', logout);
 
@@ -595,6 +650,15 @@
                 selectedKichThuocFile = e.target.files[0];
                 document.getElementById('uploadKichThuocBtn').disabled = false;
                 hideAlerts('kichThuoc');
+            }
+        });
+
+        // Xử lý file MasterDataVai
+        document.getElementById('masterDataVaiFile').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                selectedMasterDataVaiFile = e.target.files[0];
+                document.getElementById('uploadMasterDataVaiBtn').disabled = false;
+                hideAlerts('masterDataVai');
             }
         });
 
@@ -686,6 +750,50 @@
             }
         }
 
+        // Upload MasterDataVai
+        async function uploadMasterDataVai() {
+            if (!selectedMasterDataVaiFile) {
+                showError('masterDataVai', 'Vui lòng chọn file trước khi upload');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('xlsxFile', selectedMasterDataVaiFile);
+
+            showProgress('masterDataVai');
+            document.getElementById('uploadMasterDataVaiBtn').disabled = true;
+
+            try {
+                updateProgress('masterDataVai', 25, 'Đang upload file MasterDataVai...');
+                
+                const response = await fetch('/api/upload-master-data-vai', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                updateProgress('masterDataVai', 75, 'Đang xử lý dữ liệu...');
+                const result = await response.json();
+                
+                updateProgress('masterDataVai', 100, 'Hoàn thành!');
+
+                if (result.success) {
+                    showSuccess('masterDataVai', result.message);
+                    displayDataPreview('masterDataVai', result.data, 'MasterDataVai');
+                } else {
+                    showError('masterDataVai', result.message);
+                }
+
+            } catch (error) {
+                showError('masterDataVai', 'Lỗi upload: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    hideProgress('masterDataVai');
+                    document.getElementById('uploadMasterDataVaiBtn').disabled = false;
+                }, 2000);
+            }
+        }
+
         // Xuất file nhập phôi
         async function exportNhapPhoi() {
             showProgress('export');
@@ -766,6 +874,27 @@
                         <td>${item.szSku}</td>
                         <td>${item.kichThuoc}</td>
                         <td>${item.dienTich}</td>
+                        <td>${new Date(item.importDate).toLocaleDateString('vi-VN')}</td>
+                    </tr>
+                `).join('');
+            } else if (type === 'MasterDataVai') {
+                tableHead.innerHTML = `
+                    <tr>
+                        <th>SKU</th>
+                        <th>Tên</th>
+                        <th>Mẫu</th>
+                        <th>Ngang</th>
+                        <th>Cao</th>
+                        <th>Ngày import</th>
+                    </tr>
+                `;
+                tableBody.innerHTML = data.map(item => `
+                    <tr>
+                        <td>${item.sku}</td>
+                        <td>${item.ten}</td>
+                        <td>${item.mau}</td>
+                        <td>${item.ngang}</td>
+                        <td>${item.cao}</td>
                         <td>${new Date(item.importDate).toLocaleDateString('vi-VN')}</td>
                     </tr>
                 `).join('');

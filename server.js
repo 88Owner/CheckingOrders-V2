@@ -25,6 +25,7 @@ const PortUsage = require('./models/PortUsage');
 const UserBehaviour = require('./models/UserBehaviour');
 const MauVai = require('./models/MauVai');
 const KichThuoc = require('./models/KichThuoc');
+const MasterDataVai = require('./models/MasterDataVai');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -1435,6 +1436,154 @@ app.post('/api/upload-kich-thuoc', requireLogin, requireWarehouseManager, upload
     }
 });
 
+// Route upload file MasterDataVai
+app.post('/api/upload-master-data-vai', requireLogin, requireWarehouseManager, upload.single('xlsxFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        // Read workbook and parse to JSON rows
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!jsonData || jsonData.length <= 1) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'File Excel trống hoặc chỉ có header' });
+        }
+
+        // Bỏ qua dòng header và lấy dữ liệu
+        // Cột: Sku, Tên, Mẫu, Ngang, Cao
+        const dataRows = jsonData.slice(1).filter(row => row[0] && row[1] && row[2] && row[3] && row[4]); // Tất cả 5 cột không được rỗng
+
+        if (dataRows.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Không có dữ liệu hợp lệ trong file' });
+        }
+
+        // Kiểm tra kết nối MongoDB
+        if (mongoose.connection.readyState !== 1) {
+            throw new Error('MongoDB chưa kết nối. Vui lòng thử lại sau.');
+        }
+
+        // Chuẩn hóa dữ liệu
+        const masterDataVaiList = [];
+        const uniqueKeyMap = new Map(); // Để kiểm tra duplicate uniqueKey
+
+        for (const row of dataRows) {
+            const sku = String(row[0] || '').trim();
+            const ten = String(row[1] || '').trim();
+            const mau = String(row[2] || '').trim();
+            const ngang = String(row[3] || '').trim();
+            const cao = String(row[4] || '').trim();
+
+            if (!sku || !ten || !mau || !ngang || !cao) {
+                continue; // Bỏ qua dòng không đủ dữ liệu
+            }
+
+            // Tạo uniqueKey từ bộ 3 [Mẫu][Ngang][Cao]
+            const uniqueKey = `${mau}|${ngang}|${cao}`;
+
+            // Kiểm tra duplicate uniqueKey với SKU và Tên khác nhau
+            if (uniqueKeyMap.has(uniqueKey)) {
+                const existing = uniqueKeyMap.get(uniqueKey);
+                if (existing.sku !== sku || existing.ten !== ten) {
+                    console.warn(`Cảnh báo: uniqueKey "${uniqueKey}" đã tồn tại với SKU="${existing.sku}", Tên="${existing.ten}". Bỏ qua SKU="${sku}", Tên="${ten}"`);
+                    continue; // Bỏ qua nếu uniqueKey trùng nhưng SKU hoặc Tên khác
+                }
+            } else {
+                uniqueKeyMap.set(uniqueKey, { sku, ten });
+            }
+
+            masterDataVaiList.push({
+                sku,
+                ten,
+                mau,
+                ngang,
+                cao,
+                uniqueKey,
+                createdBy: req.session.user.username
+            });
+        }
+
+        if (masterDataVaiList.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Không có dữ liệu hợp lệ sau khi chuẩn hóa' });
+        }
+
+        // Xử lý upsert: update nếu có, thêm mới nếu chưa có (dựa trên uniqueKey)
+        let insertedCount = 0;
+        let updatedCount = 0;
+        const processedData = [];
+
+        for (const item of masterDataVaiList) {
+            try {
+                const result = await MasterDataVai.findOneAndUpdate(
+                    { uniqueKey: item.uniqueKey }, // Tìm theo uniqueKey
+                    {
+                        $set: {
+                            sku: item.sku,
+                            ten: item.ten,
+                            mau: item.mau,
+                            ngang: item.ngang,
+                            cao: item.cao,
+                            createdBy: item.createdBy,
+                            importDate: new Date()
+                        }
+                    },
+                    { 
+                        upsert: true, // Tạo mới nếu không tìm thấy
+                        new: true, // Trả về document sau khi update
+                        runValidators: true
+                    }
+                );
+                
+                if (result.isNew) {
+                    insertedCount++;
+                } else {
+                    updatedCount++;
+                }
+                
+                processedData.push(result);
+            } catch (error) {
+                console.error('Error processing item:', item, error);
+                // Tiếp tục với item tiếp theo
+            }
+        }
+
+        // Xóa file tạm
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            success: true,
+            message: `Import thành công! Thêm mới: ${insertedCount}, Cập nhật: ${updatedCount}`,
+            data: processedData.slice(0, 10) // Trả về 10 bản ghi đầu để preview
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi xử lý file MasterDataVai:', error);
+
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (deleteError) {
+                console.log('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xử lý file MasterDataVai: ' + error.message
+        });
+    }
+});
+
 // Route xuất file nhập phôi
 app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
@@ -1872,30 +2021,46 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
             }
         });
         
-        // Chuyển Map thành array và sắp xếp theo STT
+        // Chuyển Map thành array và sắp xếp theo STT, đồng thời tính toán lại trạng thái
         const processedOrders = Array.from(skuMap.values()).map((sku, index) => {
+            const totalRequired = sku.quantity;
+            
+            // Tìm đơn hàng gốc (direct order) cho SKU này để lấy trạng thái quét
+            // Giả định rằng số lượng quét cho một mã hàng được lưu trữ trên một bản ghi order duy nhất của mã hàng đó
+            const sourceDirectOrder = orders.find(o => o.maHang === sku.maHang);
+            
+            const scannedQuantity = sourceDirectOrder ? (sourceDirectOrder.scannedQuantity || 0) : 0;
+            
+            // Một SKU tổng hợp được coi là 'verified' nếu số lượng quét đủ yêu cầu
+            const isVerified = scannedQuantity >= totalRequired;
+            
+            const verifiedAt = (isVerified && sourceDirectOrder) ? sourceDirectOrder.verifiedAt : null;
+            const checkingBy = sourceDirectOrder ? sourceDirectOrder.checkingBy : null;
+            const block = sourceDirectOrder ? sourceDirectOrder.block : false;
+            const blockedAt = sourceDirectOrder ? sourceDirectOrder.blockedAt : null;
+
             const directSources = sku.sources.filter(s => s.type === 'direct');
             const comboSources = sku.sources.filter(s => s.type === 'combo');
-            
+
             return {
                 stt: index + 1,
-                maDongGoi: orders[0]?.maDongGoi || '', // Lấy từ order đầu tiên
-                maVanDon: orders[0]?.maVanDon || '', // Lấy từ order đầu tiên
-                maDonHang: orders[0]?.maDonHang || '', // Lấy từ order đầu tiên
+                maDongGoi: orders[0]?.maDongGoi || '',
+                maVanDon: orders[0]?.maVanDon || '',
+                maDonHang: orders[0]?.maDonHang || '',
                 maHang: sku.maHang,
-                soLuong: sku.quantity,
+                soLuong: totalRequired,
                 displayMaHang: sku.maHang,
-                displaySoLuong: sku.quantity,
+                displaySoLuong: totalRequired,
                 isCombo: false, // Đã tách thành SKU riêng biệt
-                isCombined: directSources.length > 0 && comboSources.length > 0, // Có cả đơn riêng và combo
+                isCombined: directSources.length > 0 && comboSources.length > 0,
                 sources: sku.sources,
                 importDate: orders[0]?.importDate || new Date(),
-                verified: false,
-                verifiedAt: null,
-                scannedQuantity: 0,
-                checkingBy: null,
-                block: false,
-                blockedAt: null
+                verified: isVerified,
+                verifiedAt: verifiedAt,
+                scannedQuantity: scannedQuantity,
+                checkingBy: checkingBy,
+                block: block,
+                blockedAt: blockedAt
             };
         });
         
@@ -2174,13 +2339,13 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
         }
 
         // Tìm đơn hàng cụ thể - Logic cải thiện cho ComboData:
-        // 1. Tìm trực tiếp với maHang (cho trường hợp non-combo)
+        // 1. Tìm TẤT CẢ các đơn trực tiếp với maHang (xử lý duplicate orders)
         // 2. Tìm tất cả combo có mã base = maHang đang quét
         // 3. Tính tổng số lượng từ cả đơn riêng và combo
-        let directOrder = await Order.findOne({ maVanDon, maHang });
+        let directOrders = await Order.find({ maVanDon, maHang }); // Tìm TẤT CẢ các đơn duplicate
+        let directOrder = directOrders.length > 0 ? directOrders[0] : null; // Lấy đơn đầu tiên làm mainOrder
         let comboOrders = [];
         let totalRequiredQuantity = 0;
-        let totalScannedQuantity = 0;
         let isComboOrder = false;
         
         // Tìm tất cả combo có mã base = maHang đang quét
@@ -2199,23 +2364,19 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
             }
         }
         
-        // Tính tổng số lượng cần quét
-        if (directOrder) {
-            // Sản phẩm có đơn riêng
-            totalRequiredQuantity += directOrder.soLuong;
-            totalScannedQuantity += directOrder.scannedQuantity || 0;
-            console.log(`📦 Direct order: ${directOrder.soLuong} required, ${directOrder.scannedQuantity || 0} scanned`);
+        // Tính tổng số lượng cần quét từ TẤT CẢ các direct orders (xử lý duplicate)
+        if (directOrders.length > 0) {
+            // Cộng tổng số lượng từ tất cả các đơn duplicate
+            totalRequiredQuantity += directOrders.reduce((sum, order) => sum + order.soLuong, 0);
+            console.log(`🔍 Found ${directOrders.length} duplicate direct orders for ${maHang}, total required: ${totalRequiredQuantity}`);
         }
         
-        // Cộng thêm từ combo - GIỮ NGUYÊN LOGIC NGHIỆP VỤ CŨ
+        // Cộng thêm từ combo - SỬA LỖI LOGIC
         for (const { order: comboOrder, combo } of comboOrders) {
-            // Logic cũ: 1 combo = 1 lần quét (không nhân với số lượng base products)
-            const comboRequiredQuantity = comboOrder.soLuong; // Chỉ tính số combo, không nhân base products
+            // Logic mới: Nhân số lượng combo với số lượng sản phẩm trong combo
+            const comboRequiredQuantity = comboOrder.soLuong * combo.soLuong;
             totalRequiredQuantity += comboRequiredQuantity;
-            // scannedQuantity của combo order chính là số combo đã quét
-            const comboScannedQuantity = comboOrder.scannedQuantity || 0;
-            totalScannedQuantity += comboScannedQuantity;
-            console.log(`📦 Combo ${combo.comboCode}: ${comboOrder.soLuong} combo required, ${comboScannedQuantity} combo scanned`);
+            console.log(`📦 Combo ${combo.comboCode} requires ${combo.soLuong} of ${combo.maHang} each. Order has ${comboOrder.soLuong} combos. Contribution: ${comboRequiredQuantity}`);
         }
         
         // Xác định order chính để cập nhật (ưu tiên đơn riêng, nếu không có thì lấy combo đầu tiên)
@@ -2224,6 +2385,9 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
             mainOrder = comboOrders[0].order;
             isComboOrder = true;
         }
+        
+        // SỬA LỖI: Lấy số lượng đã quét từ mainOrder, là nơi duy nhất lưu trữ số lần quét cho mã hàng này
+        const totalScannedQuantity = mainOrder ? (mainOrder.scannedQuantity || 0) : 0;
         
         if (directOrder && comboOrders.length > 0) {
             console.log(`🔍 Product ${maHang} has both direct order and combo orders - total required: ${totalRequiredQuantity}, total scanned: ${totalScannedQuantity}`);
@@ -2298,55 +2462,126 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
             });
         }
 
-        // Cập nhật số lượng quét - GIỮ NGUYÊN LOGIC NGHIỆP VỤ CŨ
-        // Chỉ cập nhật mainOrder (direct order hoặc combo order chính)
-        if (!mainOrder.scannedQuantity) {
-            mainOrder.scannedQuantity = 0;
-        }
-        mainOrder.scannedQuantity += 1;
-
-        // Tính số lượng quét mới
+        // Cập nhật số lượng quét
         const newTotalScanned = totalScannedQuantity + 1;
+        mainOrder.scannedQuantity = newTotalScanned;
         
-        // Cập nhật trạng thái verified cho mainOrder
+        // Cập nhật trạng thái verified và lưu các bản ghi liên quan
         if (newTotalScanned >= totalRequiredQuantity) {
+            const verifiedAt = new Date();
             mainOrder.verified = true;
-            mainOrder.verifiedAt = new Date();
-            // Lưu thông tin nhân viên quét khi hoàn tất
+            mainOrder.verifiedAt = verifiedAt;
             if (!mainOrder.checkingBy) {
                 mainOrder.checkingBy = userId;
             }
+
+            // Khi một mã hàng tổng hợp đã đủ, xác nhận tất cả các order gốc của nó (cả direct và combo)
+            const allPromises = [];
+            
+            // Thêm mainOrder vào danh sách lưu (nó có thể là direct order hoặc combo order đầu tiên)
+            allPromises.push(mainOrder.save());
+
+            // Nếu có directOrders (bao gồm duplicate), verify tất cả các duplicate orders
+            if (directOrders && directOrders.length > 0) {
+                for (const dupOrder of directOrders) {
+                    // Tránh lưu lại mainOrder nếu nó là một direct order
+                    if (dupOrder._id.toString() !== mainOrder._id.toString()) {
+                        dupOrder.verified = true;
+                        dupOrder.verifiedAt = verifiedAt;
+                        dupOrder.scannedQuantity = newTotalScanned; // Đồng bộ số lượng đã quét
+                        if (!dupOrder.checkingBy) {
+                            dupOrder.checkingBy = userId;
+                        }
+                        allPromises.push(dupOrder.save());
+                    }
+                }
+            } else if (directOrder && directOrder._id.toString() !== mainOrder._id.toString()) {
+                // Fallback: Nếu không có directOrders array, dùng directOrder cũ
+                directOrder.verified = true;
+                directOrder.verifiedAt = verifiedAt;
+                directOrder.scannedQuantity = newTotalScanned; // Đồng bộ số lượng đã quét
+                if (!directOrder.checkingBy) {
+                    directOrder.checkingBy = userId;
+                }
+                allPromises.push(directOrder.save());
+            }
+
+            // Xác nhận và thêm các combo order khác (nếu có) vào danh sách lưu
+            for (const { order: comboOrderToVerify } of comboOrders) {
+                // Tránh lưu lại mainOrder nếu nó là một combo order
+                if (mainOrder._id.toString() !== comboOrderToVerify._id.toString()) {
+                    comboOrderToVerify.verified = true;
+                    comboOrderToVerify.verifiedAt = verifiedAt;
+                    if (!comboOrderToVerify.checkingBy) {
+                        comboOrderToVerify.checkingBy = userId;
+                    }
+                    allPromises.push(comboOrderToVerify.save());
+                }
+            }
+            
+            await Promise.all(allPromises);
+
         } else {
             mainOrder.verified = false;
+            await mainOrder.save();
+            
+            // Nếu có directOrders (bao gồm duplicate), cập nhật trạng thái chưa verified cho tất cả
+            if (directOrders && directOrders.length > 0) {
+                for (const dupOrder of directOrders) {
+                    if (dupOrder._id.toString() !== mainOrder._id.toString()) {
+                        dupOrder.verified = false;
+                        dupOrder.scannedQuantity = newTotalScanned; // Đồng bộ số lượng đã quét
+                        await dupOrder.save();
+                    }
+                }
+            } else if (directOrder && directOrder._id.toString() !== mainOrder._id.toString()) {
+                // Fallback: Nếu không có directOrders array, dùng directOrder cũ
+                directOrder.verified = false;
+                directOrder.scannedQuantity = newTotalScanned; // Đồng bộ số lượng đã quét
+                await directOrder.save();
+            }
         }
-        
-        // Lưu mainOrder
-        await mainOrder.save();
         
         // Xử lý duplicate orders (orders có cùng maHang nhưng khác maDongGoi)
         // Chỉ áp dụng cho non-combo orders (không áp dụng cho combo orders)
+        // Lưu ý: Logic này đã được xử lý ở trên khi verify, nhưng vẫn giữ lại để đảm bảo đồng bộ
         if (!isComboOrder) {
+            // Chỉ tìm các duplicate orders chưa được xử lý ở trên
             const duplicateOrders = await Order.find({ 
                 maVanDon, 
                 maHang,
                 _id: { $ne: mainOrder._id } // Loại trừ mainOrder
             });
             
-            // Cập nhật duplicate orders để đồng bộ với mainOrder
+            // Cập nhật duplicate orders để đồng bộ với mainOrder (nếu chưa được cập nhật ở trên)
             for (const duplicateOrder of duplicateOrders) {
-                duplicateOrder.scannedQuantity = mainOrder.scannedQuantity;
-                duplicateOrder.verified = mainOrder.verified;
-                duplicateOrder.verifiedAt = mainOrder.verifiedAt;
-                // Đồng bộ thông tin nhân viên quét
-                if (mainOrder.verified && !duplicateOrder.checkingBy) {
-                    duplicateOrder.checkingBy = mainOrder.checkingBy;
+                // Chỉ cập nhật nếu chưa được xử lý ở trên (kiểm tra bằng cách so sánh scannedQuantity)
+                if (duplicateOrder.scannedQuantity !== mainOrder.scannedQuantity || 
+                    duplicateOrder.verified !== mainOrder.verified) {
+                    duplicateOrder.scannedQuantity = mainOrder.scannedQuantity;
+                    duplicateOrder.verified = mainOrder.verified;
+                    duplicateOrder.verifiedAt = mainOrder.verifiedAt;
+                    // Đồng bộ thông tin nhân viên quét
+                    if (mainOrder.verified && !duplicateOrder.checkingBy) {
+                        duplicateOrder.checkingBy = mainOrder.checkingBy;
+                    }
+                    await duplicateOrder.save();
                 }
-                await duplicateOrder.save();
             }
         }
         
-        // Lấy mainOrder sau khi cập nhật
-        const updatedMainOrder = await Order.findById(mainOrder._id);
+        // Lấy mainOrder sau khi cập nhật - đảm bảo lấy trạng thái mới nhất
+        let updatedMainOrder = await Order.findById(mainOrder._id);
+        
+        // Nếu có directOrder và nó khác mainOrder, cũng refresh nó để đảm bảo có trạng thái mới nhất
+        // (Trường hợp này xảy ra khi mainOrder là combo order nhưng có directOrder riêng)
+        if (directOrder && directOrder._id.toString() !== mainOrder._id.toString()) {
+            const refreshedDirectOrder = await Order.findById(directOrder._id);
+            // Nếu directOrder đã được verify trong lần cập nhật này, sử dụng nó làm updatedMainOrder cho response
+            if (refreshedDirectOrder && refreshedDirectOrder.verified && !updatedMainOrder.verified) {
+                updatedMainOrder = refreshedDirectOrder;
+            }
+        }
 
         
         // Lưu user behaviour cho việc quét mã hàng
@@ -2383,9 +2618,37 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
 
         const isCompleted = allOrders.length === verifiedOrders.length;
 
+        // Xác định trạng thái verified cuối cùng
+        // Khi có cả directOrder và comboOrders, cần kiểm tra xem đã đủ số lượng chưa
+        // Nếu đã đủ số lượng (newTotalScanned >= totalRequiredQuantity), thì verified phải là true
+        let finalVerified = updatedMainOrder.verified;
+        
+        // Kiểm tra lại: nếu đã quét đủ số lượng thì phải verified
+        if (newTotalScanned >= totalRequiredQuantity) {
+            finalVerified = true;
+            // Đảm bảo updatedMainOrder cũng có verified = true (nếu chưa có)
+            if (!updatedMainOrder.verified) {
+                updatedMainOrder.verified = true;
+                updatedMainOrder.verifiedAt = updatedMainOrder.verifiedAt || new Date();
+            }
+        }
+        
+        // Nếu có directOrder riêng biệt (không phải mainOrder), cũng kiểm tra nó
+        if (directOrder && directOrder._id.toString() !== mainOrder._id.toString()) {
+            const refreshedDirectOrder = await Order.findById(directOrder._id);
+            if (refreshedDirectOrder) {
+                // Nếu đã đủ số lượng, cả hai đều phải verified
+                if (newTotalScanned >= totalRequiredQuantity) {
+                    finalVerified = true;
+                } else {
+                    finalVerified = updatedMainOrder.verified && refreshedDirectOrder.verified;
+                }
+            }
+        }
+
         res.json({
             success: true,
-            message: updatedMainOrder.verified ? 
+            message: finalVerified ? 
                 `Hoàn thành mã hàng ${maHang}! (${newTotalScanned}/${totalRequiredQuantity})` :
                 `Đã quét mã hàng ${maHang}! (${newTotalScanned}/${totalRequiredQuantity})`,
             data: {
@@ -2396,8 +2659,8 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
                 isCombo: isComboOrder,
                 hasDirectOrder: !!directOrder,
                 comboOrdersCount: comboOrders.length,
-                verified: updatedMainOrder.verified,
-                verifiedAt: updatedMainOrder.verifiedAt,
+                verified: finalVerified,
+                verifiedAt: finalVerified ? (updatedMainOrder.verifiedAt || new Date()) : null,
                 progress: {
                     completed: verifiedOrders.length,
                     total: allOrders.length,
@@ -2447,58 +2710,110 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
         }
 
         // Kiểm tra tất cả mã hàng đã được quét đủ số lượng chưa
-        // Logic tối ưu: Phân biệt combo orders và direct orders
+        // Logic mới: Nhóm theo mã hàng base (maHang thực tế được quét) và tính tổng từ cả direct và combo
         
-        // Phân loại orders: combo orders vs direct orders
         const comboCache = require('./utils/comboCache');
-        const comboOrders = [];
-        const directOrders = [];
         
+        // Map để nhóm các sản phẩm theo mã base (maHang thực tế được quét)
+        // Key: maHang base (ví dụ: "2-6-200-110")
+        // Value: { totalRequired, totalScanned, directOrder, verified }
+        const productGroups = new Map();
+        
+        // Xử lý tất cả orders
         for (const order of orders) {
             const combos = await comboCache.getCombosByCode(order.maHang);
+            
             if (combos && combos.length > 0) {
-                // Đây là combo order
-                comboOrders.push(order);
+                // Đây là combo order - tách thành các mã base
+                for (const combo of combos) {
+                    const baseMaHang = combo.maHang; // Mã base thực tế
+                    const comboRequiredQuantity = order.soLuong * combo.soLuong;
+                    
+                    if (!productGroups.has(baseMaHang)) {
+                        productGroups.set(baseMaHang, {
+                            totalRequired: 0,
+                            totalScanned: 0,
+                            directOrder: null,
+                            verified: true
+                        });
+                    }
+                    
+                    const group = productGroups.get(baseMaHang);
+                    group.totalRequired += comboRequiredQuantity;
+                    
+                    // Nếu có direct order cho mã base này, số lượng đã quét được lưu ở đó
+                    // Nếu không có direct order, số lượng đã quét được lưu ở combo order
+                    // Nhưng thực tế, số lượng đã quét luôn được lưu ở direct order (nếu có)
+                    // hoặc ở combo order đầu tiên (nếu không có direct)
+                }
             } else {
                 // Đây là direct order
-                directOrders.push(order);
+                const baseMaHang = order.maHang;
+                
+                if (!productGroups.has(baseMaHang)) {
+                    productGroups.set(baseMaHang, {
+                        totalRequired: 0,
+                        totalScanned: 0,
+                        directOrders: [], // Lưu tất cả các duplicate orders
+                        verified: true
+                    });
+                }
+                
+                const group = productGroups.get(baseMaHang);
+                group.totalRequired += order.soLuong;
+                group.directOrders.push(order); // Thêm vào danh sách duplicate orders
+                
+                // Cộng số lượng đã quét từ tất cả các duplicate orders
+                // (scannedQuantity được đồng bộ giữa các duplicate orders, nên chỉ cần lấy từ 1 order)
+                // Nhưng để đảm bảo, lấy giá trị lớn nhất từ tất cả các duplicate orders
+                const scannedQty = order.scannedQuantity || 0;
+                if (scannedQty > group.totalScanned) {
+                    group.totalScanned = scannedQty;
+                }
+                
+                if (!order.verified) {
+                    group.verified = false;
+                }
             }
         }
         
-        console.log(`🔍 Found ${comboOrders.length} combo orders and ${directOrders.length} direct orders`);
-        
-        // Kiểm tra combo orders (logic cũ: scannedQuantity >= soLuong)
-        const comboCompleted = await Promise.all(comboOrders.map(async (order) => {
-            const isCompleted = order.verified && (order.scannedQuantity || 0) >= order.soLuong;
-            console.log(`📦 Combo ${order.maHang}: required=${order.soLuong}, scanned=${order.scannedQuantity || 0}, verified=${order.verified}, completed=${isCompleted}`);
-            return isCompleted;
-        }));
-        
-        // Kiểm tra direct orders (xử lý duplicate orders)
-        const directOrderGroups = {};
-        directOrders.forEach(order => {
-            if (!directOrderGroups[order.maHang]) {
-                directOrderGroups[order.maHang] = {
-                    totalRequired: 0,
-                    totalScanned: 0,
-                    verified: true
-                };
+        // Cập nhật totalScanned và verified cho các sản phẩm
+        // Ưu tiên lấy từ direct orders (nếu có), vì đó là nơi lưu trữ scannedQuantity khi có cả direct và combo
+        for (const [baseMaHang, group] of productGroups.entries()) {
+            if (group.directOrders && group.directOrders.length > 0) {
+                // Đã có direct orders - số lượng đã quét đã được set ở trên từ tất cả duplicate orders
+                // Đảm bảo verified được set đúng: nếu tất cả direct orders đều verified thì verified = true
+                const allVerified = group.directOrders.every(order => order.verified);
+                if (allVerified && group.directOrders.length > 0) {
+                    group.verified = true;
+                }
+            } else {
+                // Chỉ có combo order - tìm combo order đầu tiên có chứa mã base này
+                for (const order of orders) {
+                    const combos = await comboCache.getCombosByCode(order.maHang);
+                    if (combos && combos.some(c => c.maHang === baseMaHang)) {
+                        group.totalScanned = order.scannedQuantity || 0;
+                        group.verified = order.verified || false;
+                        break;
+                    }
+                }
             }
-            directOrderGroups[order.maHang].totalRequired += order.soLuong;
-            directOrderGroups[order.maHang].totalScanned += order.scannedQuantity || 0;
-            if (!order.verified) {
-                directOrderGroups[order.maHang].verified = false;
+            
+            // Đảm bảo verified được set đúng dựa trên số lượng đã quét
+            // Nếu đã quét đủ số lượng thì phải verified = true
+            if (group.totalScanned >= group.totalRequired && group.totalRequired > 0) {
+                group.verified = true;
             }
-        });
+        }
         
-        const directCompleted = Object.entries(directOrderGroups).every(([maHang, group]) => {
+        console.log(`🔍 Checking ${productGroups.size} unique products`);
+        
+        // Kiểm tra tất cả các sản phẩm đã hoàn thành chưa
+        const allItemsCompleted = Array.from(productGroups.entries()).every(([baseMaHang, group]) => {
             const isCompleted = group.verified && group.totalScanned >= group.totalRequired;
-            console.log(`📦 Direct ${maHang}: required=${group.totalRequired}, scanned=${group.totalScanned}, verified=${group.verified}, completed=${isCompleted}`);
+            console.log(`📦 Product ${baseMaHang}: required=${group.totalRequired}, scanned=${group.totalScanned}, verified=${group.verified}, completed=${isCompleted}`);
             return isCompleted;
         });
-        
-        // Tất cả orders phải hoàn thành (combo + direct)
-        const allItemsCompleted = comboCompleted.every(completed => completed) && directCompleted;
 
         if (!allItemsCompleted) {
             return res.status(400).json({
@@ -3943,13 +4258,70 @@ app.post('/api/combo-cache/refresh', requireLogin, requireAdmin, async (req, res
     }
 });
 
+// API lấy danh sách các ngày có đơn hàng (từ Order và DataOrder)
+app.get('/api/stats/available-dates', requireLogin, async (req, res) => {
+    try {
+        // Lấy danh sách các ngày có đơn hàng từ Order (dựa trên importDate)
+        const orderDates = await Order.distinct('importDate');
+        
+        // Lấy danh sách các ngày có đơn hàng từ DataOrder (dựa trên importDate)
+        const dataOrderDates = await DataOrder.distinct('importDate');
+        
+        // Lấy danh sách các ngày có đơn hàng được verify (dựa trên verifiedAt)
+        const verifiedDates = await Order.distinct('verifiedAt', { verified: true });
+        const dataOrderVerifiedDates = await DataOrder.distinct('verifiedAt', { verified: true });
+        
+        // Kết hợp tất cả các ngày
+        const allDateObjects = [...orderDates, ...dataOrderDates, ...verifiedDates, ...dataOrderVerifiedDates]
+            .filter(date => date != null); // Loại bỏ null/undefined
+        
+        // Chuyển đổi sang format YYYY-MM-DD và loại bỏ trùng lặp
+        const dateSet = new Set();
+        allDateObjects.forEach(date => {
+            const d = new Date(date);
+            if (!isNaN(d.getTime())) {
+                // Lấy ngày (bỏ qua giờ)
+                const dateStr = d.toISOString().split('T')[0];
+                dateSet.add(dateStr);
+            }
+        });
+        
+        // Chuyển Set thành array và sắp xếp mới nhất trước
+        const allDates = Array.from(dateSet).sort().reverse();
+        
+        console.log(`[API /api/stats/available-dates] Tìm thấy ${allDates.length} ngày có đơn hàng`);
+        
+        res.json({
+            success: true,
+            data: {
+                dates: allDates
+            }
+        });
+    } catch (error) {
+        console.error('[API /api/stats/available-dates] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy danh sách ngày: ' + error.message
+        });
+    }
+});
+
 // API thống kê số lượng đơn hàng theo nhân viên theo ngày
 app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
     try {
         const { date } = req.query;
-        const selectedDate = date ? new Date(date) : new Date();
         
-        // Lấy ngày bắt đầu và kết thúc của ngày được chọn
+        // Xử lý date đúng cách - tránh lỗi timezone
+        let selectedDate;
+        if (date) {
+            // Parse date string (format: YYYY-MM-DD) và tạo date ở timezone local
+            const [year, month, day] = date.split('-').map(Number);
+            selectedDate = new Date(year, month - 1, day);
+        } else {
+            selectedDate = new Date();
+        }
+        
+        // Lấy ngày bắt đầu và kết thúc của ngày được chọn (timezone local)
         const startOfDay = new Date(selectedDate);
         startOfDay.setHours(0, 0, 0, 0);
         
@@ -3958,23 +4330,54 @@ app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
         
         console.log(`[API /api/stats/orders-by-employee] Thống kê từ ${startOfDay.toISOString()} đến ${endOfDay.toISOString()}`);
         
-        // Tìm tất cả đơn hàng đã được verify trong ngày
-        const orders = await Order.find({
-            verified: true,
-            verifiedAt: {
-                $gte: startOfDay,
-                $lte: endOfDay
-            }
-        }).select('checkingBy verifiedAt maVanDon maHang soLuong scannedQuantity');
+        // Tìm TẤT CẢ đơn hàng trong ngày (verified và chưa verified)
+        // Truy vấn từ cả Order và DataOrder dựa trên importDate hoặc verifiedAt
+        const queryForDate = {
+            $or: [
+                // Đơn hàng có importDate trong ngày
+                {
+                    importDate: {
+                        $gte: startOfDay,
+                        $lte: endOfDay
+                    }
+                },
+                // Hoặc đơn hàng được verify trong ngày
+                {
+                    verified: true,
+                    verifiedAt: {
+                        $gte: startOfDay,
+                        $lte: endOfDay
+                    }
+                }
+            ]
+        };
         
-        console.log(`[API /api/stats/orders-by-employee] Tìm thấy ${orders.length} đơn hàng đã verify`);
+        // Truy vấn từ Order và DataOrder
+        const [ordersFromOrder, ordersFromDataOrder] = await Promise.all([
+            Order.find(queryForDate).select('checkingBy verifiedAt createdAt importDate maVanDon maHang soLuong scannedQuantity verified').lean(),
+            DataOrder.find(queryForDate).select('checkingBy verifiedAt createdAt importDate maVanDon maHang soLuong scannedQuantity verified').lean()
+        ]);
         
-        // Nhóm theo nhân viên
+        // Merge kết quả
+        const allOrders = [...ordersFromOrder, ...ordersFromDataOrder];
+        
+        console.log(`[API /api/stats/orders-by-employee] Tìm thấy ${allOrders.length} đơn hàng trong ngày`);
+        
+        // Phân loại đơn hàng
+        const verifiedOrders = allOrders.filter(o => o.verified && o.verifiedAt && 
+            o.verifiedAt >= startOfDay && o.verifiedAt <= endOfDay);
+        const pendingOrders = allOrders.filter(o => !o.verified);
+        const inProgressOrders = allOrders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0);
+        
+        // Nhóm theo nhân viên (chỉ tính đơn hàng đã verify)
         const employeeStats = {};
-        let totalOrders = 0;
-        let totalItems = 0;
+        const vanDonStats = {}; // Thống kê theo maVanDon
+        let totalVerifiedOrders = 0;
+        let totalVerifiedItems = 0;
+        let totalScannedItems = 0;
+        let totalRequiredItems = 0;
         
-        orders.forEach(order => {
+        verifiedOrders.forEach(order => {
             const employee = order.checkingBy || 'Không xác định';
             
             if (!employeeStats[employee]) {
@@ -3996,23 +4399,54 @@ app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
                 verifiedAt: order.verifiedAt
             });
             
-            totalOrders++;
-            totalItems += (order.scannedQuantity || order.soLuong || 1);
+            totalVerifiedOrders++;
+            totalVerifiedItems += (order.scannedQuantity || order.soLuong || 1);
         });
         
-        // Chuyển đổi object thành array và sắp xếp theo số lượng đơn hàng giảm dần
-        const statsArray = Object.values(employeeStats).sort((a, b) => b.totalOrders - a.totalOrders);
+        // Thống kê tổng quan cho tất cả đơn hàng
+        allOrders.forEach(order => {
+            totalScannedItems += (order.scannedQuantity || 0);
+            totalRequiredItems += order.soLuong;
+            
+            // Thống kê theo maVanDon
+            if (!vanDonStats[order.maVanDon]) {
+                vanDonStats[order.maVanDon] = {
+                    maVanDon: order.maVanDon,
+                    totalOrders: 0,
+                    verifiedOrders: 0,
+                    totalItems: 0,
+                    scannedItems: 0
+                };
+            }
+            vanDonStats[order.maVanDon].totalOrders++;
+            vanDonStats[order.maVanDon].totalItems += order.soLuong;
+            vanDonStats[order.maVanDon].scannedItems += (order.scannedQuantity || 0);
+            if (order.verified) {
+                vanDonStats[order.maVanDon].verifiedOrders++;
+            }
+        });
         
-        console.log(`[API /api/stats/orders-by-employee] Thống kê: ${statsArray.length} nhân viên, ${totalOrders} đơn hàng, ${totalItems} sản phẩm`);
+        // Chuyển đổi object thành array và sắp xếp
+        const statsArray = Object.values(employeeStats).sort((a, b) => b.totalOrders - a.totalOrders);
+        const vanDonStatsArray = Object.values(vanDonStats).sort((a, b) => b.totalOrders - a.totalOrders);
+        
+        console.log(`[API /api/stats/orders-by-employee] Thống kê: ${statsArray.length} nhân viên, ${totalVerifiedOrders} đơn đã verify, ${allOrders.length} tổng đơn`);
         
         res.json({
             success: true,
             data: {
-                date: selectedDate.toISOString().split('T')[0],
+                date: date || selectedDate.toISOString().split('T')[0],
                 totalEmployees: statsArray.length,
-                totalOrders: totalOrders,
-                totalItems: totalItems,
-                employeeStats: statsArray
+                totalOrders: allOrders.length, // Tổng số đơn hàng
+                totalVerifiedOrders: totalVerifiedOrders, // Số đơn đã verify
+                totalPendingOrders: pendingOrders.length, // Số đơn chưa verify
+                totalInProgressOrders: inProgressOrders.length, // Số đơn đang quét
+                totalItems: totalRequiredItems, // Tổng số sản phẩm yêu cầu
+                totalScannedItems: totalScannedItems, // Tổng số sản phẩm đã quét
+                totalVerifiedItems: totalVerifiedItems, // Tổng số sản phẩm đã verify
+                completionRate: totalRequiredItems > 0 ? Math.round((totalScannedItems / totalRequiredItems) * 100) : 0,
+                employeeStats: statsArray,
+                vanDonStats: vanDonStatsArray // Tất cả mã vận đơn
             }
         });
         
