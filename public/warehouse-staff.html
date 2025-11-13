@@ -80,6 +80,8 @@
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             padding: 30px;
+            overflow-y: visible;
+            max-height: none;
         }
 
         .panel-title {
@@ -198,47 +200,49 @@
 
         .kich-thuoc-input-group {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             margin-bottom: 15px;
         }
 
         .kich-thuoc-input-group input {
             flex: 1;
-            padding: 10px 12px;
-            font-size: 0.95rem;
+            padding: 12px 15px;
+            font-size: 1rem;
         }
 
         .kich-thuoc-input-group input[type="number"] {
-            width: 120px;
-            flex: 0 0 120px;
+            width: 140px;
+            flex: 0 0 140px;
         }
 
         .kich-thuoc-input-group button {
-            padding: 10px 14px;
+            padding: 12px 16px;
             white-space: nowrap;
             min-width: 50px;
-            font-size: 0.95rem;
+            font-size: 1rem;
         }
 
         .kich-thuoc-autocomplete {
             position: relative;
             flex: 1;
+            min-width: 400px;
         }
 
         .kich-thuoc-dropdown {
             position: absolute;
             top: 100%;
             left: 0;
-            right: 0;
+            width: 100%;
+            min-width: 500px;
             background: white;
             border: 2px solid #e0e0e0;
             border-top: none;
             border-radius: 0 0 8px 8px;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
             z-index: 1000;
             display: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
         .kich-thuoc-dropdown.show {
@@ -246,16 +250,32 @@
         }
 
         .kich-thuoc-dropdown-item {
-            padding: 12px 15px;
+            padding: 15px 18px;
             cursor: pointer;
             border-bottom: 1px solid #f0f0f0;
             transition: all 0.2s ease;
+            display: grid;
+            grid-template-columns: 2fr 2fr 1.5fr;
+            gap: 15px;
+            align-items: center;
         }
 
-        .kich-thuoc-dropdown-item:hover,
-        .kich-thuoc-dropdown-item.highlighted {
+        .kich-thuoc-dropdown-item:hover:not(.kich-thuoc-dropdown-header),
+        .kich-thuoc-dropdown-item.highlighted:not(.kich-thuoc-dropdown-header) {
             background: #e8f5e9;
             color: #28a745;
+        }
+
+        .kich-thuoc-dropdown-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+            color: white !important;
+            cursor: default !important;
+            border-bottom: 2px solid #1e7e34 !important;
+        }
+
+        .kich-thuoc-dropdown-header:hover {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+            color: white !important;
         }
 
         .kich-thuoc-dropdown-item:last-child {
@@ -263,13 +283,18 @@
         }
 
         .kich-thuoc-dropdown-item .kich-thuoc-name {
-            font-weight: 600;
+            font-weight: 700;
             color: #333;
-            margin-bottom: 4px;
+            font-size: 1.05rem;
+        }
+
+        .kich-thuoc-dropdown-item:hover .kich-thuoc-name,
+        .kich-thuoc-dropdown-item.highlighted .kich-thuoc-name {
+            color: #28a745;
         }
 
         .kich-thuoc-dropdown-item .kich-thuoc-sku {
-            font-size: 0.85rem;
+            font-size: 0.95rem;
             color: #666;
         }
 
@@ -373,6 +398,328 @@
             opacity: 0.5;
         }
 
+        /* Mẫu vải autocomplete */
+        .mau-vai-autocomplete {
+            position: relative;
+        }
+
+        .mau-vai-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .mau-vai-dropdown.show {
+            display: block;
+        }
+
+        .mau-vai-dropdown-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.2s ease;
+        }
+
+        .mau-vai-dropdown-item:hover,
+        .mau-vai-dropdown-item.highlighted {
+            background: #e8f5e9;
+            color: #28a745;
+        }
+
+        .mau-vai-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Quick actions */
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-quick {
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            width: auto;
+            margin: 0;
+        }
+
+        /* Keyboard shortcuts hint */
+        .shortcuts-hint {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .shortcuts-hint kbd {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+            font-family: monospace;
+            font-size: 0.75rem;
+        }
+
+        /* Calculation info */
+        .calculation-info {
+            background: #f8f9fa;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .calc-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .calc-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .calc-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #28a745;
+        }
+
+        .progress-section {
+            margin-top: 15px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .progress-bar-container {
+            height: 25px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Checkbox options */
+        .checkbox-options {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .checkbox-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .checkbox-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-input-group {
+            margin-top: 10px;
+            padding-left: 30px;
+        }
+
+        .checkbox-input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        .input-hint {
+            margin-top: 5px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .checkbox-info {
+            margin-top: 10px;
+            padding-left: 30px;
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        /* Kích thước list với thông tin đầy đủ */
+        .kich-thuoc-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            padding: 15px;
+        }
+
+        .kich-thuoc-item-enhanced {
+            display: grid;
+            grid-template-columns: 2.5fr 1.2fr 1.5fr 1.5fr 1.8fr auto;
+            gap: 15px;
+            align-items: center;
+            padding: 18px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            margin-bottom: 12px;
+            font-size: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .kich-thuoc-item-enhanced:hover {
+            border-color: #28a745;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .kich-thuoc-item-enhanced .kt-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.05rem;
+        }
+
+        .kich-thuoc-item-enhanced .kt-value {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .kich-thuoc-item-enhanced .kt-value strong {
+            color: #28a745;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #28a745;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 2px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
         @media (max-width: 1024px) {
             .container {
                 flex-direction: column;
@@ -388,16 +735,17 @@
 <body>
     <div class="header">
         <button class="logout-btn" onclick="logout()">Đăng xuất</button>
-        <h1>👷 Nhân viên kho phôi</h1>
+        <h1>Nhân viên kho phôi</h1>
         <p>Hệ thống nhập phôi - Shisonson</p>
     </div>
 
     <div class="container">
         <!-- Left Panel: Danh sách đã nhập -->
         <div class="left-panel">
-            <h2 class="panel-title">📋 Danh sách đã nhập</h2>
+            <h2 class="panel-title">Danh sách đã nhập</h2>
             <div class="alert alert-success" id="successAlert"></div>
             <div class="alert alert-error" id="errorAlert"></div>
+            
             <ul class="saved-list" id="savedList">
                 <li class="empty-state">
                     <div class="empty-state-icon">📦</div>
@@ -408,14 +756,30 @@
 
         <!-- Right Panel: Form nhập phôi -->
         <div class="right-panel">
-            <h2 class="panel-title">➕ Nhập phôi mới</h2>
+            <h2 class="panel-title">Nhập phôi mới</h2>
             
             <form id="nhapPhoiForm">
                 <div class="form-group">
                     <label for="mauVaiSelect">Chọn mẫu vải *</label>
-                    <select id="mauVaiSelect" required>
-                        <option value="">-- Chọn mẫu vải --</option>
-                    </select>
+                    <div style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div class="mau-vai-autocomplete" style="flex: 1;">
+                            <input type="text" id="mauVaiInput" 
+                                   placeholder="Nhập mẫu vải ở đây" 
+                                   autocomplete="off">
+                            <select id="mauVaiSelect" required style="display: none;">
+                                <option value="">-- Chọn mẫu vải --</option>
+                            </select>
+                            <div class="mau-vai-dropdown" id="mauVaiDropdown"></div>
+                        </div>
+                        <div id="chieuDaiCayVaiGroup" style="width: 150px; display: none;">
+                            <label for="chieuDaiCayVaiInput" style="font-size: 0.85rem; margin-bottom: 5px; display: block;">Chiều dài (m) *</label>
+                            <input type="number" id="chieuDaiCayVaiInput" 
+                                   step="0.1" min="0" 
+                                   placeholder="VD: 10.5"
+                                   style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;"
+                                   oninput="calculateArea()">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -433,16 +797,94 @@
                             ➕
                         </button>
                     </div>
-                    <div class="kich-thuoc-list" id="kichThuocList">
-                        <p style="color: #999; text-align: center; padding: 20px;">
+                    <div class="kich-thuoc-list" id="kichThuocList" style="min-height: 150px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px solid #e0e0e0;">
+                        <p style="color: #999; text-align: center; padding: 20px; margin: 0;">
                             Chọn mẫu vải và thêm kích thước
                         </p>
                     </div>
                 </div>
 
-                <button type="button" class="btn" id="themMauBtn" onclick="themMau()">
-                    ➕ Thêm mẫu
-                </button>
+                <!-- Thông tin tính toán -->
+                <div class="calculation-info" id="calculationInfo" style="display: none;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: #28a745;">Thông tin tính toán</h3>
+                    <div class="calc-grid">
+                        <div class="calc-item">
+                            <div class="calc-label">Diện tích ban đầu:</div>
+                            <div class="calc-value" id="dienTichBanDau">0 m²</div>
+                        </div>
+                        <div class="calc-item">
+                            <div class="calc-label">Diện tích đã cắt:</div>
+                            <div class="calc-value" id="dienTichDaCat">0 m²</div>
+                        </div>
+                        <div class="calc-item">
+                            <div class="calc-label">Diện tích còn lại:</div>
+                            <div class="calc-value" id="dienTichConLai">0 m²</div>
+                        </div>
+                        <div class="calc-item">
+                            <div class="calc-label">Số m còn lại:</div>
+                            <div class="calc-value" id="soMConLai">0 m</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress bar -->
+                    <div class="progress-section">
+                        <div class="progress-label">
+                            <span>Tiến độ đã cắt:</span>
+                            <span id="tienDoPercent">0%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Checkbox options -->
+                <div class="checkbox-options" id="checkboxOptions" style="display: none;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: #28a745;">Tùy chọn xử lý</h3>
+                    
+                    <div class="checkbox-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="vaiLoiCheckbox" onchange="toggleVaiLoiInput()">
+                            <span>Vải lỗi</span>
+                        </label>
+                        <div class="checkbox-input-group" id="vaiLoiInputGroup" style="display: none;">
+                            <input type="number" id="vaiLoiInput" step="0.1" min="0" 
+                                   placeholder="Chiều dài vải lỗi (m)" 
+                                   oninput="calculateVaiLoi()">
+                            <div class="input-hint">Diện tích lỗi: <span id="dienTichLoi">0 m²</span></div>
+                        </div>
+                    </div>
+
+                    <div class="checkbox-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="vaiThieuCheckbox" onchange="toggleVaiThieu()">
+                            <span>Vải thiếu</span>
+                        </label>
+                        <div class="checkbox-info" id="vaiThieuInfo" style="display: none;">
+                            Số m còn lại: <strong id="vaiThieuValue">0 m</strong> (sẽ được lưu khi thêm mẫu)
+                        </div>
+                    </div>
+
+                    <div class="checkbox-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="nhapLaiKhoCheckbox" onchange="toggleNhapLaiKho()">
+                            <span>Nhập lại vào kho</span>
+                        </label>
+                        <div class="checkbox-info" id="nhapLaiKhoInfo" style="display: none;">
+                            Số m còn lại: <strong id="nhapLaiKhoValue">0 m</strong> (sẽ được lưu khi thêm mẫu)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <button type="button" class="btn" id="themMauBtn" onclick="themMau()">
+                        ➕ Thêm mẫu
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-quick" onclick="clearForm()">
+                        Xóa form
+                    </button>
+                </div>
+
             </form>
         </div>
     </div>
@@ -451,8 +893,12 @@
         let mauVaiList = [];
         let kichThuocList = [];
         let currentMauVai = null;
-        let currentKichThuocData = {}; // {szSku: {kichThuoc, soLuong}}
+        let currentKichThuocData = {}; // {szSku: {kichThuoc, soLuong, dienTich}}
         let savedItems = [];
+        let savedCayVaiList = [];
+        let selectedMauVaiIndex = -1;
+        let filteredMauVaiList = [];
+        const CHIEU_CAO_MAC_DINH = 230; // cm = 2.3m
 
         // Khởi tạo trang
         async function initializePage() {
@@ -470,6 +916,12 @@
                 await loadMauVai();
                 await loadKichThuoc();
                 await loadSavedItems();
+
+                // Setup mẫu vải autocomplete
+                setupMauVaiAutocomplete();
+
+                // Setup keyboard shortcuts
+                setupKeyboardShortcuts();
 
                 // Disable kích thước input ban đầu
                 document.getElementById('kichThuocInput').disabled = true;
@@ -512,29 +964,148 @@
                         option.textContent = `${mau.maMau} - ${mau.tenMau}`;
                         select.appendChild(option);
                     });
-
-                    select.addEventListener('change', function() {
-                        if (this.value) {
-                            currentMauVai = mauVaiList.find(m => m.maMau === this.value);
-                            currentKichThuocData = {};
-                            loadKichThuocForMau();
-                            renderKichThuocList();
-                            document.getElementById('kichThuocInput').focus();
-                        } else {
-                            currentMauVai = null;
-                            currentKichThuocData = {};
-                            document.getElementById('kichThuocInput').disabled = true;
-                            document.getElementById('soLuongInput').disabled = true;
-                            document.getElementById('kichThuocDatalist').innerHTML = '';
-                            document.getElementById('kichThuocList').innerHTML = 
-                                '<p style="color: #999; text-align: center; padding: 20px;">Vui lòng chọn mẫu vải trước</p>';
-                        }
-                    });
                 }
             } catch (error) {
                 console.error('Error loading mau vai:', error);
                 showError('Lỗi tải danh sách mẫu vải: ' + error.message);
             }
+        }
+
+        // Setup mẫu vải autocomplete
+        function setupMauVaiAutocomplete() {
+            const input = document.getElementById('mauVaiInput');
+            const dropdown = document.getElementById('mauVaiDropdown');
+            const select = document.getElementById('mauVaiSelect');
+
+            input.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                filterAndDisplayMauVai(searchTerm);
+            });
+
+            input.addEventListener('focus', function() {
+                if (this.value.trim() === '') {
+                    filterAndDisplayMauVai('');
+                } else {
+                    filterAndDisplayMauVai(this.value.toLowerCase().trim());
+                }
+            });
+
+            // Keyboard navigation
+            input.addEventListener('keydown', function(e) {
+                if (!dropdown.classList.contains('show')) return;
+
+                const items = dropdown.querySelectorAll('.mau-vai-dropdown-item');
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedMauVaiIndex = Math.min(selectedMauVaiIndex + 1, items.length - 1);
+                    updateMauVaiHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedMauVaiIndex = Math.max(selectedMauVaiIndex - 1, -1);
+                    updateMauVaiHighlight(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedMauVaiIndex >= 0 && selectedMauVaiIndex < items.length) {
+                        items[selectedMauVaiIndex].click();
+                    } else if (filteredMauVaiList.length === 1) {
+                        items[0].click();
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.remove('show');
+                    selectedMauVaiIndex = -1;
+                }
+            });
+
+            // Click outside
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+        }
+
+        function filterAndDisplayMauVai(searchTerm) {
+            const dropdown = document.getElementById('mauVaiDropdown');
+            dropdown.innerHTML = '';
+
+            if (searchTerm === '') {
+                filteredMauVaiList = mauVaiList;
+            } else {
+                filteredMauVaiList = mauVaiList.filter(mau => {
+                    const maMauLower = mau.maMau.toLowerCase();
+                    const tenMauLower = mau.tenMau.toLowerCase();
+                    return maMauLower.includes(searchTerm) || tenMauLower.includes(searchTerm);
+                });
+            }
+
+            if (filteredMauVaiList.length === 0) {
+                dropdown.innerHTML = '<div class="mau-vai-dropdown-item" style="color: #999; cursor: default;">Không tìm thấy mẫu vải</div>';
+            } else {
+                filteredMauVaiList.forEach((mau, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'mau-vai-dropdown-item';
+                    item.innerHTML = `
+                        <div style="font-weight: 600; color: #333;">${mau.maMau}</div>
+                        <div style="font-size: 0.85rem; color: #666;">${mau.tenMau}</div>
+                    `;
+                    item.addEventListener('click', function() {
+                        selectMauVai(mau);
+                    });
+                    dropdown.appendChild(item);
+                });
+            }
+
+            dropdown.classList.add('show');
+            selectedMauVaiIndex = -1;
+        }
+
+        function updateMauVaiHighlight(items) {
+            items.forEach((item, index) => {
+                if (index === selectedMauVaiIndex) {
+                    item.classList.add('highlighted');
+                    item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                } else {
+                    item.classList.remove('highlighted');
+                }
+            });
+        }
+
+        function selectMauVai(mau) {
+            const input = document.getElementById('mauVaiInput');
+            const dropdown = document.getElementById('mauVaiDropdown');
+            const select = document.getElementById('mauVaiSelect');
+
+            input.value = `${mau.maMau} - ${mau.tenMau}`;
+            select.value = mau.maMau;
+            currentMauVai = mau;
+            currentKichThuocData = {};
+            
+            dropdown.classList.remove('show');
+            selectedMauVaiIndex = -1;
+            
+            // Hiển thị input chiều dài cây vải
+            document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
+            document.getElementById('chieuDaiCayVaiInput').value = '';
+            document.getElementById('calculationInfo').style.display = 'none';
+            document.getElementById('checkboxOptions').style.display = 'none';
+            
+            // Focus vào input chiều dài
+            setTimeout(() => {
+                document.getElementById('chieuDaiCayVaiInput').focus();
+            }, 100);
+            
+            // Reset checkboxes
+            document.getElementById('vaiLoiCheckbox').checked = false;
+            document.getElementById('vaiThieuCheckbox').checked = false;
+            document.getElementById('nhapLaiKhoCheckbox').checked = false;
+            document.getElementById('vaiLoiInputGroup').style.display = 'none';
+            document.getElementById('vaiThieuInfo').style.display = 'none';
+            document.getElementById('nhapLaiKhoInfo').style.display = 'none';
+            
+            loadKichThuocForMau();
+            renderKichThuocList();
         }
 
         // Load danh sách kích thước
@@ -658,12 +1229,24 @@
             if (filteredKichThuocList.length === 0) {
                 dropdown.innerHTML = '<div class="kich-thuoc-dropdown-empty">Không tìm thấy kích thước phù hợp</div>';
             } else {
+                // Thêm header
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'kich-thuoc-dropdown-item kich-thuoc-dropdown-header';
+                headerDiv.style.fontWeight = '700';
+                headerDiv.innerHTML = `
+                    <div style="font-size: 1rem;">Kích thước</div>
+                    <div style="font-size: 1rem;">Sz_SKU</div>
+                    <div style="font-size: 1rem; text-align: right;">Diện tích (m²)</div>
+                `;
+                dropdown.appendChild(headerDiv);
+                
                 filteredKichThuocList.forEach((kt, index) => {
                     const item = document.createElement('div');
                     item.className = 'kich-thuoc-dropdown-item';
                     item.innerHTML = `
                         <div class="kich-thuoc-name">${kt.kichThuoc}</div>
-                        <div class="kich-thuoc-sku">Sz_SKU: ${kt.szSku}</div>
+                        <div class="kich-thuoc-sku" style="font-size: 0.95rem; color: #666;">${kt.szSku}</div>
+                        <div style="font-size: 0.95rem; color: #28a745; font-weight: 600; text-align: right;">${(kt.dienTich || 0).toFixed(2)}</div>
                     `;
                     item.addEventListener('click', function() {
                         selectKichThuoc(kt);
@@ -696,6 +1279,7 @@
             input.value = `${kt.kichThuoc} (${kt.szSku})`;
             input.setAttribute('data-selected-szsku', kt.szSku);
             input.setAttribute('data-selected-kichthuoc', kt.kichThuoc);
+            input.setAttribute('data-selected-dientich', kt.dienTich || 0);
             
             dropdown.classList.remove('show');
             selectedKichThuocIndex = -1;
@@ -731,11 +1315,13 @@
             let selectedKichThuoc = null;
             const selectedSzSku = kichThuocInput.getAttribute('data-selected-szsku');
             const selectedKichThuocName = kichThuocInput.getAttribute('data-selected-kichthuoc');
+            const selectedDienTich = parseFloat(kichThuocInput.getAttribute('data-selected-dientich')) || 0;
 
             if (selectedSzSku && selectedKichThuocName) {
                 selectedKichThuoc = {
                     szSku: selectedSzSku,
-                    kichThuoc: selectedKichThuocName
+                    kichThuoc: selectedKichThuocName,
+                    dienTich: selectedDienTich
                 };
             } else {
                 // Nếu không có data attributes, tìm trong danh sách
@@ -751,7 +1337,8 @@
                         szSkuLower.includes(inputLower)) {
                         selectedKichThuoc = {
                             szSku: kt.szSku,
-                            kichThuoc: kt.kichThuoc
+                            kichThuoc: kt.kichThuoc,
+                            dienTich: kt.dienTich || 0
                         };
                         break;
                     }
@@ -773,11 +1360,15 @@
             currentKichThuocData[selectedKichThuoc.szSku] = {
                 kichThuoc: selectedKichThuoc.kichThuoc,
                 szSku: selectedKichThuoc.szSku,
-                soLuong: soLuong
+                soLuong: soLuong,
+                dienTich: selectedKichThuoc.dienTich || 0
             };
 
             // Render lại danh sách
             renderKichThuocList();
+            
+            // Tính toán lại diện tích
+            calculateArea();
 
             // Reset input
             kichThuocInput.value = '';
@@ -793,38 +1384,155 @@
             const listDiv = document.getElementById('kichThuocList');
             
             if (Object.keys(currentKichThuocData).length === 0) {
-                listDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Chưa có kích thước nào được thêm</p>';
+                listDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 30px; margin: 0; font-size: 1rem;">Chưa có kích thước nào được thêm</p>';
                 return;
             }
 
             listDiv.innerHTML = '';
             
+            // Header
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'kich-thuoc-item-enhanced';
+            headerDiv.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            headerDiv.style.color = 'white';
+            headerDiv.style.fontWeight = '700';
+            headerDiv.style.marginBottom = '15px';
+            headerDiv.style.fontSize = '1rem';
+            headerDiv.style.border = 'none';
+            headerDiv.style.boxShadow = '0 4px 8px rgba(40, 167, 69, 0.3)';
+            headerDiv.style.cursor = 'default';
+            headerDiv.innerHTML = `
+                <div style="font-size: 1.1rem;">Kích thước</div>
+                <div style="text-align: center; font-size: 1.1rem;">Số lượng</div>
+                <div style="text-align: center; font-size: 1.1rem;">Diện tích (m²)</div>
+                <div style="text-align: center; font-size: 1.1rem;">Diện tích cắt (m²)</div>
+                <div style="text-align: center; font-size: 1.1rem;">Sz_SKU</div>
+                <div></div>
+            `;
+            listDiv.appendChild(headerDiv);
+            
             for (const szSku in currentKichThuocData) {
                 const data = currentKichThuocData[szSku];
+                const dienTichCat = (data.soLuong * data.dienTich).toFixed(2);
+                
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'kich-thuoc-item';
+                itemDiv.className = 'kich-thuoc-item-enhanced';
                 
-                const label = document.createElement('label');
-                label.textContent = `${data.kichThuoc} (${data.szSku})`;
+                itemDiv.innerHTML = `
+                    <div class="kt-label" style="font-size: 1.05rem;">${data.kichThuoc}</div>
+                    <div class="kt-value" style="text-align: center; font-size: 1.05rem;"><strong>${data.soLuong}</strong></div>
+                    <div class="kt-value" style="text-align: center; font-size: 1rem;">${data.dienTich.toFixed(2)} m²</div>
+                    <div class="kt-value" style="text-align: center; font-size: 1.05rem;"><strong>${dienTichCat} m²</strong></div>
+                    <div class="kt-value" style="text-align: center; font-size: 0.95rem; color: #666;">${data.szSku}</div>
+                    <div style="text-align: center;">
+                        <button type="button" class="btn-remove" onclick="deleteKichThuoc('${szSku}')" style="padding: 8px 14px; font-size: 0.9rem;">✕ Xóa</button>
+                    </div>
+                `;
                 
-                const soLuongSpan = document.createElement('span');
-                soLuongSpan.textContent = `Số lượng: ${data.soLuong}`;
-                soLuongSpan.style.fontWeight = '600';
-                soLuongSpan.style.color = '#28a745';
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'btn-remove';
-                removeBtn.textContent = '✕ Xóa';
-                removeBtn.onclick = function() {
-                    delete currentKichThuocData[szSku];
-                    renderKichThuocList();
-                };
-
-                itemDiv.appendChild(label);
-                itemDiv.appendChild(soLuongSpan);
-                itemDiv.appendChild(removeBtn);
                 listDiv.appendChild(itemDiv);
+            }
+        }
+
+        // Xóa kích thước
+        function deleteKichThuoc(szSku) {
+            delete currentKichThuocData[szSku];
+            renderKichThuocList();
+            calculateArea();
+        }
+
+        // Tính toán diện tích
+        function calculateArea() {
+            const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            
+            if (chieuDaiCayVai <= 0) {
+                document.getElementById('calculationInfo').style.display = 'none';
+                document.getElementById('checkboxOptions').style.display = 'none';
+                return;
+            }
+
+            // Diện tích ban đầu = chiều dài * 230 (cm) = chiều dài * 2.3 (m)
+            const dienTichBanDau = chieuDaiCayVai * 2.3;
+
+            // Tính diện tích đã cắt
+            let dienTichDaCat = 0;
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                dienTichDaCat += data.soLuong * data.dienTich;
+            }
+
+            // Diện tích còn lại
+            const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
+
+            // Số m còn lại = diện tích còn lại / 2.3 (làm tròn 1 chữ số thập phân)
+            const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
+
+            // Tiến độ đã cắt % = (chiều dài - số m còn lại) / chiều dài * 100
+            const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
+
+            // Cập nhật UI
+            document.getElementById('dienTichBanDau').textContent = dienTichBanDau.toFixed(2) + ' m²';
+            document.getElementById('dienTichDaCat').textContent = dienTichDaCat.toFixed(2) + ' m²';
+            document.getElementById('dienTichConLai').textContent = dienTichConLai.toFixed(2) + ' m²';
+            document.getElementById('soMConLai').textContent = soMConLai.toFixed(1) + ' m';
+            document.getElementById('tienDoPercent').textContent = tienDoPercent + '%';
+            document.getElementById('progressBarFill').style.width = Math.min(100, Math.max(0, tienDoPercent)) + '%';
+
+            // Hiển thị calculation info và checkbox options nếu có kích thước
+            if (Object.keys(currentKichThuocData).length > 0) {
+                document.getElementById('calculationInfo').style.display = 'block';
+                document.getElementById('checkboxOptions').style.display = 'block';
+                
+                // Cập nhật giá trị cho vải thiếu và nhập lại kho
+                document.getElementById('vaiThieuValue').textContent = soMConLai.toFixed(1) + ' m';
+                document.getElementById('nhapLaiKhoValue').textContent = soMConLai.toFixed(1) + ' m';
+            } else {
+                document.getElementById('checkboxOptions').style.display = 'none';
+            }
+        }
+
+        // Toggle vải lỗi
+        function toggleVaiLoiInput() {
+            const checkbox = document.getElementById('vaiLoiCheckbox');
+            const inputGroup = document.getElementById('vaiLoiInputGroup');
+            
+            if (checkbox.checked) {
+                inputGroup.style.display = 'block';
+                document.getElementById('vaiLoiInput').focus();
+            } else {
+                inputGroup.style.display = 'none';
+                document.getElementById('vaiLoiInput').value = '';
+                document.getElementById('dienTichLoi').textContent = '0 m²';
+            }
+        }
+
+        // Tính diện tích vải lỗi
+        function calculateVaiLoi() {
+            const chieuDaiLoi = parseFloat(document.getElementById('vaiLoiInput').value) || 0;
+            const dienTichLoi = chieuDaiLoi * 2.3;
+            document.getElementById('dienTichLoi').textContent = dienTichLoi.toFixed(2) + ' m²';
+        }
+
+        // Toggle vải thiếu
+        function toggleVaiThieu() {
+            const checkbox = document.getElementById('vaiThieuCheckbox');
+            const info = document.getElementById('vaiThieuInfo');
+            
+            if (checkbox.checked) {
+                info.style.display = 'block';
+            } else {
+                info.style.display = 'none';
+            }
+        }
+
+        // Toggle nhập lại kho
+        function toggleNhapLaiKho() {
+            const checkbox = document.getElementById('nhapLaiKhoCheckbox');
+            const info = document.getElementById('nhapLaiKhoInfo');
+            
+            if (checkbox.checked) {
+                info.style.display = 'block';
+            } else {
+                info.style.display = 'none';
             }
         }
 
@@ -832,6 +1540,12 @@
         async function themMau() {
             if (!currentMauVai) {
                 showError('Vui lòng chọn mẫu vải');
+                return;
+            }
+
+            const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            if (chieuDaiCayVai <= 0) {
+                showError('Vui lòng nhập chiều dài cây vải');
                 return;
             }
 
@@ -854,6 +1568,22 @@
                 return;
             }
 
+            // Lấy thông tin lỗi, thiếu, nhập lại kho
+            const vaiLoi = document.getElementById('vaiLoiCheckbox').checked ? 
+                parseFloat(document.getElementById('vaiLoiInput').value) || 0 : 0;
+            const vaiThieu = document.getElementById('vaiThieuCheckbox').checked;
+            const nhapLaiKho = document.getElementById('nhapLaiKhoCheckbox').checked;
+            
+            // Tính toán lại để lấy số m còn lại
+            const dienTichBanDau = chieuDaiCayVai * 2.3;
+            let dienTichDaCat = 0;
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                dienTichDaCat += data.soLuong * data.dienTich;
+            }
+            const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
+            const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
+
             try {
                 const response = await fetch('/api/nhap-phoi', {
                     method: 'POST',
@@ -861,7 +1591,21 @@
                         'Content-Type': 'application/json'
                     },
                     credentials: 'include',
-                    body: JSON.stringify({ items })
+                    body: JSON.stringify({ 
+                        items,
+                        chieuDaiCayVai: chieuDaiCayVai,
+                        vaiLoi: vaiLoi > 0 ? {
+                            chieuDai: vaiLoi,
+                            dienTich: vaiLoi * 2.3,
+                            soM: vaiLoi
+                        } : null,
+                        vaiThieu: vaiThieu ? {
+                            soM: soMConLai
+                        } : null,
+                        nhapLaiKho: nhapLaiKho ? {
+                            soM: soMConLai
+                        } : null
+                    })
                 });
 
                 const result = await response.json();
@@ -870,15 +1614,26 @@
                     showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
                     
                     // Reset form
+                    document.getElementById('mauVaiInput').value = '';
                     document.getElementById('mauVaiSelect').value = '';
+                    document.getElementById('chieuDaiCayVaiInput').value = '';
+                    document.getElementById('chieuDaiCayVaiGroup').style.display = 'none';
+                    document.getElementById('calculationInfo').style.display = 'none';
+                    document.getElementById('checkboxOptions').style.display = 'none';
                     document.getElementById('kichThuocInput').value = '';
                     document.getElementById('soLuongInput').value = '';
                     document.getElementById('kichThuocInput').disabled = true;
                     document.getElementById('soLuongInput').disabled = true;
-                    document.getElementById('kichThuocDatalist').innerHTML = '';
+                    document.getElementById('vaiLoiCheckbox').checked = false;
+                    document.getElementById('vaiThieuCheckbox').checked = false;
+                    document.getElementById('nhapLaiKhoCheckbox').checked = false;
+                    document.getElementById('vaiLoiInputGroup').style.display = 'none';
+                    document.getElementById('vaiThieuInfo').style.display = 'none';
+                    document.getElementById('nhapLaiKhoInfo').style.display = 'none';
                     currentMauVai = null;
                     currentKichThuocData = {};
                     renderKichThuocList();
+                    document.getElementById('mauVaiInput').focus();
                     
                     // Reload danh sách đã nhập
                     await loadSavedItems();
@@ -898,7 +1653,8 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    savedItems = result.data;
+                    savedItems = result.data || [];
+                    savedCayVaiList = result.cayVaiList || [];
                     renderSavedList();
                 }
             } catch (error) {
@@ -907,10 +1663,109 @@
             }
         }
 
+        // Setup keyboard shortcuts
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // Ctrl+Enter để thêm mẫu
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentMauVai && Object.keys(currentKichThuocData).length > 0) {
+                        themMau();
+                    }
+                }
+            });
+        }
+
+        // Xóa form
+        function clearForm() {
+            if (confirm('Bạn có chắc chắn muốn xóa form hiện tại?')) {
+                document.getElementById('mauVaiInput').value = '';
+                document.getElementById('mauVaiSelect').value = '';
+                document.getElementById('kichThuocInput').value = '';
+                document.getElementById('soLuongInput').value = '';
+                document.getElementById('kichThuocInput').disabled = true;
+                document.getElementById('soLuongInput').disabled = true;
+                currentMauVai = null;
+                currentKichThuocData = {};
+                renderKichThuocList();
+                document.getElementById('mauVaiInput').focus();
+            }
+        }
+
         // Render danh sách đã nhập
         function renderSavedList() {
             const list = document.getElementById('savedList');
             
+            // Nếu có danh sách cây vải, ưu tiên hiển thị cây vải
+            if (savedCayVaiList.length > 0) {
+                list.innerHTML = '';
+                
+                // Hiển thị danh sách cây vải (theo thứ tự mới nhất)
+                savedCayVaiList.forEach(cayVai => {
+                const li = document.createElement('li');
+                li.className = 'saved-item';
+                
+                const dateStr = new Date(cayVai.importDate).toLocaleDateString('vi-VN');
+                const hasVaiLoi = cayVai.vaiLoi && cayVai.vaiLoi.soM > 0;
+                const hasVaiThieu = cayVai.vaiThieu && cayVai.vaiThieu.soM > 0;
+                const hasNhapLaiKho = cayVai.nhapLaiKho && cayVai.nhapLaiKho.soM > 0;
+                
+                li.innerHTML = `
+                    <div class="saved-item-header">
+                        <div class="saved-item-title">${cayVai.maMau} - ${cayVai.tenMau}</div>
+                        <div style="font-size: 0.85rem; color: #666;">${dateStr}</div>
+                    </div>
+                    <div class="saved-item-details">
+                        <div style="margin-bottom: 10px;">
+                            <strong>Chiều dài cây vải:</strong> ${cayVai.chieuDaiCayVai.toFixed(1)} m | 
+                            <strong>Tiến độ:</strong> ${cayVai.tienDoPercent}% | 
+                            <strong>Số m còn lại:</strong> ${cayVai.soMConLai.toFixed(1)} m
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <strong>Diện tích:</strong> Ban đầu: ${cayVai.dienTichBanDau.toFixed(2)} m² | 
+                            Đã cắt: ${cayVai.dienTichDaCat.toFixed(2)} m² | 
+                            Còn lại: ${cayVai.dienTichConLai.toFixed(2)} m²
+                        </div>
+                        ${hasVaiLoi || hasVaiThieu || hasNhapLaiKho ? `
+                            <div style="margin-bottom: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
+                                ${hasVaiLoi ? `<div><strong>⚠️ Vải lỗi:</strong> ${cayVai.vaiLoi.chieuDai.toFixed(1)} m (${cayVai.vaiLoi.dienTich.toFixed(2)} m²)</div>` : ''}
+                                ${hasVaiThieu ? `<div><strong>⚠️ Vải thiếu:</strong> ${cayVai.vaiThieu.soM.toFixed(1)} m</div>` : ''}
+                                ${hasNhapLaiKho ? `<div><strong>📦 Nhập lại kho:</strong> ${cayVai.nhapLaiKho.soM.toFixed(1)} m</div>` : ''}
+                            </div>
+                        ` : ''}
+                        <div style="margin-top: 10px;">
+                            <strong>Chi tiết kích thước:</strong>
+                            <table style="width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="background: #28a745; color: white;">
+                                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Kích thước</th>
+                                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">SL</th>
+                                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Diện tích (m²)</th>
+                                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Diện tích cắt (m²)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${cayVai.items.map(item => `
+                                        <tr>
+                                            <td style="padding: 6px; border: 1px solid #ddd;">${item.kichThuoc} (${item.szSku})</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.soLuong}</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.dienTich.toFixed(2)}</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #ddd;"><strong>${item.dienTichCat.toFixed(2)}</strong></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                list.appendChild(li);
+                });
+                
+                return;
+            }
+            
+            // Nếu không có cây vải, hiển thị danh sách nhập phôi cũ
             if (savedItems.length === 0) {
                 list.innerHTML = `
                     <li class="empty-state">
@@ -973,6 +1828,7 @@
             if (!mau) return;
 
             // Set mẫu vải
+            document.getElementById('mauVaiInput').value = `${mau.maMau} - ${mau.tenMau}`;
             document.getElementById('mauVaiSelect').value = mau.maMau;
             currentMauVai = mau;
 

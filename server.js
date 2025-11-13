@@ -1751,7 +1751,7 @@ app.get('/api/kich-thuoc', requireLogin, requireWarehouseAccess, async (req, res
 // API lưu/cập nhật nhập phôi
 app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
-        const { items } = req.body; // items là mảng các item nhập phôi
+        const { items, chieuDaiCayVai, vaiLoi, vaiThieu, nhapLaiKho } = req.body;
         const username = req.session.user.username;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -1761,16 +1761,41 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             });
         }
 
-        const results = [];
+        if (!chieuDaiCayVai || chieuDaiCayVai <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chiều dài cây vải không hợp lệ'
+            });
+        }
+
+        // Tính toán diện tích
+        const dienTichBanDau = chieuDaiCayVai * 2.3;
+        let dienTichDaCat = 0;
+        const itemsWithDienTich = [];
+
         for (const item of items) {
             const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
-
+            
             if (!maMau || !tenMau || !kichThuoc || !szSku || soLuong === undefined || soLuong < 0) {
-                continue; // Bỏ qua item không hợp lệ
+                continue;
             }
 
-            // Tìm và cập nhật hoặc tạo mới
-            const result = await NhapPhoi.findOneAndUpdate(
+            // Lấy diện tích từ kích thước
+            const kichThuocData = await KichThuoc.findOne({ szSku: szSku });
+            const dienTich = kichThuocData ? (kichThuocData.dienTich || 0) : 0;
+            const dienTichCat = soLuong * dienTich;
+            dienTichDaCat += dienTichCat;
+
+            itemsWithDienTich.push({
+                kichThuoc,
+                szSku,
+                soLuong,
+                dienTich,
+                dienTichCat
+            });
+
+            // Lưu vào NhapPhoi (giữ nguyên logic cũ)
+            await NhapPhoi.findOneAndUpdate(
                 {
                     maMau: maMau,
                     kichThuoc: kichThuoc,
@@ -1790,14 +1815,40 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                     runValidators: true
                 }
             );
-
-            results.push(result);
         }
+
+        const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
+        const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
+        const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
+
+        // Lưu thông tin cây vải
+        const CayVai = require('./models/CayVai');
+        const firstItem = items[0];
+        const cayVai = new CayVai({
+            maMau: firstItem.maMau,
+            tenMau: firstItem.tenMau,
+            chieuDaiCayVai: chieuDaiCayVai,
+            dienTichBanDau: dienTichBanDau,
+            dienTichDaCat: dienTichDaCat,
+            dienTichConLai: dienTichConLai,
+            soMConLai: soMConLai,
+            tienDoPercent: tienDoPercent,
+            vaiLoi: vaiLoi || { chieuDai: 0, dienTich: 0, soM: 0 },
+            vaiThieu: vaiThieu || { soM: 0 },
+            nhapLaiKho: nhapLaiKho || { soM: 0 },
+            items: itemsWithDienTich,
+            createdBy: username
+        });
+
+        await cayVai.save();
 
         res.json({
             success: true,
-            message: `Đã lưu ${results.length} mục nhập phôi`,
-            data: results
+            message: `Đã lưu ${items.length} mục nhập phôi và thông tin cây vải`,
+            data: {
+                nhapPhoi: items,
+                cayVai: cayVai
+            }
         });
 
     } catch (error) {
@@ -1813,12 +1864,20 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
 app.get('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
         const username = req.session.user.username;
-        const nhapPhoiList = await NhapPhoi.find({ createdBy: username })
-            .sort({ importDate: -1, maMau: 1, kichThuoc: 1 });
+        const CayVai = require('./models/CayVai');
+        
+        // Lấy cả NhapPhoi và CayVai
+        const [nhapPhoiList, cayVaiList] = await Promise.all([
+            NhapPhoi.find({ createdBy: username })
+                .sort({ importDate: -1, maMau: 1, kichThuoc: 1 }),
+            CayVai.find({ createdBy: username })
+                .sort({ importDate: -1, maMau: 1 })
+        ]);
 
         res.json({
             success: true,
-            data: nhapPhoiList
+            data: nhapPhoiList,
+            cayVaiList: cayVaiList
         });
     } catch (error) {
         console.error('❌ Lỗi lấy danh sách nhập phôi:', error);
