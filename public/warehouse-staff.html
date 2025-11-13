@@ -13,42 +13,33 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: #f5f5f5;
             min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
+            padding: 0;
         }
 
         .header {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
-            padding: 30px;
-            text-align: center;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             position: relative;
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
         }
 
         .header p {
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             opacity: 0.9;
         }
 
         .logout-btn {
             position: absolute;
             top: 20px;
-            right: 20px;
+            right: 30px;
             background: rgba(255,255,255,0.2);
             color: white;
             border: none;
@@ -64,82 +55,88 @@
             transform: translateY(-2px);
         }
 
-        .content {
-            padding: 40px;
+        .container {
+            display: flex;
+            min-height: calc(100vh - 100px);
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
         }
 
-        .welcome-section {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 30px;
-            background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
-            border-radius: 15px;
-            border: 2px solid #28a745;
-        }
-
-        .welcome-section h2 {
-            color: #28a745;
-            font-size: 2rem;
-            margin-bottom: 15px;
-        }
-
-        .welcome-section p {
-            color: #666;
-            font-size: 1.1rem;
-        }
-
-        .function-card {
+        .left-panel {
+            width: 35%;
             background: white;
-            border-radius: 15px;
-            padding: 40px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            border: 2px solid #f0f0f0;
-            transition: all 0.3s ease;
-            text-align: center;
-            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(100vh - 140px);
         }
 
-        .function-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-            border-color: #28a745;
+        .right-panel {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
         }
 
-        .function-icon {
-            font-size: 5rem;
-            margin-bottom: 25px;
-            color: #28a745;
-        }
-
-        .function-title {
-            font-size: 1.8rem;
-            color: #333;
-            margin-bottom: 20px;
+        .panel-title {
+            font-size: 1.5rem;
             font-weight: 600;
+            color: #28a745;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
         }
 
-        .function-description {
-            color: #666;
-            margin-bottom: 30px;
-            line-height: 1.6;
-            font-size: 1.1rem;
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
         }
 
         .btn {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
             border: none;
-            padding: 18px 40px;
-            border-radius: 25px;
-            font-size: 1.2rem;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
         }
 
         .btn:disabled {
@@ -149,18 +146,212 @@
             box-shadow: none;
         }
 
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+        .kich-thuoc-list {
+            margin-top: 20px;
+        }
+
+        .kich-thuoc-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .kich-thuoc-item label {
+            flex: 1;
+            font-weight: 500;
+            color: #333;
+            margin: 0;
+        }
+
+        .kich-thuoc-item input {
+            width: 120px;
+            margin: 0;
+        }
+
+        .kich-thuoc-item .btn-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .kich-thuoc-item .btn-remove:hover {
+            background: #c82333;
+        }
+
+        .kich-thuoc-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .kich-thuoc-input-group input {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+        }
+
+        .kich-thuoc-input-group input[type="number"] {
+            width: 120px;
+            flex: 0 0 120px;
+        }
+
+        .kich-thuoc-input-group button {
+            padding: 10px 14px;
+            white-space: nowrap;
+            min-width: 50px;
+            font-size: 0.95rem;
+        }
+
+        .kich-thuoc-autocomplete {
+            position: relative;
+            flex: 1;
+        }
+
+        .kich-thuoc-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .kich-thuoc-dropdown.show {
+            display: block;
+        }
+
+        .kich-thuoc-dropdown-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.2s ease;
+        }
+
+        .kich-thuoc-dropdown-item:hover,
+        .kich-thuoc-dropdown-item.highlighted {
+            background: #e8f5e9;
+            color: #28a745;
+        }
+
+        .kich-thuoc-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .kich-thuoc-dropdown-item .kich-thuoc-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .kich-thuoc-dropdown-item .kich-thuoc-sku {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .kich-thuoc-dropdown-empty {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .saved-list {
+            list-style: none;
+        }
+
+        .saved-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+            transition: all 0.3s ease;
+        }
+
+        .saved-item:hover {
+            background: #e8f5e9;
+            transform: translateX(5px);
+        }
+
+        .saved-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .saved-item-title {
+            font-weight: 600;
+            color: #28a745;
+            font-size: 1.1rem;
+        }
+
+        .saved-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            width: auto;
+            margin: 0;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .saved-item-details {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .saved-item-details strong {
+            color: #333;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 8px;
             margin: 20px 0;
             display: none;
+            font-weight: 600;
         }
 
         .alert-success {
             background: linear-gradient(135deg, #d4edda, #c3e6cb);
             color: #155724;
             border: 2px solid #28a745;
-            font-weight: 600;
             box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
         }
 
@@ -170,125 +361,100 @@
             border: 1px solid #f5c6cb;
         }
 
-        .progress-container {
-            margin: 20px 0;
-            display: none;
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
         }
 
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #28a745, #20c997);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .info-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 30px;
-            border-left: 4px solid #28a745;
-        }
-
-        .info-section h3 {
-            color: #28a745;
+        .empty-state-icon {
+            font-size: 4rem;
             margin-bottom: 15px;
+            opacity: 0.5;
         }
 
-        .info-section ul {
-            color: #666;
-            line-height: 1.8;
-        }
-
-        .info-section li {
-            margin-bottom: 8px;
-        }
-
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
             .container {
-                margin: 10px;
-                border-radius: 10px;
-            }
-            
-            .content {
-                padding: 20px;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
+                flex-direction: column;
             }
 
-            .function-icon {
-                font-size: 4rem;
-            }
-
-            .function-title {
-                font-size: 1.5rem;
+            .left-panel {
+                width: 100%;
+                max-height: 400px;
             }
         }
     </style>
 </head>
 <body>
+    <div class="header">
+        <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+        <h1>👷 Nhân viên kho phôi</h1>
+        <p>Hệ thống nhập phôi - Shisonson</p>
+    </div>
+
     <div class="container">
-        <div class="header">
-            <button class="logout-btn" onclick="logout()">Đăng xuất</button>
-            <h1>👷 Nhân viên kho phôi</h1>
-            <p>Hệ thống xuất dữ liệu nhập phôi - Shisonson</p>
-        </div>
-
-        <div class="content">
-            <div class="welcome-section">
-                <h2>Xin chào, <span id="userName">Nhân viên kho phôi</span>!</h2>
-                <p>Bạn có thể thực hiện chức năng xuất file nhập phôi dưới đây</p>
-            </div>
-
-            <div class="function-card">
-                <div class="function-icon">📊</div>
-                <div class="function-title">Xuất file nhập phôi</div>
-                <div class="function-description">
-                    Tạo và tải xuống file Excel chứa dữ liệu nhập phôi tổng hợp từ hệ thống.<br>
-                    File này bao gồm tất cả thông tin về mẫu vải, kích thước và các dữ liệu liên quan.
-                </div>
-                <button class="btn" onclick="exportNhapPhoi()">
-                    📥 Xuất file nhập phôi
-                </button>
-            </div>
-
-            <!-- Progress bar -->
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <p style="text-align: center; margin-top: 10px;" id="progressText">Đang xử lý...</p>
-            </div>
-
-            <!-- Alerts -->
+        <!-- Left Panel: Danh sách đã nhập -->
+        <div class="left-panel">
+            <h2 class="panel-title">📋 Danh sách đã nhập</h2>
             <div class="alert alert-success" id="successAlert"></div>
             <div class="alert alert-error" id="errorAlert"></div>
+            <ul class="saved-list" id="savedList">
+                <li class="empty-state">
+                    <div class="empty-state-icon">📦</div>
+                    <p>Chưa có dữ liệu nhập phôi</p>
+                </li>
+            </ul>
+        </div>
 
-            <!-- Info section -->
-            <div class="info-section">
-                <h3>ℹ️ Thông tin về chức năng</h3>
-                <ul>
-                    <li><strong>File xuất:</strong> Định dạng Excel (.xlsx)</li>
-                    <li><strong>Nội dung:</strong> Dữ liệu tổng hợp về mẫu vải và kích thước</li>
-                    <li><strong>Tên file:</strong> Tự động đặt tên theo ngày xuất</li>
-                    <li><strong>Quyền hạn:</strong> Chỉ có thể xuất dữ liệu, không thể chỉnh sửa</li>
-                </ul>
-            </div>
+        <!-- Right Panel: Form nhập phôi -->
+        <div class="right-panel">
+            <h2 class="panel-title">➕ Nhập phôi mới</h2>
+            
+            <form id="nhapPhoiForm">
+                <div class="form-group">
+                    <label for="mauVaiSelect">Chọn mẫu vải *</label>
+                    <select id="mauVaiSelect" required>
+                        <option value="">-- Chọn mẫu vải --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Thêm kích thước và số lượng *</label>
+                    <div class="kich-thuoc-input-group">
+                        <div class="kich-thuoc-autocomplete">
+                            <input type="text" id="kichThuocInput" 
+                                   placeholder="Tìm kiếm kích thước (VD: 3m, 30cm)..." 
+                                   autocomplete="off">
+                            <div class="kich-thuoc-dropdown" id="kichThuocDropdown"></div>
+                        </div>
+                        <input type="number" id="soLuongInput" min="0" step="1" 
+                               placeholder="SL">
+                        <button type="button" class="btn btn-secondary" onclick="themKichThuoc()" title="Thêm kích thước">
+                            ➕
+                        </button>
+                    </div>
+                    <div class="kich-thuoc-list" id="kichThuocList">
+                        <p style="color: #999; text-align: center; padding: 20px;">
+                            Chọn mẫu vải và thêm kích thước
+                        </p>
+                    </div>
+                </div>
+
+                <button type="button" class="btn" id="themMauBtn" onclick="themMau()">
+                    ➕ Thêm mẫu
+                </button>
+            </form>
         </div>
     </div>
 
     <script>
-        // Khởi tạo trang - Server đã xử lý authentication
+        let mauVaiList = [];
+        let kichThuocList = [];
+        let currentMauVai = null;
+        let currentKichThuocData = {}; // {szSku: {kichThuoc, soLuong}}
+        let savedItems = [];
+
+        // Khởi tạo trang
         async function initializePage() {
             try {
                 const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
@@ -298,13 +464,557 @@
                 const result = await res.json();
                 
                 if (result.success && result.data) {
-                    document.getElementById('userName').textContent = result.data.username;
                     console.log('✅ Page initialized for user:', result.data.username, result.data.role);
-                } else {
-                    console.log('❌ Failed to get user info, but server already authenticated');
                 }
+
+                await loadMauVai();
+                await loadKichThuoc();
+                await loadSavedItems();
+
+                // Disable kích thước input ban đầu
+                document.getElementById('kichThuocInput').disabled = true;
+                document.getElementById('soLuongInput').disabled = true;
+
+                // Enter key để thêm kích thước
+                document.getElementById('kichThuocInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        themKichThuoc();
+                    }
+                });
+
+                document.getElementById('soLuongInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        themKichThuoc();
+                    }
+                });
             } catch (error) {
                 console.error('Error initializing page:', error);
+                showError('Lỗi khởi tạo trang: ' + error.message);
+            }
+        }
+
+        // Load danh sách mẫu vải
+        async function loadMauVai() {
+            try {
+                const response = await fetch('/api/mau-vai', { credentials: 'include' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    mauVaiList = result.data;
+                    const select = document.getElementById('mauVaiSelect');
+                    select.innerHTML = '<option value="">-- Chọn mẫu vải --</option>';
+                    
+                    mauVaiList.forEach(mau => {
+                        const option = document.createElement('option');
+                        option.value = mau.maMau;
+                        option.textContent = `${mau.maMau} - ${mau.tenMau}`;
+                        select.appendChild(option);
+                    });
+
+                    select.addEventListener('change', function() {
+                        if (this.value) {
+                            currentMauVai = mauVaiList.find(m => m.maMau === this.value);
+                            currentKichThuocData = {};
+                            loadKichThuocForMau();
+                            renderKichThuocList();
+                            document.getElementById('kichThuocInput').focus();
+                        } else {
+                            currentMauVai = null;
+                            currentKichThuocData = {};
+                            document.getElementById('kichThuocInput').disabled = true;
+                            document.getElementById('soLuongInput').disabled = true;
+                            document.getElementById('kichThuocDatalist').innerHTML = '';
+                            document.getElementById('kichThuocList').innerHTML = 
+                                '<p style="color: #999; text-align: center; padding: 20px;">Vui lòng chọn mẫu vải trước</p>';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading mau vai:', error);
+                showError('Lỗi tải danh sách mẫu vải: ' + error.message);
+            }
+        }
+
+        // Load danh sách kích thước
+        async function loadKichThuoc() {
+            try {
+                const response = await fetch('/api/kich-thuoc', { credentials: 'include' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    kichThuocList = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading kich thuoc:', error);
+                showError('Lỗi tải danh sách kích thước: ' + error.message);
+            }
+        }
+
+        // Load kích thước cho mẫu vải đã chọn (populate datalist)
+        function loadKichThuocForMau() {
+            if (!currentMauVai || kichThuocList.length === 0) return;
+
+            // Enable input
+            document.getElementById('kichThuocInput').disabled = false;
+            document.getElementById('soLuongInput').disabled = false;
+
+            // Setup filter cho input kích thước
+            setupKichThuocFilter();
+        }
+
+        let selectedKichThuocIndex = -1;
+        let filteredKichThuocList = [];
+
+        // Setup filter tìm kiếm kích thước với custom dropdown
+        function setupKichThuocFilter() {
+            const input = document.getElementById('kichThuocInput');
+            const dropdown = document.getElementById('kichThuocDropdown');
+            
+            // Remove previous event listener bằng cách clone
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+            
+            // Update reference
+            const kichThuocInput = document.getElementById('kichThuocInput');
+            
+            // Filter và hiển thị dropdown khi user nhập
+            kichThuocInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                filterAndDisplayKichThuoc(searchTerm);
+            });
+
+            // Focus vào input -> hiển thị dropdown
+            kichThuocInput.addEventListener('focus', function() {
+                if (this.value.trim() === '') {
+                    filterAndDisplayKichThuoc('');
+                } else {
+                    filterAndDisplayKichThuoc(this.value.toLowerCase().trim());
+                }
+            });
+
+            // Click outside -> đóng dropdown (sử dụng event delegation)
+            let clickOutsideHandler = function(e) {
+                if (!kichThuocInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            };
+            // Sử dụng setTimeout để tránh conflict với click event của dropdown items
+            setTimeout(() => {
+                document.addEventListener('click', clickOutsideHandler);
+            }, 100);
+
+            // Keyboard navigation
+            kichThuocInput.addEventListener('keydown', function(e) {
+                if (!dropdown.classList.contains('show')) return;
+
+                const items = dropdown.querySelectorAll('.kich-thuoc-dropdown-item');
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedKichThuocIndex = Math.min(selectedKichThuocIndex + 1, items.length - 1);
+                    updateHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedKichThuocIndex = Math.max(selectedKichThuocIndex - 1, -1);
+                    updateHighlight(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedKichThuocIndex >= 0 && selectedKichThuocIndex < items.length) {
+                        items[selectedKichThuocIndex].click();
+                    } else if (filteredKichThuocList.length === 1) {
+                        // Nếu chỉ có 1 kết quả, tự động chọn
+                        items[0].click();
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.remove('show');
+                    selectedKichThuocIndex = -1;
+                }
+            });
+
+            // Khởi tạo với tất cả kích thước
+            filterAndDisplayKichThuoc('');
+        }
+
+        // Filter và hiển thị kích thước
+        function filterAndDisplayKichThuoc(searchTerm) {
+            const dropdown = document.getElementById('kichThuocDropdown');
+            dropdown.innerHTML = '';
+
+            // Filter kích thước
+            if (searchTerm === '') {
+                filteredKichThuocList = kichThuocList;
+            } else {
+                filteredKichThuocList = kichThuocList.filter(kt => {
+                    const kichThuocLower = kt.kichThuoc.toLowerCase();
+                    const szSkuLower = kt.szSku.toLowerCase();
+                    return kichThuocLower.includes(searchTerm) || szSkuLower.includes(searchTerm);
+                });
+            }
+
+            // Hiển thị kết quả
+            if (filteredKichThuocList.length === 0) {
+                dropdown.innerHTML = '<div class="kich-thuoc-dropdown-empty">Không tìm thấy kích thước phù hợp</div>';
+            } else {
+                filteredKichThuocList.forEach((kt, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'kich-thuoc-dropdown-item';
+                    item.innerHTML = `
+                        <div class="kich-thuoc-name">${kt.kichThuoc}</div>
+                        <div class="kich-thuoc-sku">Sz_SKU: ${kt.szSku}</div>
+                    `;
+                    item.addEventListener('click', function() {
+                        selectKichThuoc(kt);
+                    });
+                    dropdown.appendChild(item);
+                });
+            }
+
+            dropdown.classList.add('show');
+            selectedKichThuocIndex = -1;
+        }
+
+        // Update highlight cho keyboard navigation
+        function updateHighlight(items) {
+            items.forEach((item, index) => {
+                if (index === selectedKichThuocIndex) {
+                    item.classList.add('highlighted');
+                    item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                } else {
+                    item.classList.remove('highlighted');
+                }
+            });
+        }
+
+        // Chọn kích thước
+        function selectKichThuoc(kt) {
+            const input = document.getElementById('kichThuocInput');
+            const dropdown = document.getElementById('kichThuocDropdown');
+            
+            input.value = `${kt.kichThuoc} (${kt.szSku})`;
+            input.setAttribute('data-selected-szsku', kt.szSku);
+            input.setAttribute('data-selected-kichthuoc', kt.kichThuoc);
+            
+            dropdown.classList.remove('show');
+            selectedKichThuocIndex = -1;
+            
+            // Focus vào input số lượng
+            document.getElementById('soLuongInput').focus();
+        }
+
+        // Thêm kích thước vào danh sách
+        function themKichThuoc() {
+            if (!currentMauVai) {
+                showError('Vui lòng chọn mẫu vải trước');
+                return;
+            }
+
+            const kichThuocInput = document.getElementById('kichThuocInput');
+            const soLuongInput = document.getElementById('soLuongInput');
+            
+            const inputValue = kichThuocInput.value.trim();
+            const soLuong = parseInt(soLuongInput.value) || 0;
+
+            if (!inputValue) {
+                showError('Vui lòng chọn kích thước');
+                return;
+            }
+
+            if (soLuong <= 0) {
+                showError('Vui lòng nhập số lượng lớn hơn 0');
+                return;
+            }
+
+            // Lấy kích thước đã chọn từ data attributes
+            let selectedKichThuoc = null;
+            const selectedSzSku = kichThuocInput.getAttribute('data-selected-szsku');
+            const selectedKichThuocName = kichThuocInput.getAttribute('data-selected-kichthuoc');
+
+            if (selectedSzSku && selectedKichThuocName) {
+                selectedKichThuoc = {
+                    szSku: selectedSzSku,
+                    kichThuoc: selectedKichThuocName
+                };
+            } else {
+                // Nếu không có data attributes, tìm trong danh sách
+                const inputLower = inputValue.toLowerCase();
+                for (const kt of kichThuocList) {
+                    const kichThuocLower = kt.kichThuoc.toLowerCase();
+                    const szSkuLower = kt.szSku.toLowerCase();
+                    const fullText = `${kt.kichThuoc} (${kt.szSku})`.toLowerCase();
+                    
+                    if (fullText === inputLower || 
+                        fullText.includes(inputLower) || 
+                        kichThuocLower.includes(inputLower) || 
+                        szSkuLower.includes(inputLower)) {
+                        selectedKichThuoc = {
+                            szSku: kt.szSku,
+                            kichThuoc: kt.kichThuoc
+                        };
+                        break;
+                    }
+                }
+            }
+
+            if (!selectedKichThuoc) {
+                showError('Không tìm thấy kích thước phù hợp. Vui lòng chọn từ danh sách gợi ý.');
+                return;
+            }
+
+            // Kiểm tra xem đã có kích thước này chưa
+            if (currentKichThuocData[selectedKichThuoc.szSku]) {
+                showError('Kích thước này đã được thêm. Vui lòng xóa và thêm lại nếu muốn cập nhật.');
+                return;
+            }
+
+            // Thêm vào currentKichThuocData
+            currentKichThuocData[selectedKichThuoc.szSku] = {
+                kichThuoc: selectedKichThuoc.kichThuoc,
+                szSku: selectedKichThuoc.szSku,
+                soLuong: soLuong
+            };
+
+            // Render lại danh sách
+            renderKichThuocList();
+
+            // Reset input
+            kichThuocInput.value = '';
+            kichThuocInput.removeAttribute('data-selected-szsku');
+            kichThuocInput.removeAttribute('data-selected-kichthuoc');
+            soLuongInput.value = '';
+            document.getElementById('kichThuocDropdown').classList.remove('show');
+            kichThuocInput.focus();
+        }
+
+        // Render danh sách kích thước đã thêm
+        function renderKichThuocList() {
+            const listDiv = document.getElementById('kichThuocList');
+            
+            if (Object.keys(currentKichThuocData).length === 0) {
+                listDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Chưa có kích thước nào được thêm</p>';
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'kich-thuoc-item';
+                
+                const label = document.createElement('label');
+                label.textContent = `${data.kichThuoc} (${data.szSku})`;
+                
+                const soLuongSpan = document.createElement('span');
+                soLuongSpan.textContent = `Số lượng: ${data.soLuong}`;
+                soLuongSpan.style.fontWeight = '600';
+                soLuongSpan.style.color = '#28a745';
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn-remove';
+                removeBtn.textContent = '✕ Xóa';
+                removeBtn.onclick = function() {
+                    delete currentKichThuocData[szSku];
+                    renderKichThuocList();
+                };
+
+                itemDiv.appendChild(label);
+                itemDiv.appendChild(soLuongSpan);
+                itemDiv.appendChild(removeBtn);
+                listDiv.appendChild(itemDiv);
+            }
+        }
+
+        // Thêm mẫu vào danh sách
+        async function themMau() {
+            if (!currentMauVai) {
+                showError('Vui lòng chọn mẫu vải');
+                return;
+            }
+
+            const items = [];
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                if (data.soLuong > 0) {
+                    items.push({
+                        maMau: currentMauVai.maMau,
+                        tenMau: currentMauVai.tenMau,
+                        kichThuoc: data.kichThuoc,
+                        szSku: data.szSku,
+                        soLuong: data.soLuong
+                    });
+                }
+            }
+
+            if (items.length === 0) {
+                showError('Vui lòng nhập số lượng cho ít nhất một kích thước');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/nhap-phoi', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ items })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
+                    
+                    // Reset form
+                    document.getElementById('mauVaiSelect').value = '';
+                    document.getElementById('kichThuocInput').value = '';
+                    document.getElementById('soLuongInput').value = '';
+                    document.getElementById('kichThuocInput').disabled = true;
+                    document.getElementById('soLuongInput').disabled = true;
+                    document.getElementById('kichThuocDatalist').innerHTML = '';
+                    currentMauVai = null;
+                    currentKichThuocData = {};
+                    renderKichThuocList();
+                    
+                    // Reload danh sách đã nhập
+                    await loadSavedItems();
+                } else {
+                    showError(result.message || 'Lỗi thêm mẫu');
+                }
+            } catch (error) {
+                console.error('Error adding mau:', error);
+                showError('Lỗi thêm mẫu: ' + error.message);
+            }
+        }
+
+        // Load danh sách đã nhập
+        async function loadSavedItems() {
+            try {
+                const response = await fetch('/api/nhap-phoi', { credentials: 'include' });
+                const result = await response.json();
+
+                if (result.success) {
+                    savedItems = result.data;
+                    renderSavedList();
+                }
+            } catch (error) {
+                console.error('Error loading saved items:', error);
+                showError('Lỗi tải danh sách đã nhập: ' + error.message);
+            }
+        }
+
+        // Render danh sách đã nhập
+        function renderSavedList() {
+            const list = document.getElementById('savedList');
+            
+            if (savedItems.length === 0) {
+                list.innerHTML = `
+                    <li class="empty-state">
+                        <div class="empty-state-icon">📦</div>
+                        <p>Chưa có dữ liệu nhập phôi</p>
+                    </li>
+                `;
+                return;
+            }
+
+            // Nhóm theo mẫu vải
+            const grouped = {};
+            savedItems.forEach(item => {
+                if (!grouped[item.maMau]) {
+                    grouped[item.maMau] = {
+                        maMau: item.maMau,
+                        tenMau: item.tenMau,
+                        items: []
+                    };
+                }
+                grouped[item.maMau].items.push(item);
+            });
+
+            list.innerHTML = '';
+            Object.values(grouped).forEach(group => {
+                const li = document.createElement('li');
+                li.className = 'saved-item';
+                
+                const totalSoLuong = group.items.reduce((sum, item) => sum + item.soLuong, 0);
+                
+                li.innerHTML = `
+                    <div class="saved-item-header">
+                        <div class="saved-item-title">${group.maMau} - ${group.tenMau}</div>
+                        <div class="saved-item-actions">
+                            <button class="btn btn-small btn-secondary" onclick="updateMau('${group.maMau}')">
+                                ✏️ Cập nhật
+                            </button>
+                        </div>
+                    </div>
+                    <div class="saved-item-details">
+                        <div><strong>Số kích thước:</strong> ${group.items.length}</div>
+                        <div><strong>Tổng số lượng:</strong> ${totalSoLuong}</div>
+                        <div style="margin-top: 8px;">
+                            ${group.items.map(item => 
+                                `<span style="display: inline-block; margin-right: 10px; margin-bottom: 5px; padding: 4px 8px; background: #e8f5e9; border-radius: 4px;">
+                                    ${item.kichThuoc}: ${item.soLuong}
+                                </span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                list.appendChild(li);
+            });
+        }
+
+        // Cập nhật mẫu (fill lại form)
+        function updateMau(maMau) {
+            const mau = mauVaiList.find(m => m.maMau === maMau);
+            if (!mau) return;
+
+            // Set mẫu vải
+            document.getElementById('mauVaiSelect').value = mau.maMau;
+            currentMauVai = mau;
+
+            // Load kích thước và fill số lượng
+            currentKichThuocData = {};
+            const mauItems = savedItems.filter(item => item.maMau === maMau);
+            mauItems.forEach(item => {
+                currentKichThuocData[item.szSku] = {
+                    kichThuoc: item.kichThuoc,
+                    szSku: item.szSku,
+                    soLuong: item.soLuong
+                };
+            });
+
+            loadKichThuocForMau();
+            renderKichThuocList();
+
+            // Scroll to form
+            document.querySelector('.right-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Xóa mục nhập phôi
+        async function deleteItem(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa mục này?')) return;
+
+            try {
+                const response = await fetch(`/api/nhap-phoi/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('Đã xóa mục nhập phôi');
+                    await loadSavedItems();
+                } else {
+                    showError(result.message || 'Lỗi xóa mục');
+                }
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                showError('Lỗi xóa mục: ' + error.message);
             }
         }
 
@@ -321,62 +1031,7 @@
             }
         }
 
-        // Xuất file nhập phôi
-        async function exportNhapPhoi() {
-            showProgress();
-            updateProgress(25, 'Đang chuẩn bị dữ liệu...');
-
-            try {
-                updateProgress(50, 'Đang tạo file Excel...');
-                
-                const response = await fetch('/api/export-nhap-phoi', {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-
-                updateProgress(75, 'Đang tải xuống...');
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `NhapPhoi_${new Date().toISOString().split('T')[0]}.xlsx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    
-                    updateProgress(100, 'Hoàn thành!');
-                    showSuccess('File nhập phôi đã được tải xuống thành công!');
-                } else {
-                    const result = await response.json();
-                    showError(result.message || 'Lỗi xuất file');
-                }
-
-            } catch (error) {
-                showError('Lỗi xuất file: ' + error.message);
-            } finally {
-                setTimeout(() => {
-                    hideProgress();
-                }, 2000);
-            }
-        }
-
         // Utility functions
-        function showProgress() {
-            document.getElementById('progressContainer').style.display = 'block';
-        }
-
-        function hideProgress() {
-            document.getElementById('progressContainer').style.display = 'none';
-        }
-
-        function updateProgress(percent, text) {
-            document.getElementById('progressFill').style.width = percent + '%';
-            document.getElementById('progressText').textContent = text;
-        }
-
         function showSuccess(message) {
             hideAlerts();
             const alert = document.getElementById('successAlert');

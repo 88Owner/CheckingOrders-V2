@@ -26,6 +26,7 @@ const UserBehaviour = require('./models/UserBehaviour');
 const MauVai = require('./models/MauVai');
 const KichThuoc = require('./models/KichThuoc');
 const MasterDataVai = require('./models/MasterDataVai');
+const NhapPhoi = require('./models/NhapPhoi');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -1696,6 +1697,154 @@ app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (re
     }
 });
 
+// API lấy danh sách mẫu vải
+app.get('/api/mau-vai', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const mauVaiList = await MauVai.find({}).sort({ maMau: 1 });
+        res.json({
+            success: true,
+            data: mauVaiList
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy danh sách mẫu vải:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy danh sách mẫu vải: ' + error.message
+        });
+    }
+});
+
+// API lấy danh sách kích thước
+app.get('/api/kich-thuoc', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const kichThuocList = await KichThuoc.find({}).sort({ kichThuoc: 1 });
+        res.json({
+            success: true,
+            data: kichThuocList
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy danh sách kích thước:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy danh sách kích thước: ' + error.message
+        });
+    }
+});
+
+// API lưu/cập nhật nhập phôi
+app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const { items } = req.body; // items là mảng các item nhập phôi
+        const username = req.session.user.username;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách nhập phôi không được rỗng'
+            });
+        }
+
+        const results = [];
+        for (const item of items) {
+            const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
+
+            if (!maMau || !tenMau || !kichThuoc || !szSku || soLuong === undefined || soLuong < 0) {
+                continue; // Bỏ qua item không hợp lệ
+            }
+
+            // Tìm và cập nhật hoặc tạo mới
+            const result = await NhapPhoi.findOneAndUpdate(
+                {
+                    maMau: maMau,
+                    kichThuoc: kichThuoc,
+                    createdBy: username
+                },
+                {
+                    $set: {
+                        tenMau: tenMau,
+                        szSku: szSku,
+                        soLuong: soLuong,
+                        importDate: new Date()
+                    }
+                },
+                {
+                    upsert: true,
+                    new: true,
+                    runValidators: true
+                }
+            );
+
+            results.push(result);
+        }
+
+        res.json({
+            success: true,
+            message: `Đã lưu ${results.length} mục nhập phôi`,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi lưu nhập phôi:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lưu nhập phôi: ' + error.message
+        });
+    }
+});
+
+// API lấy danh sách nhập phôi đã nhập (của user hiện tại)
+app.get('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const username = req.session.user.username;
+        const nhapPhoiList = await NhapPhoi.find({ createdBy: username })
+            .sort({ importDate: -1, maMau: 1, kichThuoc: 1 });
+
+        res.json({
+            success: true,
+            data: nhapPhoiList
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy danh sách nhập phôi:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy danh sách nhập phôi: ' + error.message
+        });
+    }
+});
+
+// API xóa một mục nhập phôi
+app.delete('/api/nhap-phoi/:id', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const username = req.session.user.username;
+
+        const result = await NhapPhoi.findOneAndDelete({
+            _id: id,
+            createdBy: username
+        });
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy mục nhập phôi hoặc không có quyền xóa'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Đã xóa mục nhập phôi',
+            data: result
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi xóa nhập phôi:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xóa nhập phôi: ' + error.message
+        });
+    }
+});
+
 // Route lấy danh sách orders cho checker với date filtering
 app.get('/api/orders/checker', authFromToken, async (req, res) => {
     try {
@@ -2761,6 +2910,17 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
                 
                 const group = productGroups.get(baseMaHang);
                 group.totalRequired += order.soLuong;
+                
+                // SỬA LỖI: Nếu group đã tồn tại từ combo processing (có directOrder: null),
+                // cần khởi tạo directOrders array nếu chưa có
+                if (!group.directOrders) {
+                    group.directOrders = [];
+                    // Xóa directOrder cũ nếu có (từ combo processing)
+                    if (group.directOrder !== undefined) {
+                        delete group.directOrder;
+                    }
+                }
+                
                 group.directOrders.push(order); // Thêm vào danh sách duplicate orders
                 
                 // Cộng số lượng đã quét từ tất cả các duplicate orders
