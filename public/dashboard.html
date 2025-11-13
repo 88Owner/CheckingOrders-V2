@@ -442,10 +442,26 @@
                 if (result.success) {
                     const orders = result.data.orders;
                     
-                    document.getElementById('totalOrders').textContent = orders.length;
-                    document.getElementById('verifiedOrders').textContent = orders.filter(o => o.verified).length;
-                    document.getElementById('processingOrders').textContent = orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).length;
-                    document.getElementById('pendingOrders').textContent = orders.filter(o => !o.verified && (o.scannedQuantity || 0) === 0).length;
+                    // Tính số MaVanDon duy nhất (Tổng số đơn hàng)
+                    const uniqueMaVanDons = new Set(orders.map(o => o.maVanDon).filter(Boolean));
+                    const totalUniqueVanDons = uniqueMaVanDons.size;
+                    
+                    // Tính số MaVanDon đã verify (duy nhất)
+                    const verifiedMaVanDons = new Set(orders.filter(o => o.verified).map(o => o.maVanDon).filter(Boolean));
+                    const totalVerifiedVanDons = verifiedMaVanDons.size;
+                    
+                    // Tính số MaVanDon đang quét (duy nhất)
+                    const inProgressMaVanDons = new Set(orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).map(o => o.maVanDon).filter(Boolean));
+                    const totalInProgressVanDons = inProgressMaVanDons.size;
+                    
+                    // Tính số MaVanDon chưa xử lý (duy nhất)
+                    const pendingMaVanDons = new Set(orders.filter(o => !o.verified && (o.scannedQuantity || 0) === 0).map(o => o.maVanDon).filter(Boolean));
+                    const totalPendingVanDons = pendingMaVanDons.size;
+                    
+                    document.getElementById('totalOrders').textContent = totalUniqueVanDons;
+                    document.getElementById('verifiedOrders').textContent = totalVerifiedVanDons;
+                    document.getElementById('processingOrders').textContent = totalInProgressVanDons;
+                    document.getElementById('pendingOrders').textContent = totalPendingVanDons;
                 } else {
                     console.error('Error loading stats:', result.message);
                 }

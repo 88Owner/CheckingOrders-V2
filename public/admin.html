@@ -1790,11 +1790,23 @@
                     const orders = ordersResult.data.orders;
                     const accounts = accountsResult.data;
 
+                    // Tính số MaVanDon duy nhất (Tổng số đơn hàng)
+                    const uniqueMaVanDons = new Set(orders.map(o => o.maVanDon).filter(Boolean));
+                    const totalUniqueVanDons = uniqueMaVanDons.size;
+                    
+                    // Tính số MaVanDon đã verify (duy nhất)
+                    const verifiedMaVanDons = new Set(orders.filter(o => o.verified).map(o => o.maVanDon).filter(Boolean));
+                    const totalVerifiedVanDons = verifiedMaVanDons.size;
+                    
+                    // Tính số MaVanDon đang quét (duy nhất)
+                    const inProgressMaVanDons = new Set(orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).map(o => o.maVanDon).filter(Boolean));
+                    const totalInProgressVanDons = inProgressMaVanDons.size;
+
                     // Update with animation
-                    updateStatWithAnimation('totalOrders', orders.length);
+                    updateStatWithAnimation('totalOrders', totalUniqueVanDons);
                     updateStatWithAnimation('totalAccounts', accounts.length);
-                    updateStatWithAnimation('verifiedOrders', orders.filter(o => o.verified).length);
-                    updateStatWithAnimation('processingOrders', orders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0).length);
+                    updateStatWithAnimation('verifiedOrders', totalVerifiedVanDons);
+                    updateStatWithAnimation('processingOrders', totalInProgressVanDons);
                 }
             } catch (error) {
                 console.error('Error refreshing stats:', error);

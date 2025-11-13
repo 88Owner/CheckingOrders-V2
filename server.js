@@ -1645,6 +1645,18 @@ app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (re
         }
 
         // Sheet 4: Tổng hợp
+        // Tính số MaVanDon duy nhất (Tổng số đơn hàng)
+        const uniqueMaVanDons = new Set(ordersData.map(o => o.maVanDon).filter(Boolean));
+        const totalUniqueVanDons = uniqueMaVanDons.size;
+        
+        // Tính số MaVanDon đã xác nhận (duy nhất)
+        const verifiedMaVanDons = new Set(ordersData.filter(o => o.verified).map(o => o.maVanDon).filter(Boolean));
+        const totalVerifiedVanDons = verifiedMaVanDons.size;
+        
+        // Tính số MaVanDon chưa xác nhận (duy nhất)
+        const pendingMaVanDons = new Set(ordersData.filter(o => !o.verified).map(o => o.maVanDon).filter(Boolean));
+        const totalPendingVanDons = pendingMaVanDons.size;
+        
         const summaryData = [
             {
                 'Loại dữ liệu': 'Mẫu vải',
@@ -1658,18 +1670,23 @@ app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (re
             },
             {
                 'Loại dữ liệu': 'Đơn hàng',
-                'Số lượng': ordersData.length,
-                'Ghi chú': 'Tổng số đơn hàng trong hệ thống'
+                'Số lượng': totalUniqueVanDons,
+                'Ghi chú': 'Tổng số đơn hàng (mã vận đơn) trong hệ thống'
             },
             {
                 'Loại dữ liệu': 'Đơn hàng đã xác nhận',
-                'Số lượng': ordersData.filter(o => o.verified).length,
-                'Ghi chú': 'Số đơn hàng đã được kiểm tra'
+                'Số lượng': totalVerifiedVanDons,
+                'Ghi chú': 'Số mã vận đơn đã được kiểm tra'
             },
             {
                 'Loại dữ liệu': 'Đơn hàng chưa xác nhận',
-                'Số lượng': ordersData.filter(o => !o.verified).length,
-                'Ghi chú': 'Số đơn hàng chưa được kiểm tra'
+                'Số lượng': totalPendingVanDons,
+                'Ghi chú': 'Số mã vận đơn chưa được kiểm tra'
+            },
+            {
+                'Loại dữ liệu': 'Chi tiết đơn hàng',
+                'Số lượng': ordersData.length,
+                'Ghi chú': 'Tổng số chi tiết đơn hàng (order items)'
             }
         ];
 
@@ -4523,11 +4540,27 @@ app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
         
         console.log(`[API /api/stats/orders-by-employee] Tìm thấy ${allOrders.length} đơn hàng trong ngày`);
         
+        // Tính số lượng MaVanDon duy nhất (Tổng số đơn hàng)
+        const uniqueMaVanDons = new Set(allOrders.map(o => o.maVanDon).filter(Boolean));
+        const totalUniqueVanDons = uniqueMaVanDons.size;
+        
         // Phân loại đơn hàng
         const verifiedOrders = allOrders.filter(o => o.verified && o.verifiedAt && 
             o.verifiedAt >= startOfDay && o.verifiedAt <= endOfDay);
         const pendingOrders = allOrders.filter(o => !o.verified);
         const inProgressOrders = allOrders.filter(o => !o.verified && (o.scannedQuantity || 0) > 0);
+        
+        // Tính số MaVanDon đã verify (duy nhất)
+        const verifiedMaVanDons = new Set(verifiedOrders.map(o => o.maVanDon).filter(Boolean));
+        const totalVerifiedVanDons = verifiedMaVanDons.size;
+        
+        // Tính số MaVanDon chưa verify (duy nhất)
+        const pendingMaVanDons = new Set(pendingOrders.map(o => o.maVanDon).filter(Boolean));
+        const totalPendingVanDons = pendingMaVanDons.size;
+        
+        // Tính số MaVanDon đang quét (duy nhất)
+        const inProgressMaVanDons = new Set(inProgressOrders.map(o => o.maVanDon).filter(Boolean));
+        const totalInProgressVanDons = inProgressMaVanDons.size;
         
         // Nhóm theo nhân viên (chỉ tính đơn hàng đã verify)
         const employeeStats = {};
@@ -4590,17 +4623,18 @@ app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
         const statsArray = Object.values(employeeStats).sort((a, b) => b.totalOrders - a.totalOrders);
         const vanDonStatsArray = Object.values(vanDonStats).sort((a, b) => b.totalOrders - a.totalOrders);
         
-        console.log(`[API /api/stats/orders-by-employee] Thống kê: ${statsArray.length} nhân viên, ${totalVerifiedOrders} đơn đã verify, ${allOrders.length} tổng đơn`);
+        console.log(`[API /api/stats/orders-by-employee] Thống kê: ${statsArray.length} nhân viên, ${totalVerifiedVanDons} mã vận đơn đã verify, ${totalUniqueVanDons} tổng mã vận đơn`);
         
         res.json({
             success: true,
             data: {
                 date: date || selectedDate.toISOString().split('T')[0],
                 totalEmployees: statsArray.length,
-                totalOrders: allOrders.length, // Tổng số đơn hàng
-                totalVerifiedOrders: totalVerifiedOrders, // Số đơn đã verify
-                totalPendingOrders: pendingOrders.length, // Số đơn chưa verify
-                totalInProgressOrders: inProgressOrders.length, // Số đơn đang quét
+                totalOrders: totalUniqueVanDons, // Tổng số đơn hàng (số MaVanDon duy nhất)
+                totalVerifiedOrders: totalVerifiedVanDons, // Số mã vận đơn đã verify (duy nhất)
+                totalPendingOrders: totalPendingVanDons, // Số mã vận đơn chưa verify (duy nhất)
+                totalInProgressOrders: totalInProgressVanDons, // Số mã vận đơn đang quét (duy nhất)
+                totalOrderItems: allOrders.length, // Tổng số order items (để tham khảo)
                 totalItems: totalRequiredItems, // Tổng số sản phẩm yêu cầu
                 totalScannedItems: totalScannedItems, // Tổng số sản phẩm đã quét
                 totalVerifiedItems: totalVerifiedItems, // Tổng số sản phẩm đã verify

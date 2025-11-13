@@ -4469,11 +4469,23 @@ window.showOrderPager = function(show) {
 
 
         function updateProgress() {
-            const total = cacheOrders.length;
+            // Tính số MaVanDon duy nhất từ cacheOrders
+            const uniqueMaVanDons = new Set(cacheOrders.map(o => o.maVanDon).filter(Boolean));
+            const total = uniqueMaVanDons.size;
             
             let scanned = 0;
             let completed = 0;
             let inProgress = 0;
+            
+            // Nhóm orders theo MaVanDon để tính toán
+            const ordersByVanDon = new Map();
+            cacheOrders.forEach(order => {
+                if (!order.maVanDon) return;
+                if (!ordersByVanDon.has(order.maVanDon)) {
+                    ordersByVanDon.set(order.maVanDon, []);
+                }
+                ordersByVanDon.get(order.maVanDon).push(order);
+            });
             
             // Nếu đang ở chế độ check (scanning), tính từ scannedItems
             if (activeView === 'check' && orderCheckSM.scannedItems) {
@@ -4482,20 +4494,46 @@ window.showOrderPager = function(show) {
                 // Tính tổng số lần quét thực tế
                 scanned = currentScannedItems.length;
                 
-                // Tính số sản phẩm đã quét đủ và đang quét (đếm số lần quét)
-                cacheOrders.forEach(order => {
-                    const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === order.maHang);
-                    const scannedCount = scannedItemsForThisProduct.length;
+                // Tính số MaVanDon đã hoàn thành và đang quét
+                ordersByVanDon.forEach((orders, maVanDon) => {
+                    let allCompleted = true;
+                    let hasProgress = false;
                     
-                    if (scannedCount >= order.soLuong) {
+                    orders.forEach(order => {
+                        const scannedItemsForThisProduct = currentScannedItems.filter(item => item.maHang === order.maHang);
+                        const scannedCount = scannedItemsForThisProduct.length;
+                        
+                        if (scannedCount < order.soLuong) {
+                            allCompleted = false;
+                        }
+                        if (scannedCount > 0) {
+                            hasProgress = true;
+                        }
+                    });
+                    
+                    if (allCompleted && orders.length > 0) {
                         completed++;
-                    } else if (scannedCount > 0) {
+                    } else if (hasProgress) {
                         inProgress++;
                     }
                 });
             } else {
                 // Nếu đang ở chế độ view, tính từ cacheOrders (verified từ DB)
-                completed = cacheOrders.filter(x => x.verified).length;
+                // Tính số MaVanDon đã verify (duy nhất)
+                const verifiedMaVanDons = new Set(cacheOrders.filter(x => x.verified).map(x => x.maVanDon).filter(Boolean));
+                completed = verifiedMaVanDons.size;
+                
+                // Tính số MaVanDon đang quét (có scannedQuantity > 0 nhưng chưa verified)
+                const inProgressMaVanDons = new Set();
+                ordersByVanDon.forEach((orders, maVanDon) => {
+                    const hasScanned = orders.some(o => (o.scannedQuantity || 0) > 0);
+                    const allVerified = orders.every(o => o.verified);
+                    if (hasScanned && !allVerified) {
+                        inProgressMaVanDons.add(maVanDon);
+                    }
+                });
+                inProgress = inProgressMaVanDons.size;
+                
                 scanned = cacheOrders.reduce((sum, order) => {
                     return sum + (order.scannedQuantity || 0);
                 }, 0);
@@ -4503,7 +4541,7 @@ window.showOrderPager = function(show) {
             
             const required = cacheOrders.reduce((s, x) => s + x.soLuong, 0);
             
-            // Tính phần trăm dựa trên số sản phẩm đã hoàn thành
+            // Tính phần trăm dựa trên số MaVanDon đã hoàn thành
             const percent = total ? Math.round((completed / total) * 100) : 0;
             
             // Cập nhật progress bar
@@ -4810,7 +4848,7 @@ window.showOrderPager = function(show) {
                                         <td style="font-weight: 600; color: #1e40af;">${escapeHtml(vd.maVanDon)}</td>
                                         <td style="text-align: center; font-weight: 600;">${fmt(vd.totalOrders)}</td>
                                         <td style="text-align: center; ${isCompleted ? 'color: #16a34a; font-weight: 600;' : ''}">
-                                            ${fmt(vd.verifiedOrders)} ${isCompleted ? 'S2' : ''}
+                                            ${fmt(vd.verifiedOrders)} ${isCompleted ? '' : ''}
                                         </td>
                                         <td style="text-align: center;">${fmt(vd.totalItems)}</td>
                                     </tr>
