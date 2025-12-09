@@ -743,6 +743,9 @@
         <!-- Left Panel: Danh sách đã nhập -->
         <div class="left-panel">
             <h2 class="panel-title">Danh sách đã nhập</h2>
+            <button class="btn btn-secondary" id="exportBtn" onclick="exportFile()" style="margin-bottom: 15px; width: auto; padding: 10px 20px;">
+                🖨️ Xuất file
+            </button>
             <div class="alert alert-success" id="successAlert"></div>
             <div class="alert alert-error" id="errorAlert"></div>
             
@@ -779,6 +782,22 @@
                                    style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;"
                                    oninput="calculateArea()">
                         </div>
+                    </div>
+                </div>
+
+                <!-- Input ID cho lần cắt sau -->
+                <div class="form-group" id="catVaiIdGroup" style="display: none;">
+                    <label for="catVaiIdInput">ID đối tượng cắt vải (để tiếp tục lần cắt sau)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="catVaiIdInput" 
+                               placeholder="Nhập ID từ lần cắt trước (VD: CV-MAUM001-1234567890)" 
+                               style="flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="loadCatVaiById()" style="width: auto; padding: 12px 20px;">
+                            🔍 Tải thông tin
+                        </button>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 0.85rem; color: #666;">
+                        💡 Để trống nếu đây là lần cắt đầu tiên. Sau khi lưu, ID sẽ được hiển thị để dùng cho lần cắt sau.
                     </div>
                 </div>
 
@@ -898,6 +917,7 @@
         let savedCayVaiList = [];
         let selectedMauVaiIndex = -1;
         let filteredMauVaiList = [];
+        let currentCatVaiId = null; // Lưu ID đối tượng cắt vải hiện tại
         const CHIEU_CAO_MAC_DINH = 230; // cm = 2.3m
 
         // Khởi tạo trang
@@ -915,7 +935,13 @@
 
                 await loadMauVai();
                 await loadKichThuoc();
-                await loadSavedItems();
+                // Không load danh sách đã nhập khi login - để danh sách bên trái trống
+                // await loadSavedItems();
+                
+                // Đảm bảo danh sách bên trái trống khi login
+                savedCayVaiList = [];
+                savedItems = [];
+                renderSavedList();
 
                 // Setup mẫu vải autocomplete
                 setupMauVaiAutocomplete();
@@ -1085,11 +1111,13 @@
             dropdown.classList.remove('show');
             selectedMauVaiIndex = -1;
             
-            // Hiển thị input chiều dài cây vải
+            // Hiển thị input chiều dài cây vải và input ID
             document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
+            document.getElementById('catVaiIdGroup').style.display = 'block';
             document.getElementById('chieuDaiCayVaiInput').value = '';
             document.getElementById('calculationInfo').style.display = 'none';
             document.getElementById('checkboxOptions').style.display = 'none';
+            currentCatVaiId = null; // Reset ID khi chọn mẫu mới
             
             // Focus vào input chiều dài
             setTimeout(() => {
@@ -1568,12 +1596,6 @@
                 return;
             }
 
-            // Lấy thông tin lỗi, thiếu, nhập lại kho
-            const vaiLoi = document.getElementById('vaiLoiCheckbox').checked ? 
-                parseFloat(document.getElementById('vaiLoiInput').value) || 0 : 0;
-            const vaiThieu = document.getElementById('vaiThieuCheckbox').checked;
-            const nhapLaiKho = document.getElementById('nhapLaiKhoCheckbox').checked;
-            
             // Tính toán lại để lấy số m còn lại
             const dienTichBanDau = chieuDaiCayVai * 2.3;
             let dienTichDaCat = 0;
@@ -1583,6 +1605,19 @@
             }
             const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
             const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
+
+            // Lấy thông tin lỗi, thiếu, nhập lại kho
+            // Luôn lưu, nếu không tick thì giá trị là 0
+            const vaiLoi = document.getElementById('vaiLoiCheckbox').checked ? 
+                parseFloat(document.getElementById('vaiLoiInput').value) || 0 : 0;
+            
+            // Vải thiếu: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
+            const vaiThieuChecked = document.getElementById('vaiThieuCheckbox').checked;
+            const vaiThieuSoM = vaiThieuChecked ? soMConLai : 0;
+            
+            // Nhập lại kho: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
+            const nhapLaiKhoChecked = document.getElementById('nhapLaiKhoCheckbox').checked;
+            const nhapLaiKhoSoM = nhapLaiKhoChecked ? soMConLai : 0;
 
             try {
                 const response = await fetch('/api/nhap-phoi', {
@@ -1598,45 +1633,53 @@
                             chieuDai: vaiLoi,
                             dienTich: vaiLoi * 2.3,
                             soM: vaiLoi
-                        } : null,
-                        vaiThieu: vaiThieu ? {
-                            soM: soMConLai
-                        } : null,
-                        nhapLaiKho: nhapLaiKho ? {
-                            soM: soMConLai
-                        } : null
+                        } : { chieuDai: 0, dienTich: 0, soM: 0 },
+                        vaiThieu: {
+                            soM: vaiThieuSoM
+                        },
+                        nhapLaiKho: {
+                            soM: nhapLaiKhoSoM
+                        },
+                        catVaiId: currentCatVaiId || null // Gửi ID nếu có
                     })
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
+                    // Lưu ID đối tượng cắt vải nếu có
+                    if (result.data && result.data.doiTuongCatVai) {
+                        currentCatVaiId = result.data.doiTuongCatVai.catVaiId;
+                        document.getElementById('catVaiIdInput').value = currentCatVaiId;
+                        showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}. ID đối tượng cắt vải: ${currentCatVaiId} (đã tự động điền vào form để dùng cho lần cắt sau)`);
+                    } else {
+                        showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
+                    }
                     
-                    // Reset form
-                    document.getElementById('mauVaiInput').value = '';
-                    document.getElementById('mauVaiSelect').value = '';
+                    // Reset form (giữ lại ID và mẫu vải nếu muốn tiếp tục cắt)
                     document.getElementById('chieuDaiCayVaiInput').value = '';
-                    document.getElementById('chieuDaiCayVaiGroup').style.display = 'none';
                     document.getElementById('calculationInfo').style.display = 'none';
                     document.getElementById('checkboxOptions').style.display = 'none';
                     document.getElementById('kichThuocInput').value = '';
                     document.getElementById('soLuongInput').value = '';
-                    document.getElementById('kichThuocInput').disabled = true;
-                    document.getElementById('soLuongInput').disabled = true;
                     document.getElementById('vaiLoiCheckbox').checked = false;
                     document.getElementById('vaiThieuCheckbox').checked = false;
                     document.getElementById('nhapLaiKhoCheckbox').checked = false;
                     document.getElementById('vaiLoiInputGroup').style.display = 'none';
                     document.getElementById('vaiThieuInfo').style.display = 'none';
                     document.getElementById('nhapLaiKhoInfo').style.display = 'none';
-                    currentMauVai = null;
                     currentKichThuocData = {};
                     renderKichThuocList();
-                    document.getElementById('mauVaiInput').focus();
                     
                     // Reload danh sách đã nhập
                     await loadSavedItems();
+                    
+                    // Focus vào input kích thước để tiếp tục nhập
+                    if (currentMauVai) {
+                        document.getElementById('kichThuocInput').disabled = false;
+                        document.getElementById('soLuongInput').disabled = false;
+                        document.getElementById('kichThuocInput').focus();
+                    }
                 } else {
                     showError(result.message || 'Lỗi thêm mẫu');
                 }
@@ -1676,17 +1719,73 @@
             });
         }
 
+        // Tải thông tin đối tượng cắt vải theo ID
+        async function loadCatVaiById() {
+            const catVaiId = document.getElementById('catVaiIdInput').value.trim();
+            
+            if (!catVaiId) {
+                showError('Vui lòng nhập ID đối tượng cắt vải');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/doi-tuong-cat-vai/${catVaiId}`, {
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const doiTuong = result.data;
+                    
+                    // Tìm mẫu vải tương ứng
+                    const mau = mauVaiList.find(m => m.maMau === doiTuong.maMau);
+                    if (mau) {
+                        // Set mẫu vải
+                        document.getElementById('mauVaiInput').value = `${mau.maMau} - ${mau.tenMau}`;
+                        document.getElementById('mauVaiSelect').value = mau.maMau;
+                        currentMauVai = mau;
+                        
+                        // Set chiều dài cây vải ban đầu (không thay đổi)
+                        document.getElementById('chieuDaiCayVaiInput').value = doiTuong.chieuDaiCayVai;
+                        document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
+                        document.getElementById('catVaiIdGroup').style.display = 'block';
+                        
+                        // Load kích thước
+                        loadKichThuocForMau();
+                        
+                        // Lưu ID
+                        currentCatVaiId = catVaiId;
+                        
+                        showSuccess(`Đã tải thông tin đối tượng cắt vải. Tiến độ hiện tại: ${doiTuong.tienDoPercent}%, Số m còn lại: ${doiTuong.soMConLai.toFixed(1)}m`);
+                    } else {
+                        showError('Không tìm thấy mẫu vải tương ứng');
+                    }
+                } else {
+                    showError(result.message || 'Không tìm thấy đối tượng cắt vải với ID này');
+                }
+            } catch (error) {
+                console.error('Error loading cat vai:', error);
+                showError('Lỗi tải thông tin: ' + error.message);
+            }
+        }
+
         // Xóa form
         function clearForm() {
             if (confirm('Bạn có chắc chắn muốn xóa form hiện tại?')) {
                 document.getElementById('mauVaiInput').value = '';
                 document.getElementById('mauVaiSelect').value = '';
+                document.getElementById('catVaiIdInput').value = '';
+                document.getElementById('chieuDaiCayVaiInput').value = '';
+                document.getElementById('chieuDaiCayVaiGroup').style.display = 'none';
+                document.getElementById('catVaiIdGroup').style.display = 'none';
                 document.getElementById('kichThuocInput').value = '';
                 document.getElementById('soLuongInput').value = '';
                 document.getElementById('kichThuocInput').disabled = true;
                 document.getElementById('soLuongInput').disabled = true;
                 currentMauVai = null;
                 currentKichThuocData = {};
+                currentCatVaiId = null;
                 renderKichThuocList();
                 document.getElementById('mauVaiInput').focus();
             }
@@ -1695,10 +1794,12 @@
         // Render danh sách đã nhập
         function renderSavedList() {
             const list = document.getElementById('savedList');
+            const exportBtn = document.getElementById('exportBtn');
             
             // Nếu có danh sách cây vải, ưu tiên hiển thị cây vải
             if (savedCayVaiList.length > 0) {
                 list.innerHTML = '';
+                exportBtn.disabled = false;
                 
                 // Hiển thị danh sách cây vải (theo thứ tự mới nhất)
                 savedCayVaiList.forEach(cayVai => {
@@ -1773,6 +1874,7 @@
                         <p>Chưa có dữ liệu nhập phôi</p>
                     </li>
                 `;
+                exportBtn.disabled = true;
                 return;
             }
 
@@ -1820,6 +1922,7 @@
                 
                 list.appendChild(li);
             });
+            exportBtn.disabled = false;
         }
 
         // Cập nhật mẫu (fill lại form)
@@ -1886,6 +1989,122 @@
                 window.location.href = '/login';
             }
         }
+
+        // Xuất file Excel
+        async function exportFile() {
+            const btn = document.getElementById('exportBtn');
+            if (btn.disabled) return;
+
+            if (savedCayVaiList.length === 0) {
+                showError('Không có dữ liệu để xuất file.');
+                return;
+            }
+
+            // Gộp tất cả items từ tất cả cây vải đã lưu, kèm theo maMau
+            const allItemsWithMau = savedCayVaiList.flatMap(cayVai => 
+                cayVai.items.map(item => ({
+                    ...item,
+                    maMau: cayVai.maMau // Thêm maMau vào mỗi item
+                }))
+            );
+
+            if (allItemsWithMau.length === 0) {
+                showError('Không có chi tiết kích thước nào để xuất.');
+                return;
+            }
+
+            // Chuẩn bị dữ liệu: gộp số lượng cho cùng 1 szSku + maMau
+            // Key: maMau + szSku để phân biệt cùng szSku nhưng khác mẫu
+            const exportData = allItemsWithMau.reduce((acc, item) => {
+                const key = `${item.maMau}_${item.szSku}`;
+                if (acc[key]) {
+                    acc[key].soLuong += item.soLuong;
+                    // Cập nhật diện tích cắt tổng (nếu cần)
+                    acc[key].dienTichCat += (item.soLuong * (item.dienTich || 0));
+                } else {
+                    acc[key] = {
+                        sku: item.szSku, // Tạm thời dùng szSku, sẽ được thay bằng SKU từ MasterDataVai
+                        soLuong: item.soLuong,
+                        kichThuoc: item.kichThuoc || '', // Lưu thêm thông tin kích thước
+                        szSku: item.szSku, // Thêm szSku để tìm kích thước nếu cần
+                        maMau: item.maMau, // Thêm maMau để tìm SKU từ MasterDataVai
+                        dienTich: item.dienTich || 0,
+                        dienTichCat: (item.soLuong * (item.dienTich || 0))
+                    };
+                }
+                return acc;
+            }, {});
+
+            const dataToSend = Object.values(exportData);
+            
+            btn.disabled = true;
+            btn.innerHTML = '🔄 Đang xử lý...';
+
+            try {
+                const response = await fetch('/api/export-nhap-phoi', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include', // Thêm credentials để gửi session/cookie
+                    body: JSON.stringify({ 
+                        items: dataToSend
+                        // Không cần gửi maMau riêng vì mỗi item đã có maMau
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorResult = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+                    throw new Error(errorResult.message || `Lỗi server: ${response.statusText}`);
+                }
+
+                // Lấy tên file từ header - sửa lỗi regex
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'nhap_phoi_export.xlsx'; // fallback
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1].replace(/['"]/g, '');
+                    }
+                }
+
+                const blob = await response.blob();
+                
+                // Kiểm tra xem blob có dữ liệu không
+                if (blob.size === 0) {
+                    throw new Error('File xuất ra rỗng. Vui lòng kiểm tra lại dữ liệu.');
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup sau khi tải
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                }, 100);
+
+                showSuccess(`Xuất file thành công! Đã xuất ${dataToSend.length} SKU với tổng ${allItemsWithMau.reduce((sum, item) => sum + item.soLuong, 0)} sản phẩm.`);
+
+                // Xóa danh sách bên trái sau khi xuất file thành công
+                savedCayVaiList = [];
+                savedItems = [];
+                renderSavedList();
+
+            } catch (error) {
+                console.error('Error exporting file:', error);
+                showError('Lỗi xuất file: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🖨️ Xuất file';
+            }
+        }
+
 
         // Utility functions
         function showSuccess(message) {

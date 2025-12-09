@@ -356,6 +356,16 @@
                     Load file MasterDataVai
                 </button>
                 
+                <button id="templateBtn" class="nav-btn">
+                    <span class="icon"></span>
+                    Upload Template xuất file
+                </button>
+                
+                <button id="reportBtn" class="nav-btn">
+                    <span class="icon"></span>
+                    Báo cáo data cắt vải
+                </button>
+                
                 <button id="exportBtn" class="nav-btn">
                     <span class="icon"></span>
                     Xuất file nhập phôi
@@ -418,6 +428,18 @@
                         Load file Mẫu vải
                     </div>
                     
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 2px solid #ffc107; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #856404;">⚠️ Quản lý dữ liệu:</strong>
+                                <span style="color: #856404; margin-left: 10px;">Bạn có thể xóa toàn bộ dữ liệu mẫu vải trước khi upload mới</span>
+                            </div>
+                            <button class="btn" style="background: #dc3545; padding: 8px 16px; font-size: 0.9rem;" onclick="deleteAllMauVai()">
+                                🗑️ Xóa tất cả
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="upload-area" onclick="document.getElementById('mauVaiFile').click()">
                         <div class="upload-icon"></div>
                         <div class="upload-text">Click để chọn file Excel</div>
@@ -459,6 +481,18 @@
                         Load file Kích thước
                     </div>
                     
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 2px solid #ffc107; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #856404;">⚠️ Quản lý dữ liệu:</strong>
+                                <span style="color: #856404; margin-left: 10px;">Bạn có thể xóa toàn bộ dữ liệu kích thước trước khi upload mới</span>
+                            </div>
+                            <button class="btn" style="background: #dc3545; padding: 8px 16px; font-size: 0.9rem;" onclick="deleteAllKichThuoc()">
+                                🗑️ Xóa tất cả
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="upload-area" onclick="document.getElementById('kichThuocFile').click()">
                         <div class="upload-icon"></div>
                         <div class="upload-text">Click để chọn file Excel</div>
@@ -498,6 +532,18 @@
                     <div class="section-title">
                         <span class="icon"></span>
                         Load file MasterDataVai
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 2px solid #ffc107; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #856404;">⚠️ Quản lý dữ liệu:</strong>
+                                <span style="color: #856404; margin-left: 10px;">Bạn có thể xóa toàn bộ dữ liệu MasterDataVai trước khi upload mới</span>
+                            </div>
+                            <button class="btn" style="background: #dc3545; padding: 8px 16px; font-size: 0.9rem;" onclick="deleteAllMasterDataVai()">
+                                🗑️ Xóa tất cả
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="upload-area" onclick="document.getElementById('masterDataVaiFile').click()">
@@ -567,6 +613,114 @@
                     <div class="alert alert-success" id="exportSuccessAlert"></div>
                     <div class="alert alert-error" id="exportErrorAlert"></div>
                 </div>
+
+                <!-- Template Section -->
+                <div id="templateSection" class="content-section">
+                    <div class="section-title">
+                        <span class="icon"></span>
+                        Upload Template xuất file
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 12px; border: 2px solid #ffc107; margin-bottom: 24px;">
+                        <h3 style="color: #856404; margin-bottom: 12px;">⚠️ Lưu ý về Template</h3>
+                        <ul style="color: #856404; line-height: 1.8; margin-left: 20px;">
+                            <li>Template phải là file Excel (.xlsx)</li>
+                            <li>Template sẽ được lưu tại: <code>uploads/template/nhap_phoi_template.xlsx</code></li>
+                            <li>Khi xuất file, hệ thống sẽ sử dụng template này và ghi dữ liệu vào cột C (SKU) và cột D (SL)</li>
+                            <li>Template hiện tại sẽ bị thay thế nếu upload template mới</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="upload-area" onclick="document.getElementById('templateFile').click()">
+                        <div class="upload-icon"></div>
+                        <div class="upload-text">Click để chọn file Template Excel</div>
+                        <div class="upload-subtext">Hỗ trợ file .xlsx</div>
+                    </div>
+                    <input type="file" id="templateFile" class="file-input" accept=".xlsx" />
+                    
+                    <div style="text-align: center;">
+                        <button class="btn" onclick="uploadTemplate()" disabled id="uploadTemplateBtn">
+                            Upload Template
+                        </button>
+                    </div>
+                    
+                    <div class="progress-container" id="templateProgressContainer">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="templateProgressFill"></div>
+                        </div>
+                        <p style="text-align: center; margin-top: 10px;" id="templateProgressText">Đang xử lý...</p>
+                    </div>
+                    
+                    <div class="alert alert-success" id="templateSuccessAlert"></div>
+                    <div class="alert alert-error" id="templateErrorAlert"></div>
+                    
+                    <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px;">
+                        <h3 style="color: var(--primary); margin-bottom: 16px;">📋 Thông tin Template hiện tại</h3>
+                        <div id="templateInfo">
+                            <p style="color: #666;">Đang tải thông tin...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Section -->
+                <div id="reportSection" class="content-section">
+                    <div class="section-title">
+                        <span class="icon"></span>
+                        Báo cáo data cắt vải
+                    </div>
+                    
+                    <div style="background: #f8f9ff; padding: 24px; border-radius: 12px; border: 2px solid var(--primary); margin-bottom: 24px;">
+                        <h3 style="color: var(--primary); margin-bottom: 16px;">📊 Thống kê tổng quan</h3>
+                        <div id="reportSummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                            <div style="background: white; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 32px; color: var(--primary); font-weight: bold;" id="totalCatVai">-</div>
+                                <div style="color: #666; margin-top: 8px;">Tổng đối tượng cắt vải</div>
+                            </div>
+                            <div style="background: white; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 32px; color: var(--ok); font-weight: bold;" id="totalItems">-</div>
+                                <div style="color: #666; margin-top: 8px;">Tổng số kích thước đã cắt</div>
+                            </div>
+                            <div style="background: white; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 32px; color: var(--warn); font-weight: bold;" id="totalDienTich">-</div>
+                                <div style="color: #666; margin-top: 8px;">Tổng diện tích đã cắt (m²)</div>
+                            </div>
+                            <div style="background: white; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 32px; color: var(--accent); font-weight: bold;" id="totalSoM">-</div>
+                                <div style="color: #666; margin-top: 8px;">Tổng số m đã cắt</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px;">
+                            <label style="font-weight: 600; color: #333;">Lọc theo:</label>
+                            <select id="reportFilterMau" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1;">
+                                <option value="">Tất cả mẫu vải</option>
+                            </select>
+                            <select id="reportFilterDate" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 200px;">
+                                <option value="all">Tất cả thời gian</option>
+                                <option value="today">Hôm nay</option>
+                                <option value="week">7 ngày qua</option>
+                                <option value="month">30 ngày qua</option>
+                            </select>
+                            <button class="btn" onclick="loadReport()">Lọc</button>
+                            <button class="btn btn-secondary" onclick="exportReport()">Xuất báo cáo</button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-preview" id="reportDataPreview">
+                        <h3>Danh sách đối tượng cắt vải</h3>
+                        <table class="data-table" id="reportDataTable">
+                            <thead id="reportTableHead">
+                            </thead>
+                            <tbody id="reportTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-success" id="reportSuccessAlert"></div>
+                    <div class="alert alert-error" id="reportErrorAlert"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -575,6 +729,7 @@
         let selectedMauVaiFile = null;
         let selectedKichThuocFile = null;
         let selectedMasterDataVaiFile = null;
+        let selectedTemplateFile = null;
 
         // Khởi tạo trang - Server đã xử lý authentication
         async function initializePage() {
@@ -632,6 +787,14 @@
         document.getElementById('mauVaiBtn').addEventListener('click', () => showSection('mauVai'));
         document.getElementById('kichThuocBtn').addEventListener('click', () => showSection('kichThuoc'));
         document.getElementById('masterDataVaiBtn').addEventListener('click', () => showSection('masterDataVai'));
+        document.getElementById('templateBtn').addEventListener('click', () => {
+            showSection('template');
+            loadTemplateInfo();
+        });
+        document.getElementById('reportBtn').addEventListener('click', () => {
+            showSection('report');
+            loadReport();
+        });
         document.getElementById('exportBtn').addEventListener('click', () => showSection('export'));
         document.getElementById('logoutBtn').addEventListener('click', logout);
 
@@ -836,6 +999,213 @@
             }
         }
 
+        // Upload Template
+        async function uploadTemplate() {
+            if (!selectedTemplateFile) {
+                showError('template', 'Vui lòng chọn file trước khi upload');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('templateFile', selectedTemplateFile);
+
+            showProgress('template');
+            document.getElementById('uploadTemplateBtn').disabled = true;
+
+            try {
+                updateProgress('template', 25, 'Đang upload template...');
+                
+                const response = await fetch('/api/upload-template', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                updateProgress('template', 75, 'Đang lưu template...');
+                const result = await response.json();
+                
+                updateProgress('template', 100, 'Hoàn thành!');
+
+                if (result.success) {
+                    showSuccess('template', result.message);
+                    loadTemplateInfo();
+                    selectedTemplateFile = null;
+                    document.getElementById('templateFile').value = '';
+                    document.getElementById('uploadTemplateBtn').disabled = true;
+                } else {
+                    showError('template', result.message);
+                }
+
+            } catch (error) {
+                showError('template', 'Lỗi upload: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    hideProgress('template');
+                    document.getElementById('uploadTemplateBtn').disabled = false;
+                }, 2000);
+            }
+        }
+
+        // Load thông tin template
+        async function loadTemplateInfo() {
+            try {
+                const response = await fetch('/api/template-info', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                const templateInfo = document.getElementById('templateInfo');
+                if (result.success && result.data) {
+                    const info = result.data;
+                    templateInfo.innerHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                            <div>
+                                <strong>Tên file:</strong> ${info.filename || 'N/A'}
+                            </div>
+                            <div>
+                                <strong>Kích thước:</strong> ${info.size ? (info.size / 1024).toFixed(2) + ' KB' : 'N/A'}
+                            </div>
+                            <div>
+                                <strong>Ngày cập nhật:</strong> ${info.modified ? new Date(info.modified).toLocaleString('vi-VN') : 'N/A'}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    templateInfo.innerHTML = '<p style="color: #999;">Chưa có template được upload</p>';
+                }
+            } catch (error) {
+                console.error('Error loading template info:', error);
+                document.getElementById('templateInfo').innerHTML = '<p style="color: #ef4444;">Lỗi tải thông tin template</p>';
+            }
+        }
+
+        // Load báo cáo
+        async function loadReport() {
+            const filterMau = document.getElementById('reportFilterMau').value;
+            const filterDate = document.getElementById('reportFilterDate').value;
+            
+            try {
+                const params = new URLSearchParams();
+                if (filterMau) params.append('maMau', filterMau);
+                if (filterDate !== 'all') params.append('dateFilter', filterDate);
+                
+                const response = await fetch(`/api/report-cat-vai?${params.toString()}`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    
+                    // Cập nhật thống kê
+                    document.getElementById('totalCatVai').textContent = data.summary.totalCatVai || 0;
+                    document.getElementById('totalItems').textContent = data.summary.totalItems || 0;
+                    document.getElementById('totalDienTich').textContent = (data.summary.totalDienTich || 0).toFixed(2);
+                    document.getElementById('totalSoM').textContent = (data.summary.totalSoM || 0).toFixed(1);
+                    
+                    // Hiển thị danh sách
+                    displayReportTable(data.list || []);
+                    
+                    // Load danh sách mẫu vải vào filter
+                    if (data.mauVaiList) {
+                        const select = document.getElementById('reportFilterMau');
+                        const currentValue = select.value;
+                        select.innerHTML = '<option value="">Tất cả mẫu vải</option>';
+                        data.mauVaiList.forEach(mau => {
+                            const option = document.createElement('option');
+                            option.value = mau.maMau;
+                            option.textContent = `${mau.maMau} - ${mau.tenMau}`;
+                            select.appendChild(option);
+                        });
+                        select.value = currentValue;
+                    }
+                } else {
+                    showError('report', result.message || 'Lỗi tải báo cáo');
+                }
+            } catch (error) {
+                console.error('Error loading report:', error);
+                showError('report', 'Lỗi tải báo cáo: ' + error.message);
+            }
+        }
+
+        // Hiển thị bảng báo cáo
+        function displayReportTable(data) {
+            const tableHead = document.getElementById('reportTableHead');
+            const tableBody = document.getElementById('reportTableBody');
+            
+            tableHead.innerHTML = `
+                <tr>
+                    <th>ID</th>
+                    <th>Mẫu vải</th>
+                    <th>Ngày nhập</th>
+                    <th>NV</th>
+                    <th>Chiều dài (m)</th>
+                    <th>Diện tích ban đầu (m²)</th>
+                    <th>Diện tích đã cắt (m²)</th>
+                    <th>Số m còn lại</th>
+                    <th>Tiến độ (%)</th>
+                    <th>Số kích thước</th>
+                    <th>Trạng thái</th>
+                </tr>
+            `;
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px; color: #999;">Không có dữ liệu</td></tr>';
+                return;
+            }
+            
+            tableBody.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.catVaiId}</td>
+                    <td>${item.maMau} - ${item.tenMau}</td>
+                    <td>${new Date(item.ngayNhap).toLocaleDateString('vi-VN')}</td>
+                    <td>${item.createdBy}</td>
+                    <td>${item.chieuDaiCayVai.toFixed(1)}</td>
+                    <td>${item.dienTichBanDau.toFixed(2)}</td>
+                    <td>${item.dienTichDaCat.toFixed(2)}</td>
+                    <td>${item.soMConLai.toFixed(1)}</td>
+                    <td>${item.tienDoPercent}%</td>
+                    <td>${item.items ? item.items.length : 0}</td>
+                    <td><span style="padding: 4px 8px; border-radius: 4px; background: ${item.trangThai === 'active' ? '#22c55e' : item.trangThai === 'completed' ? '#3b82f6' : '#999'}; color: white; font-size: 12px;">${item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // Xuất báo cáo
+        async function exportReport() {
+            const filterMau = document.getElementById('reportFilterMau').value;
+            const filterDate = document.getElementById('reportFilterDate').value;
+            
+            try {
+                const params = new URLSearchParams();
+                if (filterMau) params.append('maMau', filterMau);
+                if (filterDate !== 'all') params.append('dateFilter', filterDate);
+                params.append('export', 'true');
+                
+                const response = await fetch(`/api/report-cat-vai?${params.toString()}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `BaoCaoCatVai_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showSuccess('report', 'Đã xuất báo cáo thành công!');
+                } else {
+                    const result = await response.json();
+                    showError('report', result.message || 'Lỗi xuất báo cáo');
+                }
+            } catch (error) {
+                showError('report', 'Lỗi xuất báo cáo: ' + error.message);
+            }
+        }
+
         // Hiển thị preview dữ liệu
         function displayDataPreview(prefix, data, type) {
             const preview = document.getElementById(prefix + 'DataPreview');
@@ -936,6 +1306,78 @@
         function hideAlerts(prefix) {
             document.getElementById(prefix + 'SuccessAlert').style.display = 'none';
             document.getElementById(prefix + 'ErrorAlert').style.display = 'none';
+        }
+
+        // Xóa tất cả dữ liệu Mẫu vải
+        async function deleteAllMauVai() {
+            if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu mẫu vải?\n\nHành động này không thể hoàn tác!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/delete-all/mau-vai', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('mauVai', result.message || `Đã xóa ${result.deletedCount || 0} bản ghi mẫu vải`);
+                } else {
+                    showError('mauVai', result.message || 'Lỗi xóa dữ liệu');
+                }
+            } catch (error) {
+                showError('mauVai', 'Lỗi xóa dữ liệu: ' + error.message);
+            }
+        }
+
+        // Xóa tất cả dữ liệu Kích thước
+        async function deleteAllKichThuoc() {
+            if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu kích thước?\n\nHành động này không thể hoàn tác!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/delete-all/kich-thuoc', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('kichThuoc', result.message || `Đã xóa ${result.deletedCount || 0} bản ghi kích thước`);
+                } else {
+                    showError('kichThuoc', result.message || 'Lỗi xóa dữ liệu');
+                }
+            } catch (error) {
+                showError('kichThuoc', 'Lỗi xóa dữ liệu: ' + error.message);
+            }
+        }
+
+        // Xóa tất cả dữ liệu MasterDataVai
+        async function deleteAllMasterDataVai() {
+            if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu MasterDataVai?\n\nHành động này không thể hoàn tác!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/delete-all/master-data-vai', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('masterDataVai', result.message || `Đã xóa ${result.deletedCount || 0} bản ghi MasterDataVai`);
+                } else {
+                    showError('masterDataVai', result.message || 'Lỗi xóa dữ liệu');
+                }
+            } catch (error) {
+                showError('masterDataVai', 'Lỗi xóa dữ liệu: ' + error.message);
+            }
         }
 
         // Khởi tạo

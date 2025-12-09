@@ -27,22 +27,21 @@ const MauVai = require('./models/MauVai');
 const KichThuoc = require('./models/KichThuoc');
 const MasterDataVai = require('./models/MasterDataVai');
 const NhapPhoi = require('./models/NhapPhoi');
+const DoiTuongCatVai = require('./models/DoiTuongCatVai');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
 const checkerUploadRouter = require('./routes/checkerUpload');
+const exportNhapPhoiRouter = require('./routes/exportNhapPhoi');
 
 const app = express();
-// Đăng ký router upload sau khi khởi tạo app
-app.use(masterDataUploadRouter);
-app.use(checkerUploadRouter);
 
-// Middleware
+// Middleware - Phải setup trước các router
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session configuration
+// Session configuration - Phải setup trước các router cần authentication
 app.use(session({
     secret: config.SESSION_SECRET,
     resave: false,
@@ -59,6 +58,11 @@ app.use(session({
     },
     name: 'sessionId' // Đặt tên session cookie cụ thể
 }));
+
+// Đăng ký router upload SAU KHI session middleware đã được setup
+app.use(masterDataUploadRouter);
+app.use(checkerUploadRouter);
+app.use('/api/export-nhap-phoi', exportNhapPhoiRouter);
 
 // JWT middleware for token-based authentication
 function authFromToken(req, res, next) {
@@ -1585,6 +1589,262 @@ app.post('/api/upload-master-data-vai', requireLogin, requireWarehouseManager, u
     }
 });
 
+// Route upload template xuất file
+app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.single('templateFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        const templateDir = path.join(__dirname, 'uploads', 'template');
+        
+        // Tạo thư mục nếu chưa có
+        if (!fs.existsSync(templateDir)) {
+            fs.mkdirSync(templateDir, { recursive: true });
+        }
+
+        const templatePath = path.join(templateDir, 'nhap_phoi_template.xlsx');
+        
+        // Xóa template cũ nếu có
+        if (fs.existsSync(templatePath)) {
+            fs.unlinkSync(templatePath);
+        }
+
+        // Copy file mới vào thư mục template
+        fs.copyFileSync(req.file.path, templatePath);
+        
+        // Xóa file tạm
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            success: true,
+            message: 'Upload template thành công!',
+            data: {
+                filename: 'nhap_phoi_template.xlsx',
+                size: fs.statSync(templatePath).size,
+                modified: fs.statSync(templatePath).mtime
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi upload template:', error);
+        
+        // Xóa file tạm nếu có lỗi
+        if (req.file) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (deleteError) {
+                console.log('Không thể xóa file tạm:', deleteError.message);
+            }
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi upload template: ' + error.message
+        });
+    }
+});
+
+// Route lấy thông tin template
+app.get('/api/template-info', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const templatePath = path.join(__dirname, 'uploads', 'template', 'nhap_phoi_template.xlsx');
+        
+        if (fs.existsSync(templatePath)) {
+            const stats = fs.statSync(templatePath);
+            res.json({
+                success: true,
+                data: {
+                    filename: 'nhap_phoi_template.xlsx',
+                    size: stats.size,
+                    modified: stats.mtime
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                data: null,
+                message: 'Chưa có template được upload'
+            });
+        }
+    } catch (error) {
+        console.error('❌ Lỗi lấy thông tin template:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy thông tin template: ' + error.message
+        });
+    }
+});
+
+// API xóa tất cả dữ liệu Mẫu vải
+app.delete('/api/delete-all/mau-vai', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const result = await MauVai.deleteMany({});
+        res.json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} bản ghi mẫu vải`,
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        console.error('❌ Lỗi xóa dữ liệu mẫu vải:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xóa dữ liệu mẫu vải: ' + error.message
+        });
+    }
+});
+
+// API xóa tất cả dữ liệu Kích thước
+app.delete('/api/delete-all/kich-thuoc', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const result = await KichThuoc.deleteMany({});
+        res.json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} bản ghi kích thước`,
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        console.error('❌ Lỗi xóa dữ liệu kích thước:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xóa dữ liệu kích thước: ' + error.message
+        });
+    }
+});
+
+// API xóa tất cả dữ liệu MasterDataVai
+app.delete('/api/delete-all/master-data-vai', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const result = await MasterDataVai.deleteMany({});
+        res.json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} bản ghi MasterDataVai`,
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        console.error('❌ Lỗi xóa dữ liệu MasterDataVai:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xóa dữ liệu MasterDataVai: ' + error.message
+        });
+    }
+});
+
+// Route báo cáo data cắt vải
+app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const { maMau, dateFilter, export: isExport } = req.query;
+        
+        // Xây dựng query filter
+        const query = {};
+        if (maMau) {
+            query.maMau = maMau;
+        }
+        
+        if (dateFilter) {
+            const now = new Date();
+            let startDate;
+            
+            switch (dateFilter) {
+                case 'today':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    break;
+                case 'week':
+                    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    break;
+                case 'month':
+                    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    break;
+                default:
+                    startDate = null;
+            }
+            
+            if (startDate) {
+                query.createdAt = { $gte: startDate };
+            }
+        }
+
+        // Lấy dữ liệu
+        const list = await DoiTuongCatVai.find(query)
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Tính toán thống kê
+        const summary = {
+            totalCatVai: list.length,
+            totalItems: list.reduce((sum, item) => sum + (item.items ? item.items.length : 0), 0),
+            totalDienTich: list.reduce((sum, item) => sum + (item.dienTichDaCat || 0), 0),
+            totalSoM: list.reduce((sum, item) => sum + (item.chieuDaiCayVai - (item.soMConLai || 0)), 0)
+        };
+
+        // Lấy danh sách mẫu vải để filter
+        const mauVaiList = await MauVai.find({}).sort({ maMau: 1 }).lean();
+
+        // Nếu là export, tạo file Excel
+        if (isExport === 'true') {
+            const workbook = XLSX.utils.book_new();
+            
+            // Sheet 1: Tổng quan
+            const summaryData = [
+                ['Báo cáo data cắt vải'],
+                ['Ngày xuất:', new Date().toLocaleString('vi-VN')],
+                [''],
+                ['Tổng đối tượng cắt vải:', summary.totalCatVai],
+                ['Tổng số kích thước đã cắt:', summary.totalItems],
+                ['Tổng diện tích đã cắt (m²):', summary.totalDienTich.toFixed(2)],
+                ['Tổng số m đã cắt:', summary.totalSoM.toFixed(1)],
+                ['']
+            ];
+            const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(workbook, summarySheet, 'Tổng quan');
+            
+            // Sheet 2: Chi tiết
+            const detailData = list.map(item => ({
+                'ID': item.catVaiId,
+                'Mẫu vải': `${item.maMau} - ${item.tenMau}`,
+                'Ngày nhập': new Date(item.ngayNhap).toLocaleDateString('vi-VN'),
+                'Nhân viên': item.createdBy,
+                'Chiều dài (m)': item.chieuDaiCayVai,
+                'Diện tích ban đầu (m²)': item.dienTichBanDau,
+                'Diện tích đã cắt (m²)': item.dienTichDaCat,
+                'Số m còn lại': item.soMConLai,
+                'Tiến độ (%)': item.tienDoPercent,
+                'Số kích thước': item.items ? item.items.length : 0,
+                'Trạng thái': item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ'
+            }));
+            const detailSheet = XLSX.utils.json_to_sheet(detailData);
+            XLSX.utils.book_append_sheet(workbook, detailSheet, 'Chi tiết');
+            
+            const outputBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+            const filename = `BaoCaoCatVai_${new Date().toISOString().split('T')[0]}.xlsx`;
+            
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.send(outputBuffer);
+            return;
+        }
+
+        res.json({
+            success: true,
+            data: {
+                list,
+                summary,
+                mauVaiList
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi lấy báo cáo:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy báo cáo: ' + error.message
+        });
+    }
+});
+
 // Route xuất file nhập phôi
 app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
@@ -1748,10 +2008,95 @@ app.get('/api/kich-thuoc', requireLogin, requireWarehouseAccess, async (req, res
     }
 });
 
+// Hàm utility để parse cao và ngang từ kích thước
+// Hỗ trợ các format: 
+// - "30cm x 40cm", "30x40", "30cmx40cm", "30 x 40", "30cm x40cm"
+// - "Ngang1m5xCao2m", "ngang150xcao200", "Ngang1.5m x Cao2m"
+// - "1m5x2m", "1.5m x 2m"
+function parseCaoNgangFromKichThuoc(kichThuoc) {
+    if (!kichThuoc || typeof kichThuoc !== 'string') {
+        return { cao: null, ngang: null };
+    }
+
+    // Loại bỏ khoảng trắng thừa và chuyển về lowercase
+    const cleaned = kichThuoc.trim().toLowerCase();
+    
+    // Pattern 1: "Ngang1m5xCao2m" hoặc "ngang150xcao200" hoặc "Ngang1.5m x Cao2m"
+    // Tìm "ngang" + số + đơn vị + "x" + "cao" + số + đơn vị
+    const patternNgangCao = /ngang\s*(\d+(?:\.\d+)?)\s*(?:m|cm)?\s*(?:(\d+))?\s*x\s*cao\s*(\d+(?:\.\d+)?)\s*(?:m|cm)?/i;
+    const matchNgangCao = cleaned.match(patternNgangCao);
+    
+    if (matchNgangCao) {
+        let ngang = parseFloat(matchNgangCao[1]);
+        // Nếu có số thứ 2 (ví dụ: 1m5 = 1.5m)
+        if (matchNgangCao[2]) {
+            ngang = ngang + parseFloat('0.' + matchNgangCao[2]);
+        }
+        // Chuyển về cm nếu là m
+        if (cleaned.includes('m') && !cleaned.includes('cm')) {
+            ngang = ngang * 100;
+        }
+        
+        let cao = parseFloat(matchNgangCao[3]);
+        // Chuyển về cm nếu là m
+        if (cleaned.includes('m') && !cleaned.includes('cm')) {
+            cao = cao * 100;
+        }
+        
+        return { cao: cao.toString(), ngang: ngang.toString() };
+    }
+    
+    // Pattern 2: "1m5x2m" hoặc "1.5m x 2m" (format ngắn gọn)
+    // Tìm số + m + số (tùy chọn) + x + số + m
+    const patternShort = /(\d+)\s*m\s*(\d+)?\s*x\s*(\d+)\s*m/i;
+    const matchShort = cleaned.match(patternShort);
+    
+    if (matchShort) {
+        let ngang = parseFloat(matchShort[1]);
+        if (matchShort[2]) {
+            ngang = ngang + parseFloat('0.' + matchShort[2]);
+        }
+        ngang = ngang * 100; // Chuyển về cm
+        
+        let cao = parseFloat(matchShort[3]) * 100; // Chuyển về cm
+        
+        return { cao: cao.toString(), ngang: ngang.toString() };
+    }
+    
+    // Pattern 3: "30cm x 40cm" hoặc "30cmx40cm" hoặc "30 x 40"
+    const pattern1 = /(\d+(?:\.\d+)?)\s*(?:cm|m)?\s*x\s*(\d+(?:\.\d+)?)\s*(?:cm|m)?/i;
+    const match1 = cleaned.match(pattern1);
+    
+    if (match1) {
+        let cao = parseFloat(match1[1]);
+        let ngang = parseFloat(match1[2]);
+        
+        // Chuyển về cm nếu là m
+        if (cleaned.includes('m') && !cleaned.includes('cm')) {
+            cao = cao * 100;
+            ngang = ngang * 100;
+        }
+        
+        return { cao: cao.toString(), ngang: ngang.toString() };
+    }
+
+    // Pattern 4: "30x40" (không có đơn vị, giả định là cm)
+    const pattern2 = /(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i;
+    const match2 = cleaned.match(pattern2);
+    
+    if (match2) {
+        const cao = parseFloat(match2[1]);
+        const ngang = parseFloat(match2[2]);
+        return { cao: cao.toString(), ngang: ngang.toString() };
+    }
+
+    return { cao: null, ngang: null };
+}
+
 // API lưu/cập nhật nhập phôi
 app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
-        const { items, chieuDaiCayVai, vaiLoi, vaiThieu, nhapLaiKho } = req.body;
+        const { items, chieuDaiCayVai, vaiLoi, vaiThieu, nhapLaiKho, catVaiId } = req.body;
         const username = req.session.user.username;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -1772,6 +2117,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
         const dienTichBanDau = chieuDaiCayVai * 2.3;
         let dienTichDaCat = 0;
         const itemsWithDienTich = [];
+        const firstItem = items[0];
 
         for (const item of items) {
             const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
@@ -1821,9 +2167,13 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
         const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
         const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
 
+        // Chuẩn hóa dữ liệu vải lỗi, thiếu, nhập lại kho - luôn có giá trị, mặc định 0
+        const vaiLoiData = vaiLoi && vaiLoi.chieuDai > 0 ? vaiLoi : { chieuDai: 0, dienTich: 0, soM: 0 };
+        const vaiThieuData = vaiThieu && vaiThieu.soM !== undefined ? vaiThieu : { soM: 0 };
+        const nhapLaiKhoData = nhapLaiKho && nhapLaiKho.soM !== undefined ? nhapLaiKho : { soM: 0 };
+
         // Lưu thông tin cây vải
         const CayVai = require('./models/CayVai');
-        const firstItem = items[0];
         const cayVai = new CayVai({
             maMau: firstItem.maMau,
             tenMau: firstItem.tenMau,
@@ -1833,21 +2183,121 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             dienTichConLai: dienTichConLai,
             soMConLai: soMConLai,
             tienDoPercent: tienDoPercent,
-            vaiLoi: vaiLoi || { chieuDai: 0, dienTich: 0, soM: 0 },
-            vaiThieu: vaiThieu || { soM: 0 },
-            nhapLaiKho: nhapLaiKho || { soM: 0 },
+            vaiLoi: vaiLoiData,
+            vaiThieu: vaiThieuData,
+            nhapLaiKho: nhapLaiKhoData,
             items: itemsWithDienTich,
             createdBy: username
         });
 
         await cayVai.save();
 
+        // Lưu/Update đối tượng cắt vải
+        let doiTuongCatVai;
+        const lichSuCatEntry = {
+            ngayCat: new Date(),
+            items: itemsWithDienTich,
+            dienTichDaCat: dienTichDaCat,
+            dienTichConLai: dienTichConLai,
+            soMConLai: soMConLai,
+            vaiLoi: vaiLoiData, // Lưu thông tin vải lỗi cho lần cắt này
+            vaiThieu: vaiThieuData, // Lưu thông tin vải thiếu cho lần cắt này
+            nhapLaiKho: nhapLaiKhoData, // Lưu thông tin nhập lại kho cho lần cắt này
+            createdBy: username
+        };
+
+        if (catVaiId) {
+            // Cập nhật đối tượng cắt vải đã có
+            doiTuongCatVai = await DoiTuongCatVai.findOne({ catVaiId: catVaiId });
+            
+            if (doiTuongCatVai) {
+                // Cập nhật thông tin
+                doiTuongCatVai.dienTichDaCat += dienTichDaCat;
+                doiTuongCatVai.dienTichConLai = Math.max(0, doiTuongCatVai.dienTichBanDau - doiTuongCatVai.dienTichDaCat);
+                doiTuongCatVai.soMConLai = Math.round((doiTuongCatVai.dienTichConLai / 2.3) * 10) / 10;
+                doiTuongCatVai.tienDoPercent = doiTuongCatVai.chieuDaiCayVai > 0 ? 
+                    Math.round(((doiTuongCatVai.chieuDaiCayVai - doiTuongCatVai.soMConLai) / doiTuongCatVai.chieuDaiCayVai) * 100) : 0;
+                
+                // Thêm items vào danh sách
+                doiTuongCatVai.items.push(...itemsWithDienTich);
+                
+                // Thêm vào lịch sử cắt
+                doiTuongCatVai.lichSuCat.push(lichSuCatEntry);
+                
+                // Cập nhật vải lỗi, thiếu, nhập lại kho - luôn cập nhật
+                // Vải lỗi: cộng dồn nếu có giá trị > 0
+                if (vaiLoiData && vaiLoiData.chieuDai > 0) {
+                    doiTuongCatVai.vaiLoi.chieuDai += vaiLoiData.chieuDai;
+                    doiTuongCatVai.vaiLoi.dienTich += vaiLoiData.dienTich;
+                    doiTuongCatVai.vaiLoi.soM += vaiLoiData.soM;
+                }
+                // Vải thiếu: luôn lưu, lấy giá trị lớn nhất giữa giá trị hiện tại và giá trị mới
+                // Nếu không tick thì giá trị là 0, nếu tick thì lấy soMConLai
+                doiTuongCatVai.vaiThieu.soM = Math.max(doiTuongCatVai.vaiThieu.soM || 0, vaiThieuData.soM || 0);
+                // Nhập lại kho: luôn lưu, lấy giá trị lớn nhất giữa giá trị hiện tại và giá trị mới
+                // Nếu không tick thì giá trị là 0, nếu tick thì lấy soMConLai
+                doiTuongCatVai.nhapLaiKho.soM = Math.max(doiTuongCatVai.nhapLaiKho.soM || 0, nhapLaiKhoData.soM || 0);
+                
+                await doiTuongCatVai.save();
+            } else {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy đối tượng cắt vải với ID: ' + catVaiId
+                });
+            }
+        } else {
+            // Tạo mới đối tượng cắt vải
+            // Tạo ID tự động: CV-{maMau}-{timestamp}
+            const timestamp = Date.now();
+            const newCatVaiId = `CV-${firstItem.maMau}-${timestamp}`;
+            
+            doiTuongCatVai = new DoiTuongCatVai({
+                catVaiId: newCatVaiId,
+                maMau: firstItem.maMau,
+                tenMau: firstItem.tenMau,
+                ngayNhap: new Date(),
+                createdBy: username,
+                chieuDaiCayVai: chieuDaiCayVai,
+                dienTichBanDau: dienTichBanDau,
+                dienTichDaCat: dienTichDaCat,
+                dienTichConLai: dienTichConLai,
+                soMConLai: soMConLai,
+                tienDoPercent: tienDoPercent,
+                vaiLoi: vaiLoiData,
+                vaiThieu: vaiThieuData,
+                nhapLaiKho: nhapLaiKhoData,
+                items: itemsWithDienTich,
+                lichSuCat: [lichSuCatEntry],
+                trangThai: 'active'
+            });
+            
+            await doiTuongCatVai.save();
+        }
+
         res.json({
             success: true,
             message: `Đã lưu ${items.length} mục nhập phôi và thông tin cây vải`,
             data: {
                 nhapPhoi: items,
-                cayVai: cayVai
+                cayVai: cayVai,
+                doiTuongCatVai: {
+                    catVaiId: doiTuongCatVai.catVaiId,
+                    maMau: doiTuongCatVai.maMau,
+                    tenMau: doiTuongCatVai.tenMau,
+                    ngayNhap: doiTuongCatVai.ngayNhap,
+                    createdBy: doiTuongCatVai.createdBy,
+                    chieuDaiCayVai: doiTuongCatVai.chieuDaiCayVai,
+                    dienTichBanDau: doiTuongCatVai.dienTichBanDau,
+                    dienTichDaCat: doiTuongCatVai.dienTichDaCat,
+                    dienTichConLai: doiTuongCatVai.dienTichConLai,
+                    soMConLai: doiTuongCatVai.soMConLai,
+                    tienDoPercent: doiTuongCatVai.tienDoPercent,
+                    vaiLoi: doiTuongCatVai.vaiLoi,
+                    vaiThieu: doiTuongCatVai.vaiThieu,
+                    nhapLaiKho: doiTuongCatVai.nhapLaiKho,
+                    items: doiTuongCatVai.items,
+                    trangThai: doiTuongCatVai.trangThai
+                }
             }
         });
 
@@ -1860,24 +2310,104 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
     }
 });
 
+// API lấy thông tin đối tượng cắt vải theo ID
+app.get('/api/doi-tuong-cat-vai/:catVaiId', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const { catVaiId } = req.params;
+        const username = req.session.user.username;
+
+        const doiTuong = await DoiTuongCatVai.findOne({ catVaiId: catVaiId });
+
+        if (!doiTuong) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đối tượng cắt vải với ID: ' + catVaiId
+            });
+        }
+
+        // Chỉ cho phép xem đối tượng của chính mình hoặc admin
+        if (doiTuong.createdBy !== username && req.session.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền xem đối tượng cắt vải này'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                catVaiId: doiTuong.catVaiId,
+                maMau: doiTuong.maMau,
+                tenMau: doiTuong.tenMau,
+                ngayNhap: doiTuong.ngayNhap,
+                createdBy: doiTuong.createdBy,
+                chieuDaiCayVai: doiTuong.chieuDaiCayVai,
+                dienTichBanDau: doiTuong.dienTichBanDau,
+                dienTichDaCat: doiTuong.dienTichDaCat,
+                dienTichConLai: doiTuong.dienTichConLai,
+                soMConLai: doiTuong.soMConLai,
+                tienDoPercent: doiTuong.tienDoPercent,
+                vaiLoi: doiTuong.vaiLoi,
+                vaiThieu: doiTuong.vaiThieu,
+                nhapLaiKho: doiTuong.nhapLaiKho,
+                items: doiTuong.items,
+                trangThai: doiTuong.trangThai
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi lấy thông tin đối tượng cắt vải:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy thông tin đối tượng cắt vải: ' + error.message
+        });
+    }
+});
+
 // API lấy danh sách nhập phôi đã nhập (của user hiện tại)
 app.get('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
         const username = req.session.user.username;
         const CayVai = require('./models/CayVai');
         
-        // Lấy cả NhapPhoi và CayVai
-        const [nhapPhoiList, cayVaiList] = await Promise.all([
+        // Lấy cả NhapPhoi, CayVai và DoiTuongCatVai
+        // Ưu tiên lấy từ DoiTuongCatVai vì đây là dữ liệu mới nhất
+        const [nhapPhoiList, cayVaiList, doiTuongCatVaiList] = await Promise.all([
             NhapPhoi.find({ createdBy: username })
                 .sort({ importDate: -1, maMau: 1, kichThuoc: 1 }),
             CayVai.find({ createdBy: username })
-                .sort({ importDate: -1, maMau: 1 })
+                .sort({ importDate: -1, maMau: 1 }),
+            DoiTuongCatVai.find({ createdBy: username, trangThai: { $ne: 'archived' } })
+                .sort({ ngayNhap: -1, maMau: 1 })
         ]);
+
+        // Chuyển đổi DoiTuongCatVai thành format tương tự CayVai để hiển thị
+        const cayVaiListFromDoiTuong = doiTuongCatVaiList.map(doiTuong => ({
+            _id: doiTuong._id,
+            maMau: doiTuong.maMau,
+            tenMau: doiTuong.tenMau,
+            chieuDaiCayVai: doiTuong.chieuDaiCayVai,
+            dienTichBanDau: doiTuong.dienTichBanDau,
+            dienTichDaCat: doiTuong.dienTichDaCat,
+            dienTichConLai: doiTuong.dienTichConLai,
+            soMConLai: doiTuong.soMConLai,
+            tienDoPercent: doiTuong.tienDoPercent,
+            vaiLoi: doiTuong.vaiLoi,
+            vaiThieu: doiTuong.vaiThieu,
+            nhapLaiKho: doiTuong.nhapLaiKho,
+            items: doiTuong.items,
+            createdBy: doiTuong.createdBy,
+            importDate: doiTuong.ngayNhap,
+            catVaiId: doiTuong.catVaiId
+        }));
+
+        // Gộp danh sách, ưu tiên DoiTuongCatVai
+        const allCayVaiList = [...cayVaiListFromDoiTuong, ...cayVaiList];
 
         res.json({
             success: true,
             data: nhapPhoiList,
-            cayVaiList: cayVaiList
+            cayVaiList: allCayVaiList
         });
     } catch (error) {
         console.error('❌ Lỗi lấy danh sách nhập phôi:', error);
