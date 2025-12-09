@@ -1656,6 +1656,61 @@
                         showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
                     }
                     
+                    // Thêm dữ liệu mới vào danh sách local (không load lại từ database)
+                    if (result.data && result.data.cayVai) {
+                        const cayVaiData = result.data.cayVai;
+                        // Chuyển đổi sang format giống như loadSavedItems
+                        const cayVaiToAdd = {
+                            _id: cayVaiData._id,
+                            maMau: cayVaiData.maMau,
+                            tenMau: cayVaiData.tenMau,
+                            chieuDaiCayVai: cayVaiData.chieuDaiCayVai,
+                            dienTichBanDau: cayVaiData.dienTichBanDau,
+                            dienTichDaCat: cayVaiData.dienTichDaCat,
+                            dienTichConLai: cayVaiData.dienTichConLai,
+                            soMConLai: cayVaiData.soMConLai,
+                            tienDoPercent: cayVaiData.tienDoPercent,
+                            vaiLoi: cayVaiData.vaiLoi,
+                            vaiThieu: cayVaiData.vaiThieu,
+                            nhapLaiKho: cayVaiData.nhapLaiKho,
+                            items: cayVaiData.items,
+                            createdBy: cayVaiData.createdBy,
+                            importDate: cayVaiData.importDate || new Date(),
+                            catVaiId: result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null
+                        };
+                        
+                        // Kiểm tra xem mẫu này đã có trong danh sách chưa (nếu có thì cập nhật, không thì thêm mới)
+                        const existingIndex = savedCayVaiList.findIndex(cv => 
+                            cv.maMau === cayVaiData.maMau && 
+                            cv.catVaiId === (result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null)
+                        );
+                        
+                        if (existingIndex >= 0) {
+                            // Cập nhật cây vải đã có (cộng dồn items)
+                            const existing = savedCayVaiList[existingIndex];
+                            existing.items.push(...cayVaiToAdd.items);
+                            existing.dienTichDaCat += cayVaiToAdd.dienTichDaCat;
+                            existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
+                            existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 10) / 10;
+                            existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
+                                Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
+                            // Cập nhật vải lỗi, thiếu, nhập lại kho
+                            if (cayVaiToAdd.vaiLoi && cayVaiToAdd.vaiLoi.chieuDai > 0) {
+                                existing.vaiLoi.chieuDai += cayVaiToAdd.vaiLoi.chieuDai;
+                                existing.vaiLoi.dienTich += cayVaiToAdd.vaiLoi.dienTich;
+                                existing.vaiLoi.soM += cayVaiToAdd.vaiLoi.soM;
+                            }
+                            existing.vaiThieu.soM = Math.max(existing.vaiThieu.soM || 0, cayVaiToAdd.vaiThieu.soM || 0);
+                            existing.nhapLaiKho.soM = Math.max(existing.nhapLaiKho.soM || 0, cayVaiToAdd.nhapLaiKho.soM || 0);
+                        } else {
+                            // Thêm mới vào danh sách
+                            savedCayVaiList.push(cayVaiToAdd);
+                        }
+                        
+                        // Render lại danh sách
+                        renderSavedList();
+                    }
+                    
                     // Reset form (giữ lại ID và mẫu vải nếu muốn tiếp tục cắt)
                     document.getElementById('chieuDaiCayVaiInput').value = '';
                     document.getElementById('calculationInfo').style.display = 'none';
@@ -1670,9 +1725,6 @@
                     document.getElementById('nhapLaiKhoInfo').style.display = 'none';
                     currentKichThuocData = {};
                     renderKichThuocList();
-                    
-                    // Reload danh sách đã nhập
-                    await loadSavedItems();
                     
                     // Focus vào input kích thước để tiếp tục nhập
                     if (currentMauVai) {
@@ -1746,8 +1798,8 @@
                         document.getElementById('mauVaiSelect').value = mau.maMau;
                         currentMauVai = mau;
                         
-                        // Set chiều dài cây vải ban đầu (không thay đổi)
-                        document.getElementById('chieuDaiCayVaiInput').value = doiTuong.chieuDaiCayVai;
+                        // Set chiều dài cây vải = Số m còn lại (để tiếp tục cắt)
+                        document.getElementById('chieuDaiCayVaiInput').value = doiTuong.soMConLai.toFixed(1);
                         document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
                         document.getElementById('catVaiIdGroup').style.display = 'block';
                         

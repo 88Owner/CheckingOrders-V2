@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const MasterDataVai = require('../models/MasterDataVai');
 const KichThuoc = require('../models/KichThuoc');
+const MauVai = require('../models/MauVai');
 
 // Middleware để kiểm tra authentication
 // Kiểm tra xem request có phải là API call không (có header Accept: application/json hoặc path bắt đầu bằng /api)
@@ -43,7 +44,32 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
     // Loại bỏ khoảng trắng thừa và chuyển về lowercase
     const cleaned = kichThuoc.trim().toLowerCase();
     
-    // Pattern 1: "Ngang1m5xCao2m" hoặc "ngang150xcao200" hoặc "Ngang1.5m x Cao2m"
+    // Pattern 1: "Ngang1m5xCao2m" hoặc "ngang1m5xcao2m" (format không có khoảng trắng)
+    // Tìm "ngang" + số + "m" + số (tùy chọn) + "x" + "cao" + số + "m" + số (tùy chọn)
+    // \s* là optional để hỗ trợ cả có và không có khoảng trắng
+    const patternNgangCaoCompact = /ngang\s*(\d+)\s*m\s*(\d+)?\s*x\s*cao\s*(\d+)\s*m\s*(\d+)?/i;
+    const matchNgangCaoCompact = cleaned.match(patternNgangCaoCompact);
+    
+    if (matchNgangCaoCompact) {
+        let ngang = parseFloat(matchNgangCaoCompact[1]);
+        // Nếu có số thứ 2 (ví dụ: 1m5 = 1.5m)
+        if (matchNgangCaoCompact[2]) {
+            ngang = ngang + parseFloat('0.' + matchNgangCaoCompact[2]);
+        }
+        ngang = ngang * 100; // Chuyển về cm
+        
+        let cao = parseFloat(matchNgangCaoCompact[3]);
+        // Nếu có số thứ 4 (ví dụ: 2m0 = 2.0m)
+        if (matchNgangCaoCompact[4]) {
+            cao = cao + parseFloat('0.' + matchNgangCaoCompact[4]);
+        }
+        cao = cao * 100; // Chuyển về cm
+        
+        // Chuẩn hóa: loại bỏ phần thập phân không cần thiết (ví dụ: 200.0 -> 200)
+        return { cao: Number.isInteger(cao) ? cao.toString() : cao.toFixed(1).replace(/\.0$/, ''), ngang: Number.isInteger(ngang) ? ngang.toString() : ngang.toFixed(1).replace(/\.0$/, '') };
+    }
+    
+    // Pattern 2: "Ngang150xcao200" hoặc "ngang1.5m x cao2m" (format có khoảng trắng hoặc số thập phân)
     // Tìm "ngang" + số + đơn vị + "x" + "cao" + số + đơn vị
     const patternNgangCao = /ngang\s*(\d+(?:\.\d+)?)\s*(?:m|cm)?\s*(?:(\d+))?\s*x\s*cao\s*(\d+(?:\.\d+)?)\s*(?:m|cm)?/i;
     const matchNgangCao = cleaned.match(patternNgangCao);
@@ -65,10 +91,11 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
             cao = cao * 100;
         }
         
-        return { cao: cao.toString(), ngang: ngang.toString() };
+        // Chuẩn hóa: loại bỏ phần thập phân không cần thiết
+        return { cao: Number.isInteger(cao) ? cao.toString() : cao.toFixed(1).replace(/\.0$/, ''), ngang: Number.isInteger(ngang) ? ngang.toString() : ngang.toFixed(1).replace(/\.0$/, '') };
     }
     
-    // Pattern 2: "1m5x2m" hoặc "1.5m x 2m" (format ngắn gọn)
+    // Pattern 3: "1m5x2m" hoặc "1.5m x 2m" (format ngắn gọn)
     // Tìm số + m + số (tùy chọn) + x + số + m
     const patternShort = /(\d+)\s*m\s*(\d+)?\s*x\s*(\d+)\s*m/i;
     const matchShort = cleaned.match(patternShort);
@@ -82,10 +109,11 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
         
         let cao = parseFloat(matchShort[3]) * 100; // Chuyển về cm
         
-        return { cao: cao.toString(), ngang: ngang.toString() };
+        // Chuẩn hóa: loại bỏ phần thập phân không cần thiết
+        return { cao: Number.isInteger(cao) ? cao.toString() : cao.toFixed(1).replace(/\.0$/, ''), ngang: Number.isInteger(ngang) ? ngang.toString() : ngang.toFixed(1).replace(/\.0$/, '') };
     }
     
-    // Pattern 3: "30cm x 40cm" hoặc "30cmx40cm" hoặc "30 x 40"
+    // Pattern 4: "30cm x 40cm" hoặc "30cmx40cm" hoặc "30 x 40"
     const pattern1 = /(\d+(?:\.\d+)?)\s*(?:cm|m)?\s*x\s*(\d+(?:\.\d+)?)\s*(?:cm|m)?/i;
     const match1 = cleaned.match(pattern1);
     
@@ -99,17 +127,19 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
             ngang = ngang * 100;
         }
         
-        return { cao: cao.toString(), ngang: ngang.toString() };
+        // Chuẩn hóa: loại bỏ phần thập phân không cần thiết
+        return { cao: Number.isInteger(cao) ? cao.toString() : cao.toFixed(1).replace(/\.0$/, ''), ngang: Number.isInteger(ngang) ? ngang.toString() : ngang.toFixed(1).replace(/\.0$/, '') };
     }
 
-    // Pattern 4: "30x40" (không có đơn vị, giả định là cm)
+    // Pattern 5: "30x40" (không có đơn vị, giả định là cm)
     const pattern2 = /(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i;
     const match2 = cleaned.match(pattern2);
     
     if (match2) {
         const cao = parseFloat(match2[1]);
         const ngang = parseFloat(match2[2]);
-        return { cao: cao.toString(), ngang: ngang.toString() };
+        // Chuẩn hóa: loại bỏ phần thập phân không cần thiết
+        return { cao: Number.isInteger(cao) ? cao.toString() : cao.toFixed(1).replace(/\.0$/, ''), ngang: Number.isInteger(ngang) ? ngang.toString() : ngang.toFixed(1).replace(/\.0$/, '') };
     }
 
     return { cao: null, ngang: null };
@@ -143,15 +173,25 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
         // Xử lý từng item để lấy SKU từ MasterDataVai
         for (const item of items) {
             let sku = item.szSku || ''; // Fallback về szSku nếu không tìm thấy
-            const maMau = item.maMau; // Lấy maMau từ item
+            const maMau = item.maMau; // Lấy maMau từ item (maMau phải khớp với "mau" trong MasterDataVai)
             
             if (!maMau) {
-                console.warn('Item thiếu maMau:', item);
+                console.warn('⚠️ Item thiếu maMau:', item);
                 exportRows.push({
                     sku: sku,
                     soLuong: item.soLuong || 0
                 });
                 continue;
+            }
+            
+            // Bước 0: Lấy tenMau từ MauVai dựa trên maMau
+            // Trong MasterDataVai, trường "mau" lưu tenMau chứ không phải maMau
+            const mauVaiData = await MauVai.findOne({ maMau: maMau });
+            const tenMau = mauVaiData ? mauVaiData.tenMau : null;
+            
+            if (!tenMau) {
+                console.warn(`⚠️ Không tìm thấy tenMau cho maMau: ${maMau}`);
+                // Vẫn thử với maMau như cũ
             }
             
             // Bước 1: Lấy thông tin kích thước từ KichThuoc collection bằng szSku
@@ -163,20 +203,93 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
                     const { cao, ngang } = parseCaoNgangFromKichThuoc(kichThuocData.kichThuoc);
                     
                     if (cao && ngang) {
-                        // Bước 3: Tìm SKU từ MasterDataVai bằng Mẫu + cao + ngang
-                        const masterData = await MasterDataVai.findOne({
-                            mau: maMau,
-                            cao: cao.toString(),
-                            ngang: ngang.toString()
+                        // Bước 3: cao và ngang đã được chuẩn hóa trong hàm parse (loại bỏ .0)
+                        // Chuẩn hóa tenMau để so sánh (trim và loại bỏ khoảng trắng thừa)
+                        const tenMauNormalized = tenMau ? String(tenMau || '').trim() : String(maMau || '').trim();
+                        const caoNormalized = String(cao || '').trim();
+                        const ngangNormalized = String(ngang || '').trim();
+                        
+                        // Tìm SKU từ MasterDataVai bằng Mẫu (tenMau) + cao + ngang
+                        // Thử nhiều cách query để đảm bảo tìm thấy
+                        let masterData = null;
+                        
+                        // Cách 1: Query chính xác với tenMau
+                        masterData = await MasterDataVai.findOne({
+                            mau: tenMauNormalized,
+                            cao: caoNormalized,
+                            ngang: ngangNormalized
                         });
+                        
+                        // Cách 2: Nếu không tìm thấy, thử với regex không phân biệt hoa thường cho mau
+                        if (!masterData) {
+                            masterData = await MasterDataVai.findOne({
+                                mau: { $regex: new RegExp(`^${tenMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                                cao: caoNormalized,
+                                ngang: ngangNormalized
+                            });
+                        }
+                        
+                        // Cách 3: Thử đảo ngược cao/ngang (có thể bị nhầm trong MasterDataVai)
+                        if (!masterData) {
+                            masterData = await MasterDataVai.findOne({
+                                mau: { $regex: new RegExp(`^${tenMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                                cao: ngangNormalized,
+                                ngang: caoNormalized
+                            });
+                        }
+                        
+                        // Cách 4: Thử với số nguyên (loại bỏ phần thập phân)
+                        if (!masterData) {
+                            const caoInt = Math.round(parseFloat(caoNormalized)).toString();
+                            const ngangInt = Math.round(parseFloat(ngangNormalized)).toString();
+                            masterData = await MasterDataVai.findOne({
+                                mau: { $regex: new RegExp(`^${tenMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                                $or: [
+                                    { cao: caoInt, ngang: ngangInt },
+                                    { cao: caoNormalized, ngang: ngangNormalized },
+                                    { cao: ngangInt, ngang: caoInt }
+                                ]
+                            });
+                        }
+                        
+                        // Cách 5: Nếu vẫn không tìm thấy với tenMau, thử với maMau (fallback)
+                        if (!masterData && tenMau) {
+                            const maMauNormalized = String(maMau || '').trim();
+                            masterData = await MasterDataVai.findOne({
+                                mau: { $regex: new RegExp(`^${maMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                                cao: caoNormalized,
+                                ngang: ngangNormalized
+                            });
+                        }
                         
                         if (masterData && masterData.sku) {
                             sku = masterData.sku;
+                            console.log(`✅ Tìm thấy SKU: ${sku} cho Mẫu (tenMau): ${tenMauNormalized} (maMau: ${maMau}), Cao: ${caoNormalized}, Ngang: ${ngangNormalized}, kichThuoc: ${kichThuocData.kichThuoc}`);
                         } else {
-                            console.warn(`Không tìm thấy SKU trong MasterDataVai cho Mẫu: ${maMau}, Cao: ${cao}, Ngang: ${ngang}, szSku: ${item.szSku}`);
+                            // KHÔNG fallback về szSku - phải tìm thấy SKU từ MasterDataVai
+                            console.error(`❌ KHÔNG TÌM THẤY SKU trong MasterDataVai cho Mẫu (tenMau): ${tenMauNormalized} (maMau: ${maMau}), Cao: ${caoNormalized}, Ngang: ${ngangNormalized}, szSku: ${item.szSku}, kichThuoc: ${kichThuocData.kichThuoc}`);
+                            
+                            // Log thêm để debug: xem có dữ liệu nào trong MasterDataVai với mau này không
+                            const sampleData = await MasterDataVai.findOne({ mau: { $regex: new RegExp(`^${tenMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+                            if (sampleData) {
+                                console.log(`   📋 Mẫu dữ liệu trong MasterDataVai cho mẫu "${tenMauNormalized}": SKU=${sampleData.sku}, Cao=${sampleData.cao}, Ngang=${sampleData.ngang}`);
+                                // Thử tìm với các giá trị cao/ngang khác nhau
+                                const allMauData = await MasterDataVai.find({ mau: { $regex: new RegExp(`^${tenMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }).limit(10);
+                                if (allMauData.length > 0) {
+                                    console.log(`   📋 Tất cả dữ liệu MasterDataVai cho mẫu "${tenMauNormalized}" (${allMauData.length} records):`);
+                                    allMauData.forEach((data, idx) => {
+                                        console.log(`      ${idx + 1}. SKU=${data.sku}, Cao=${data.cao}, Ngang=${data.ngang}`);
+                                    });
+                                }
+                            } else {
+                                console.log(`   ⚠️ Không có dữ liệu nào trong MasterDataVai cho mẫu "${tenMauNormalized}"`);
+                            }
+                            
+                            // Đặt sku = '' để báo lỗi rõ ràng thay vì dùng szSku
+                            sku = '';
                         }
                     } else {
-                        console.warn(`Không parse được cao/ngang từ kích thước: ${kichThuocData.kichThuoc}, szSku: ${item.szSku}`);
+                        console.warn(`❌ Không parse được cao/ngang từ kích thước: ${kichThuocData.kichThuoc}, szSku: ${item.szSku}`);
                     }
                 } else {
                     console.warn(`Không tìm thấy kích thước với szSku: ${item.szSku}`);
@@ -185,10 +298,29 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
                 console.warn('Item thiếu szSku:', item);
             }
             
-            exportRows.push({
-                sku: sku,
-                soLuong: item.soLuong || 0
-            });
+            // Chỉ thêm vào exportRows nếu có SKU hợp lệ từ MasterDataVai
+            if (sku && sku !== item.szSku) {
+                // SKU từ MasterDataVai - OK
+                exportRows.push({
+                    sku: sku,
+                    soLuong: item.soLuong || 0
+                });
+            } else if (!sku || sku === '') {
+                // Không tìm thấy SKU - báo lỗi nhưng vẫn thêm vào để user biết
+                console.error(`⚠️ BỎ QUA item vì không tìm thấy SKU: maMau=${item.maMau}, szSku=${item.szSku}, kichThuoc=${item.kichThuoc || 'N/A'}`);
+                // Vẫn thêm vào nhưng với SKU rỗng để user biết có vấn đề
+                exportRows.push({
+                    sku: `[LỖI: Không tìm thấy SKU cho ${item.maMau}]`,
+                    soLuong: item.soLuong || 0
+                });
+            } else {
+                // Fallback về szSku chỉ khi thực sự cần thiết (không nên xảy ra)
+                console.warn(`⚠️ Sử dụng szSku làm SKU: ${item.szSku} cho maMau: ${item.maMau}`);
+                exportRows.push({
+                    sku: item.szSku,
+                    soLuong: item.soLuong || 0
+                });
+            }
         }
 
         // Ghi vào Excel

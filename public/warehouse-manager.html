@@ -655,7 +655,7 @@
                     <div class="alert alert-error" id="templateErrorAlert"></div>
                     
                     <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px;">
-                        <h3 style="color: var(--primary); margin-bottom: 16px;">📋 Thông tin Template hiện tại</h3>
+                        <h3 style="color: var(--primary); margin-bottom: 16px;">Thông tin Template hiện tại</h3>
                         <div id="templateInfo">
                             <p style="color: #666;">Đang tải thông tin...</p>
                         </div>
@@ -670,8 +670,8 @@
                     </div>
                     
                     <div style="background: #f8f9ff; padding: 24px; border-radius: 12px; border: 2px solid var(--primary); margin-bottom: 24px;">
-                        <h3 style="color: var(--primary); margin-bottom: 16px;">📊 Thống kê tổng quan</h3>
-                        <div id="reportSummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <h3 style="color: var(--primary); margin-bottom: 16px;">Thống kê tổng quan</h3>
+                        <div id="reportSummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
                             <div style="background: white; padding: 16px; border-radius: 8px; text-align: center;">
                                 <div style="font-size: 32px; color: var(--primary); font-weight: bold;" id="totalCatVai">-</div>
                                 <div style="color: #666; margin-top: 8px;">Tổng đối tượng cắt vải</div>
@@ -688,34 +688,108 @@
                                 <div style="font-size: 32px; color: var(--accent); font-weight: bold;" id="totalSoM">-</div>
                                 <div style="color: #666; margin-top: 8px;">Tổng số m đã cắt</div>
                             </div>
+                            <div style="background: white; padding: 16px; border-radius: 8px; text-align: center; border: 2px solid #ef4444;">
+                                <div style="font-size: 32px; color: #ef4444; font-weight: bold;" id="totalVaiThieu">-</div>
+                                <div style="color: #666; margin-top: 8px;">Tổng vải thiếu (m)</div>
+                            </div>
+                            <div style="background: white; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 32px; color: #f59e0b; font-weight: bold;" id="totalVaiLoi">-</div>
+                                <div style="color: #666; margin-top: 8px;">Tổng vải lỗi (m)</div>
+                            </div>
                         </div>
                     </div>
                     
                     <div style="margin-bottom: 24px;">
-                        <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px;">
-                            <label style="font-weight: 600; color: #333;">Lọc theo:</label>
-                            <select id="reportFilterMau" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1;">
-                                <option value="">Tất cả mẫu vải</option>
-                            </select>
-                            <select id="reportFilterDate" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 200px;">
-                                <option value="all">Tất cả thời gian</option>
-                                <option value="today">Hôm nay</option>
-                                <option value="week">7 ngày qua</option>
-                                <option value="month">30 ngày qua</option>
-                            </select>
-                            <button class="btn" onclick="loadReport()">Lọc</button>
-                            <button class="btn btn-secondary" onclick="exportReport()">Xuất báo cáo</button>
+                        <div style="background: white; padding: 20px; border-radius: 12px; border: 2px solid #e0e0e0;">
+                            <h4 style="margin-bottom: 16px; color: #333;">Bộ lọc báo cáo</h4>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                                <div>
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mẫu vải:</label>
+                                    <select id="reportFilterMau" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        <option value="">Tất cả mẫu vải</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Loại lọc thời gian:</label>
+                                    <select id="reportFilterType" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="updateDateFilterUI()">
+                                        <option value="all">Tất cả thời gian</option>
+                                        <option value="date">Chọn ngày</option>
+                                        <option value="month">Chọn tháng</option>
+                                        <option value="quarter">Chọn quý</option>
+                                        <option value="year">Chọn năm</option>
+                                        <option value="range">Khoảng thời gian</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="dateFilterContainer" style="display: none;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;" id="dateFilterLabel">Ngày:</label>
+                                    <input type="date" id="reportFilterDate" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                
+                                <div id="monthFilterContainer" style="display: none;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Tháng:</label>
+                                    <input type="month" id="reportFilterMonth" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                
+                                <div id="quarterFilterContainer" style="display: none;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Quý:</label>
+                                    <select id="reportFilterQuarter" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        <option value="">Chọn quý</option>
+                                        <option value="Q1">Quý 1</option>
+                                        <option value="Q2">Quý 2</option>
+                                        <option value="Q3">Quý 3</option>
+                                        <option value="Q4">Quý 4</option>
+                                    </select>
+                                    <input type="number" id="reportFilterQuarterYear" placeholder="Năm" min="2020" max="2100" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; margin-top: 8px;">
+                                </div>
+                                
+                                <div id="yearFilterContainer" style="display: none;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Năm:</label>
+                                    <input type="number" id="reportFilterYear" placeholder="Nhập năm" min="2020" max="2100" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                
+                                <div id="rangeFilterContainer" style="display: none; grid-column: 1 / -1;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                        <div>
+                                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Từ ngày:</label>
+                                            <input type="date" id="reportFilterDateFrom" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Đến ngày:</label>
+                                            <input type="date" id="reportFilterDateTo" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                                <button class="btn" onclick="loadReport()">Lọc</button>
+                                <button class="btn btn-secondary" onclick="exportReport()">Xuất báo cáo</button>
+                            </div>
                         </div>
                     </div>
                     
                     <div class="data-preview" id="reportDataPreview">
-                        <h3>Danh sách đối tượng cắt vải</h3>
-                        <table class="data-table" id="reportDataTable">
-                            <thead id="reportTableHead">
-                            </thead>
-                            <tbody id="reportTableBody">
-                            </tbody>
-                        </table>
+                        <h3 style="margin-bottom: 16px;">Danh sách đối tượng cắt vải</h3>
+                        <p style="color: #666; margin-bottom: 16px; font-size: 14px;">
+                            Danh sách tất cả các đối tượng cắt vải được gom nhóm theo ID. Click vào biểu tượng 📋 để xem chi tiết lịch sử cắt.
+                        </p>
+                        <div style="overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">
+                            <table class="data-table" id="reportDataTable" style="width: 100%; min-width: 1200px;">
+                                <thead id="reportTableHead">
+                                </thead>
+                                <tbody id="reportTableBody">
+                                    <tr>
+                                        <td colspan="13" style="text-align: center; padding: 40px; color: #999;">
+                                            <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                                            <div>Đang tải danh sách đối tượng cắt vải...</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     
                     <div class="alert alert-success" id="reportSuccessAlert"></div>
@@ -743,7 +817,7 @@
                 if (result.success && result.data) {
                     document.getElementById('userName').textContent = result.data.username;
                     document.getElementById('userTag').textContent = result.data.username;
-                    console.log('✅ Page initialized for user:', result.data.username, result.data.role);
+                    console.log('Page initialized for user:', result.data.username, result.data.role);
                 } else {
                     console.log('❌ Failed to get user info, but server already authenticated');
                 }
@@ -793,8 +867,32 @@
         });
         document.getElementById('reportBtn').addEventListener('click', () => {
             showSection('report');
+            loadMauVaiForReportFilter();
             loadReport();
         });
+        
+        // Load danh sách mẫu vải cho filter báo cáo
+        async function loadMauVaiForReportFilter() {
+            try {
+                const response = await fetch('/api/mau-vai', { credentials: 'include' });
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const select = document.getElementById('reportFilterMau');
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">Tất cả mẫu vải</option>';
+                    result.data.forEach(mau => {
+                        const option = document.createElement('option');
+                        option.value = mau.maMau;
+                        option.textContent = `${mau.maMau} - ${mau.tenMau}`;
+                        select.appendChild(option);
+                    });
+                    select.value = currentValue;
+                }
+            } catch (error) {
+                console.error('Error loading mau vai for report filter:', error);
+            }
+        }
         document.getElementById('exportBtn').addEventListener('click', () => showSection('export'));
         document.getElementById('logoutBtn').addEventListener('click', logout);
 
@@ -1079,15 +1177,82 @@
             }
         }
 
+        // Cập nhật UI filter theo loại lọc
+        function updateDateFilterUI() {
+            const filterType = document.getElementById('reportFilterType').value;
+            
+            // Ẩn tất cả
+            document.getElementById('dateFilterContainer').style.display = 'none';
+            document.getElementById('monthFilterContainer').style.display = 'none';
+            document.getElementById('quarterFilterContainer').style.display = 'none';
+            document.getElementById('yearFilterContainer').style.display = 'none';
+            document.getElementById('rangeFilterContainer').style.display = 'none';
+            
+            // Hiển thị filter tương ứng
+            switch (filterType) {
+                case 'date':
+                    document.getElementById('dateFilterContainer').style.display = 'block';
+                    document.getElementById('dateFilterLabel').textContent = 'Ngày:';
+                    break;
+                case 'month':
+                    document.getElementById('monthFilterContainer').style.display = 'block';
+                    break;
+                case 'quarter':
+                    document.getElementById('quarterFilterContainer').style.display = 'block';
+                    break;
+                case 'year':
+                    document.getElementById('yearFilterContainer').style.display = 'block';
+                    break;
+                case 'range':
+                    document.getElementById('rangeFilterContainer').style.display = 'block';
+                    break;
+            }
+        }
+
         // Load báo cáo
         async function loadReport() {
             const filterMau = document.getElementById('reportFilterMau').value;
-            const filterDate = document.getElementById('reportFilterDate').value;
+            const filterType = document.getElementById('reportFilterType').value;
             
             try {
                 const params = new URLSearchParams();
                 if (filterMau) params.append('maMau', filterMau);
-                if (filterDate !== 'all') params.append('dateFilter', filterDate);
+                // Luôn gom nhóm theo catVaiId
+                params.append('groupByCatVaiId', 'true');
+                
+                // Xử lý filter thời gian
+                if (filterType !== 'all') {
+                    params.append('filterType', filterType);
+                    
+                    switch (filterType) {
+                        case 'date':
+                            const date = document.getElementById('reportFilterDate').value;
+                            if (date) params.append('date', date);
+                            break;
+                        case 'month':
+                            const month = document.getElementById('reportFilterMonth').value;
+                            if (month) params.append('month', month);
+                            break;
+                        case 'quarter':
+                            const quarter = document.getElementById('reportFilterQuarter').value;
+                            const quarterYear = document.getElementById('reportFilterQuarterYear').value;
+                            if (quarter && quarterYear) {
+                                params.append('quarter', quarter);
+                                params.append('year', quarterYear);
+                            }
+                            break;
+                        case 'year':
+                            const year = document.getElementById('reportFilterYear').value;
+                            if (year) params.append('year', year);
+                            break;
+                        case 'range':
+                            const dateFrom = document.getElementById('reportFilterDateFrom').value;
+                            const dateTo = document.getElementById('reportFilterDateTo').value;
+                            if (dateFrom) params.append('dateFrom', dateFrom);
+                            if (dateTo) params.append('dateTo', dateTo);
+                            break;
+                    }
+                }
                 
                 const response = await fetch(`/api/report-cat-vai?${params.toString()}`, {
                     credentials: 'include'
@@ -1102,9 +1267,19 @@
                     document.getElementById('totalItems').textContent = data.summary.totalItems || 0;
                     document.getElementById('totalDienTich').textContent = (data.summary.totalDienTich || 0).toFixed(2);
                     document.getElementById('totalSoM').textContent = (data.summary.totalSoM || 0).toFixed(1);
+                    document.getElementById('totalVaiThieu').textContent = (data.summary.totalVaiThieu || 0).toFixed(1);
+                    document.getElementById('totalVaiLoi').textContent = (data.summary.totalVaiLoi || 0).toFixed(1);
                     
-                    // Hiển thị danh sách
-                    displayReportTable(data.list || []);
+                    // Hiển thị danh sách các đối tượng cắt (luôn gom nhóm theo catVaiId)
+                    if (data.list && data.list.length > 0) {
+                        displayReportTable(data.list, true);
+                    } else {
+                        // Hiển thị thông báo nếu không có dữ liệu
+                        const tableHead = document.getElementById('reportTableHead');
+                        const tableBody = document.getElementById('reportTableBody');
+                        tableHead.innerHTML = '';
+                        tableBody.innerHTML = '<tr><td colspan="13" style="text-align: center; padding: 20px; color: #999;">Không có dữ liệu đối tượng cắt vải</td></tr>';
+                    }
                     
                     // Load danh sách mẫu vải vào filter
                     if (data.mauVaiList) {
@@ -1128,59 +1303,239 @@
             }
         }
 
-        // Hiển thị bảng báo cáo
-        function displayReportTable(data) {
+        // Hiển thị bảng báo cáo - danh sách các đối tượng cắt vải
+        function displayReportTable(data, groupByCatVaiId = false) {
             const tableHead = document.getElementById('reportTableHead');
             const tableBody = document.getElementById('reportTableBody');
             
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="13" style="text-align: center; padding: 40px; color: #999;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
+                            <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">Không có dữ liệu đối tượng cắt vải</div>
+                            <div style="font-size: 14px; color: #999;">Vui lòng thử lại với bộ lọc khác hoặc kiểm tra dữ liệu đã được nhập vào hệ thống.</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            console.log('📊 Hiển thị danh sách đối tượng cắt vải:', data.length, 'đối tượng');
+            
+            // Luôn gom nhóm theo catVaiId để hiển thị 1 danh sách duy nhất
+            const grouped = {};
+            data.forEach(item => {
+                if (!item || !item.catVaiId) return;
+                
+                const key = item.catVaiId;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        catVaiId: item.catVaiId,
+                        maMau: item.maMau || '',
+                        tenMau: item.tenMau || '',
+                        ngayNhap: item.ngayNhap || new Date(),
+                        createdBy: item.createdBy || '',
+                        chieuDaiCayVai: item.chieuDaiCayVai || 0,
+                        dienTichBanDau: item.dienTichBanDau || 0,
+                        dienTichDaCat: item.dienTichDaCat || 0,
+                        dienTichConLai: item.dienTichConLai || 0,
+                        soMConLai: item.soMConLai || 0,
+                        tienDoPercent: item.tienDoPercent || 0,
+                        vaiLoi: item.vaiLoi || { chieuDai: 0, dienTich: 0, soM: 0 },
+                        vaiThieu: item.vaiThieu || { soM: 0 },
+                        nhapLaiKho: item.nhapLaiKho || { soM: 0 },
+                        items: item.items || [],
+                        lichSuCat: item.lichSuCat || [],
+                        trangThai: item.trangThai || 'active',
+                        soLanCat: item.lichSuCat ? item.lichSuCat.length : 1
+                    };
+                } else {
+                    // Cộng dồn nếu có nhiều record cùng ID
+                    grouped[key].dienTichDaCat += (item.dienTichDaCat || 0);
+                    grouped[key].dienTichConLai = Math.max(0, grouped[key].dienTichBanDau - grouped[key].dienTichDaCat);
+                    grouped[key].soMConLai = Math.round((grouped[key].dienTichConLai / 2.3) * 10) / 10;
+                    grouped[key].tienDoPercent = grouped[key].chieuDaiCayVai > 0 ? 
+                        Math.round(((grouped[key].chieuDaiCayVai - grouped[key].soMConLai) / grouped[key].chieuDaiCayVai) * 100) : 0;
+                    grouped[key].items = [...(grouped[key].items || []), ...(item.items || [])];
+                    if (item.lichSuCat && Array.isArray(item.lichSuCat)) {
+                        grouped[key].lichSuCat = [...(grouped[key].lichSuCat || []), ...item.lichSuCat];
+                    }
+                    grouped[key].soLanCat = grouped[key].lichSuCat ? grouped[key].lichSuCat.length : grouped[key].soLanCat + 1;
+                }
+            });
+            
+            // Chuyển đổi object thành array và sắp xếp theo ngày nhập mới nhất
+            data = Object.values(grouped).sort((a, b) => {
+                const dateA = new Date(a.ngayNhap);
+                const dateB = new Date(b.ngayNhap);
+                return dateB - dateA;
+            });
+            
             tableHead.innerHTML = `
-                <tr>
-                    <th>ID</th>
-                    <th>Mẫu vải</th>
-                    <th>Ngày nhập</th>
-                    <th>NV</th>
-                    <th>Chiều dài (m)</th>
-                    <th>Diện tích ban đầu (m²)</th>
-                    <th>Diện tích đã cắt (m²)</th>
-                    <th>Số m còn lại</th>
-                    <th>Tiến độ (%)</th>
-                    <th>Số kích thước</th>
-                    <th>Trạng thái</th>
+                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <th style="width: 120px; padding: 12px; text-align: left; font-weight: 600;">ID</th>
+                    <th style="padding: 12px; text-align: left; font-weight: 600;">Mẫu vải</th>
+                    <th style="width: 100px; padding: 12px; text-align: center; font-weight: 600;">Ngày nhập</th>
+                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">NV</th>
+                    <th style="width: 100px; padding: 12px; text-align: right; font-weight: 600;">Chiều dài (m)</th>
+                    <th style="width: 120px; padding: 12px; text-align: right; font-weight: 600;">Diện tích ban đầu (m²)</th>
+                    <th style="width: 120px; padding: 12px; text-align: right; font-weight: 600;">Diện tích đã cắt (m²)</th>
+                    <th style="width: 100px; padding: 12px; text-align: right; font-weight: 600;">Số m còn lại</th>
+                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">Tiến độ (%)</th>
+                    <th style="width: 100px; padding: 12px; text-align: right; font-weight: 600;">Vải thiếu (m)</th>
+                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">Số lần cắt</th>
+                    <th style="width: 100px; padding: 12px; text-align: center; font-weight: 600;">Trạng thái</th>
+                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">Chi tiết</th>
                 </tr>
             `;
             
             if (data.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px; color: #999;">Không có dữ liệu</td></tr>';
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="13" style="text-align: center; padding: 40px; color: #999;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
+                            <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">Không có dữ liệu đối tượng cắt vải</div>
+                            <div style="font-size: 14px; color: #999;">Vui lòng thử lại với bộ lọc khác hoặc kiểm tra dữ liệu đã được nhập vào hệ thống.</div>
+                        </td>
+                    </tr>
+                `;
                 return;
             }
             
-            tableBody.innerHTML = data.map(item => `
-                <tr>
-                    <td>${item.catVaiId}</td>
-                    <td>${item.maMau} - ${item.tenMau}</td>
-                    <td>${new Date(item.ngayNhap).toLocaleDateString('vi-VN')}</td>
-                    <td>${item.createdBy}</td>
-                    <td>${item.chieuDaiCayVai.toFixed(1)}</td>
-                    <td>${item.dienTichBanDau.toFixed(2)}</td>
-                    <td>${item.dienTichDaCat.toFixed(2)}</td>
-                    <td>${item.soMConLai.toFixed(1)}</td>
-                    <td>${item.tienDoPercent}%</td>
-                    <td>${item.items ? item.items.length : 0}</td>
-                    <td><span style="padding: 4px 8px; border-radius: 4px; background: ${item.trangThai === 'active' ? '#22c55e' : item.trangThai === 'completed' ? '#3b82f6' : '#999'}; color: white; font-size: 12px;">${item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ'}</span></td>
-                </tr>
-            `).join('');
+            tableBody.innerHTML = data.map((item, index) => {
+                const hasVaiThieu = item.vaiThieu && item.vaiThieu.soM > 0;
+                const detailId = `detail-${index}`;
+                const rowStyle = index % 2 === 0 ? 'background: #f8f9fa;' : 'background: white;';
+                return `
+                    <tr style="${rowStyle} border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 12px;"><strong style="color: var(--primary); font-size: 14px;">${item.catVaiId || 'N/A'}</strong></td>
+                        <td style="padding: 12px;">${item.maMau || ''} - ${item.tenMau || 'N/A'}</td>
+                        <td style="padding: 12px; text-align: center;">${item.ngayNhap ? new Date(item.ngayNhap).toLocaleDateString('vi-VN') : 'N/A'}</td>
+                        <td style="padding: 12px; text-align: center;">${item.createdBy || 'N/A'}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: 500;">${(item.chieuDaiCayVai || 0).toFixed(1)}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: 500;">${(item.dienTichBanDau || 0).toFixed(2)}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: 500; color: var(--primary);">${(item.dienTichDaCat || 0).toFixed(2)}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: 500;">${(item.soMConLai || 0).toFixed(1)}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <span style="padding: 4px 8px; border-radius: 4px; background: ${item.tienDoPercent >= 100 ? '#22c55e' : item.tienDoPercent >= 50 ? '#f59e0b' : '#ef4444'}; color: white; font-size: 12px; font-weight: 600;">
+                                ${(item.tienDoPercent || 0)}%
+                            </span>
+                        </td>
+                        <td style="padding: 12px; text-align: right; font-weight: ${hasVaiThieu ? 'bold' : 'normal'}; color: ${hasVaiThieu ? '#ef4444' : '#22c55e'};">
+                            ${hasVaiThieu ? (item.vaiThieu.soM || 0).toFixed(1) : '0'}
+                        </td>
+                        <td style="padding: 12px; text-align: center; font-weight: 500;">${item.lichSuCat ? item.lichSuCat.length : 1}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <span style="padding: 4px 8px; border-radius: 4px; background: ${item.trangThai === 'active' ? '#22c55e' : item.trangThai === 'completed' ? '#3b82f6' : '#999'}; color: white; font-size: 12px; font-weight: 600;">
+                                ${item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ'}
+                            </span>
+                        </td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button class="btn btn-small" onclick="toggleDetail('${detailId}')" style="padding: 6px 12px; font-size: 14px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--primary)'">
+                                ${item.lichSuCat && item.lichSuCat.length > 0 ? '📋 Chi tiết' : '📄 Xem'}
+                            </button>
+                        </td>
+                    </tr>
+                    <tr id="${detailId}" style="display: none; background: #f8f9fa;">
+                        <td colspan="13" style="padding: 20px;">
+                            <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                <h4 style="margin-bottom: 12px; color: #333;">Chi tiết lịch sử cắt - ID: ${item.catVaiId}</h4>
+                                ${item.lichSuCat && item.lichSuCat.length > 0 ? `
+                                    <div style="max-height: 400px; overflow-y: auto;">
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                            <thead>
+                                                <tr style="background: #f0f0f0;">
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Lần cắt</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Ngày cắt</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">NV</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Số kích thước</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Diện tích cắt (m²)</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Số m còn lại</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Vải lỗi (m)</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Vải thiếu (m)</th>
+                                                    <th style="padding: 8px; border: 1px solid #ddd;">Nhập lại kho (m)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${item.lichSuCat.map((lichSu, idx) => `
+                                                    <tr>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${idx + 1}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd;">${new Date(lichSu.ngayCat).toLocaleDateString('vi-VN')}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd;">${lichSu.createdBy || item.createdBy}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${lichSu.items ? lichSu.items.length : 0}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(lichSu.dienTichDaCat || 0).toFixed(2)}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(lichSu.soMConLai || 0).toFixed(1)}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: ${lichSu.vaiLoi && lichSu.vaiLoi.soM > 0 ? '#ef4444' : '#22c55e'}">${(lichSu.vaiLoi && lichSu.vaiLoi.soM) ? lichSu.vaiLoi.soM.toFixed(1) : '0'}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: ${lichSu.vaiThieu && lichSu.vaiThieu.soM > 0 ? '#ef4444' : '#22c55e'}">${(lichSu.vaiThieu && lichSu.vaiThieu.soM) ? lichSu.vaiThieu.soM.toFixed(1) : '0'}</td>
+                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(lichSu.nhapLaiKho && lichSu.nhapLaiKho.soM) ? lichSu.nhapLaiKho.soM.toFixed(1) : '0'}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ` : '<p style="color: #999;">Chưa có lịch sử cắt</p>'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Toggle hiển thị chi tiết
+        function toggleDetail(detailId) {
+            const detailRow = document.getElementById(detailId);
+            if (detailRow) {
+                detailRow.style.display = detailRow.style.display === 'none' ? '' : 'none';
+            }
         }
 
         // Xuất báo cáo
         async function exportReport() {
             const filterMau = document.getElementById('reportFilterMau').value;
-            const filterDate = document.getElementById('reportFilterDate').value;
+            const filterType = document.getElementById('reportFilterType').value;
             
             try {
                 const params = new URLSearchParams();
                 if (filterMau) params.append('maMau', filterMau);
-                if (filterDate !== 'all') params.append('dateFilter', filterDate);
+                // Luôn gom nhóm theo catVaiId khi xuất
+                params.append('groupByCatVaiId', 'true');
                 params.append('export', 'true');
+                
+                // Xử lý filter thời gian
+                if (filterType !== 'all') {
+                    params.append('filterType', filterType);
+                    
+                    switch (filterType) {
+                        case 'date':
+                            const date = document.getElementById('reportFilterDate').value;
+                            if (date) params.append('date', date);
+                            break;
+                        case 'month':
+                            const month = document.getElementById('reportFilterMonth').value;
+                            if (month) params.append('month', month);
+                            break;
+                        case 'quarter':
+                            const quarter = document.getElementById('reportFilterQuarter').value;
+                            const quarterYear = document.getElementById('reportFilterQuarterYear').value;
+                            if (quarter && quarterYear) {
+                                params.append('quarter', quarter);
+                                params.append('year', quarterYear);
+                            }
+                            break;
+                        case 'year':
+                            const year = document.getElementById('reportFilterYear').value;
+                            if (year) params.append('year', year);
+                            break;
+                        case 'range':
+                            const dateFrom = document.getElementById('reportFilterDateFrom').value;
+                            const dateTo = document.getElementById('reportFilterDateTo').value;
+                            if (dateFrom) params.append('dateFrom', dateFrom);
+                            if (dateTo) params.append('dateTo', dateTo);
+                            break;
+                    }
+                }
                 
                 const response = await fetch(`/api/report-cat-vai?${params.toString()}`, {
                     credentials: 'include'
@@ -1202,6 +1557,7 @@
                     showError('report', result.message || 'Lỗi xuất báo cáo');
                 }
             } catch (error) {
+                console.error('Error exporting report:', error);
                 showError('report', 'Lỗi xuất báo cáo: ' + error.message);
             }
         }

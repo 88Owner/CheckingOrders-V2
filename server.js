@@ -1736,7 +1736,7 @@ app.delete('/api/delete-all/master-data-vai', requireLogin, requireWarehouseMana
 // Route báo cáo data cắt vải
 app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req, res) => {
     try {
-        const { maMau, dateFilter, export: isExport } = req.query;
+        const { maMau, filterType, date, month, quarter, year, dateFrom, dateTo, groupByCatVaiId, export: isExport } = req.query;
         
         // Xây dựng query filter
         const query = {};
@@ -1744,40 +1744,103 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
             query.maMau = maMau;
         }
         
-        if (dateFilter) {
+        // Xử lý filter thời gian
+        if (filterType && filterType !== 'all') {
+            let startDate, endDate;
             const now = new Date();
-            let startDate;
             
-            switch (dateFilter) {
-                case 'today':
-                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    break;
-                case 'week':
-                    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            switch (filterType) {
+                case 'date':
+                    if (date) {
+                        startDate = new Date(date);
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate = new Date(date);
+                        endDate.setHours(23, 59, 59, 999);
+                        query.ngayNhap = { $gte: startDate, $lte: endDate };
+                    }
                     break;
                 case 'month':
-                    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    if (month) {
+                        const [yearStr, monthStr] = month.split('-');
+                        startDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1);
+                        endDate = new Date(parseInt(yearStr), parseInt(monthStr), 0, 23, 59, 59, 999);
+                        query.ngayNhap = { $gte: startDate, $lte: endDate };
+                    }
                     break;
-                default:
-                    startDate = null;
-            }
-            
-            if (startDate) {
-                query.createdAt = { $gte: startDate };
+                case 'quarter':
+                    if (quarter && year) {
+                        const yearNum = parseInt(year);
+                        let startMonth = 0;
+                        if (quarter === 'Q1') startMonth = 0;
+                        else if (quarter === 'Q2') startMonth = 3;
+                        else if (quarter === 'Q3') startMonth = 6;
+                        else if (quarter === 'Q4') startMonth = 9;
+                        startDate = new Date(yearNum, startMonth, 1);
+                        endDate = new Date(yearNum, startMonth + 3, 0, 23, 59, 59, 999);
+                        query.ngayNhap = { $gte: startDate, $lte: endDate };
+                    }
+                    break;
+                case 'year':
+                    if (year) {
+                        const yearNum = parseInt(year);
+                        startDate = new Date(yearNum, 0, 1);
+                        endDate = new Date(yearNum, 11, 31, 23, 59, 59, 999);
+                        query.ngayNhap = { $gte: startDate, $lte: endDate };
+                    }
+                    break;
+                case 'range':
+                    if (dateFrom && dateTo) {
+                        startDate = new Date(dateFrom);
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate = new Date(dateTo);
+                        endDate.setHours(23, 59, 59, 999);
+                        query.ngayNhap = { $gte: startDate, $lte: endDate };
+                    } else if (dateFrom) {
+                        startDate = new Date(dateFrom);
+                        startDate.setHours(0, 0, 0, 0);
+                        query.ngayNhap = { $gte: startDate };
+                    } else if (dateTo) {
+                        endDate = new Date(dateTo);
+                        endDate.setHours(23, 59, 59, 999);
+                        query.ngayNhap = { $lte: endDate };
+                    }
+                    break;
             }
         }
 
         // Lấy dữ liệu
-        const list = await DoiTuongCatVai.find(query)
-            .sort({ createdAt: -1 })
+        let list = await DoiTuongCatVai.find(query)
+            .sort({ ngayNhap: -1, catVaiId: 1 })
             .lean();
+        
+        // Gom nhóm theo catVaiId nếu được yêu cầu
+        if (groupByCatVaiId === 'true') {
+            const grouped = {};
+            list.forEach(item => {
+                const key = item.catVaiId;
+                if (!grouped[key]) {
+                    grouped[key] = item;
+                } else {
+                    // Cộng dồn (thường không xảy ra vì catVaiId là unique, nhưng phòng hờ)
+                    grouped[key].dienTichDaCat += (item.dienTichDaCat || 0);
+                    grouped[key].dienTichConLai = Math.max(0, grouped[key].dienTichBanDau - grouped[key].dienTichDaCat);
+                    grouped[key].soMConLai = Math.round((grouped[key].dienTichConLai / 2.3) * 10) / 10;
+                    grouped[key].tienDoPercent = grouped[key].chieuDaiCayVai > 0 ? 
+                        Math.round(((grouped[key].chieuDaiCayVai - grouped[key].soMConLai) / grouped[key].chieuDaiCayVai) * 100) : 0;
+                }
+            });
+            list = Object.values(grouped);
+        }
 
         // Tính toán thống kê
         const summary = {
             totalCatVai: list.length,
             totalItems: list.reduce((sum, item) => sum + (item.items ? item.items.length : 0), 0),
             totalDienTich: list.reduce((sum, item) => sum + (item.dienTichDaCat || 0), 0),
-            totalSoM: list.reduce((sum, item) => sum + (item.chieuDaiCayVai - (item.soMConLai || 0)), 0)
+            totalSoM: list.reduce((sum, item) => sum + (item.chieuDaiCayVai - (item.soMConLai || 0)), 0),
+            totalVaiThieu: list.reduce((sum, item) => sum + ((item.vaiThieu && item.vaiThieu.soM) ? item.vaiThieu.soM : 0), 0),
+            totalVaiLoi: list.reduce((sum, item) => sum + ((item.vaiLoi && item.vaiLoi.soM) ? item.vaiLoi.soM : 0), 0),
+            totalNhapLaiKho: list.reduce((sum, item) => sum + ((item.nhapLaiKho && item.nhapLaiKho.soM) ? item.nhapLaiKho.soM : 0), 0)
         };
 
         // Lấy danh sách mẫu vải để filter
@@ -1796,6 +1859,9 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                 ['Tổng số kích thước đã cắt:', summary.totalItems],
                 ['Tổng diện tích đã cắt (m²):', summary.totalDienTich.toFixed(2)],
                 ['Tổng số m đã cắt:', summary.totalSoM.toFixed(1)],
+                ['Tổng vải thiếu (m):', summary.totalVaiThieu.toFixed(1)],
+                ['Tổng vải lỗi (m):', summary.totalVaiLoi.toFixed(1)],
+                ['Tổng nhập lại kho (m):', summary.totalNhapLaiKho.toFixed(1)],
                 ['']
             ];
             const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
@@ -1812,6 +1878,10 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                 'Diện tích đã cắt (m²)': item.dienTichDaCat,
                 'Số m còn lại': item.soMConLai,
                 'Tiến độ (%)': item.tienDoPercent,
+                'Vải thiếu (m)': (item.vaiThieu && item.vaiThieu.soM) ? item.vaiThieu.soM : 0,
+                'Vải lỗi (m)': (item.vaiLoi && item.vaiLoi.soM) ? item.vaiLoi.soM : 0,
+                'Nhập lại kho (m)': (item.nhapLaiKho && item.nhapLaiKho.soM) ? item.nhapLaiKho.soM : 0,
+                'Số lần cắt': item.lichSuCat ? item.lichSuCat.length : 1,
                 'Số kích thước': item.items ? item.items.length : 0,
                 'Trạng thái': item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ'
             }));
@@ -2021,7 +2091,30 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
     // Loại bỏ khoảng trắng thừa và chuyển về lowercase
     const cleaned = kichThuoc.trim().toLowerCase();
     
-    // Pattern 1: "Ngang1m5xCao2m" hoặc "ngang150xcao200" hoặc "Ngang1.5m x Cao2m"
+    // Pattern 1: "Ngang1m5xCao2m" hoặc "ngang1m5xcao2m" (format không có khoảng trắng)
+    // Tìm "ngang" + số + "m" + số (tùy chọn) + "x" + "cao" + số + "m" + số (tùy chọn)
+    const patternNgangCaoCompact = /ngang\s*(\d+)\s*m\s*(\d+)?\s*x\s*cao\s*(\d+)\s*m\s*(\d+)?/i;
+    const matchNgangCaoCompact = cleaned.match(patternNgangCaoCompact);
+    
+    if (matchNgangCaoCompact) {
+        let ngang = parseFloat(matchNgangCaoCompact[1]);
+        // Nếu có số thứ 2 (ví dụ: 1m5 = 1.5m)
+        if (matchNgangCaoCompact[2]) {
+            ngang = ngang + parseFloat('0.' + matchNgangCaoCompact[2]);
+        }
+        ngang = ngang * 100; // Chuyển về cm
+        
+        let cao = parseFloat(matchNgangCaoCompact[3]);
+        // Nếu có số thứ 4 (ví dụ: 2m0 = 2.0m)
+        if (matchNgangCaoCompact[4]) {
+            cao = cao + parseFloat('0.' + matchNgangCaoCompact[4]);
+        }
+        cao = cao * 100; // Chuyển về cm
+        
+        return { cao: cao.toString(), ngang: ngang.toString() };
+    }
+    
+    // Pattern 2: "Ngang150xcao200" hoặc "ngang1.5m x cao2m" (format có khoảng trắng hoặc số thập phân)
     // Tìm "ngang" + số + đơn vị + "x" + "cao" + số + đơn vị
     const patternNgangCao = /ngang\s*(\d+(?:\.\d+)?)\s*(?:m|cm)?\s*(?:(\d+))?\s*x\s*cao\s*(\d+(?:\.\d+)?)\s*(?:m|cm)?/i;
     const matchNgangCao = cleaned.match(patternNgangCao);
@@ -2046,7 +2139,7 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
         return { cao: cao.toString(), ngang: ngang.toString() };
     }
     
-    // Pattern 2: "1m5x2m" hoặc "1.5m x 2m" (format ngắn gọn)
+    // Pattern 3: "1m5x2m" hoặc "1.5m x 2m" (format ngắn gọn)
     // Tìm số + m + số (tùy chọn) + x + số + m
     const patternShort = /(\d+)\s*m\s*(\d+)?\s*x\s*(\d+)\s*m/i;
     const matchShort = cleaned.match(patternShort);
@@ -2063,7 +2156,7 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
         return { cao: cao.toString(), ngang: ngang.toString() };
     }
     
-    // Pattern 3: "30cm x 40cm" hoặc "30cmx40cm" hoặc "30 x 40"
+    // Pattern 4: "30cm x 40cm" hoặc "30cmx40cm" hoặc "30 x 40"
     const pattern1 = /(\d+(?:\.\d+)?)\s*(?:cm|m)?\s*x\s*(\d+(?:\.\d+)?)\s*(?:cm|m)?/i;
     const match1 = cleaned.match(pattern1);
     
@@ -2080,7 +2173,7 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
         return { cao: cao.toString(), ngang: ngang.toString() };
     }
 
-    // Pattern 4: "30x40" (không có đơn vị, giả định là cm)
+    // Pattern 5: "30x40" (không có đơn vị, giả định là cm)
     const pattern2 = /(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i;
     const match2 = cleaned.match(pattern2);
     
