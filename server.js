@@ -11,7 +11,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
+const { URL } = require('url');
 const config = require('./config');
 
 // Import models
@@ -130,6 +132,15 @@ app.post('/api/login', async (req, res) => {
             return res.json({ success: false, message: 'Mật khẩu không đúng' });
         }
 
+        // Kiểm tra mapping Employee cho production_worker
+        // Nếu là production_worker mà chưa có mapping Employee thì không cho login
+        if (account.role === 'production_worker' && !account.erpnextEmployeeId) {
+            return res.json({ 
+                success: false, 
+                message: 'Tài khoản chưa được mapping với Employee trong ERPNext. Vui lòng liên hệ quản trị viên để được cấu hình.' 
+            });
+        }
+
         // Create JWT token for API access
         const token = jwt.sign(
             { username: account.username, role: account.role },
@@ -137,11 +148,59 @@ app.post('/api/login', async (req, res) => {
             { expiresIn: '24h' }
         );
 
+        // Lấy thông tin Employee từ ERPNext nếu có mapping
+        let erpnextEmployeeInfo = null;
+        if (account.erpnextEmployeeId) {
+            try {
+                const employeeResult = await erpnextAPI('GET', `Employee/${account.erpnextEmployeeId}`, null, null, null);
+                if (employeeResult.data) {
+                    erpnextEmployeeInfo = {
+                        id: employeeResult.data.name,
+                        name: employeeResult.data.employee_name || employeeResult.data.name,
+                        employeeNumber: employeeResult.data.employee_number || null
+                    };
+                    // Cập nhật cache tên nhân viên
+                    if (employeeResult.data.employee_name && account.erpnextEmployeeName !== employeeResult.data.employee_name) {
+                        account.erpnextEmployeeName = employeeResult.data.employee_name;
+                        await account.save();
+                    }
+                } else {
+                    // Nếu không tìm thấy Employee trong ERPNext, từ chối login cho production_worker
+                    if (account.role === 'production_worker') {
+                        return res.json({ 
+                            success: false, 
+                            message: 'Không tìm thấy Employee trong ERPNext với ID đã mapping. Vui lòng liên hệ quản trị viên.' 
+                        });
+                    }
+                }
+            } catch (error) {
+                console.log('Không thể lấy thông tin Employee từ ERPNext:', error.message);
+                // Nếu có cache, dùng cache
+                if (account.erpnextEmployeeName) {
+                    erpnextEmployeeInfo = {
+                        id: account.erpnextEmployeeId,
+                        name: account.erpnextEmployeeName,
+                        employeeNumber: null
+                    };
+                } else {
+                    // Nếu không có cache và là production_worker, từ chối login
+                    if (account.role === 'production_worker') {
+                        return res.json({ 
+                            success: false, 
+                            message: 'Không thể xác thực Employee trong ERPNext. Vui lòng liên hệ quản trị viên.' 
+                        });
+                    }
+                }
+            }
+        }
+
         // Create session
         req.session.user = {
             username: account.username,
             role: account.role,
-            token: token
+            token: token,
+            erpnextEmployeeId: account.erpnextEmployeeId,
+            erpnextEmployeeName: erpnextEmployeeInfo?.name || account.erpnextEmployeeName || account.username
         };
         
         console.log('🔐 Login successful - Session created:', req.session.user);
@@ -159,10 +218,13 @@ app.post('/api/login', async (req, res) => {
             token: token,
             assignedComPort: assignedComPort,
             allowedPorts: allowedPorts,
+            erpnextEmployee: erpnextEmployeeInfo,
+            employeeName: erpnextEmployeeInfo?.name || account.erpnextEmployeeName || account.username,
             redirect: account.role === 'admin' ? '/admin' : 
                      (account.role === 'checker' || account.role === 'packer') ? '/checker-home' :
                      account.role === 'warehouse_manager' ? '/warehouse-manager' :
-                     account.role === 'warehouse_staff' ? '/warehouse-staff' : '/'
+                     account.role === 'warehouse_staff' ? '/warehouse-staff' :
+                     account.role === 'production_worker' ? '/production-worker' : '/'
         });
 
     } catch (error) {
@@ -180,7 +242,7 @@ app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
             return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
         }
 
-        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff'].includes(role)) {
+        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker'].includes(role)) {
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
 
@@ -198,7 +260,12 @@ app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
 
         await account.save();
 
-        res.json({ success: true, message: 'Tạo tài khoản thành công' });
+        let message = 'Tạo tài khoản thành công';
+        if (role === 'production_worker') {
+            message += '. Lưu ý: Vui lòng mapping Employee trong ERPNext để nhân viên có thể đăng nhập.';
+        }
+
+        res.json({ success: true, message: message });
 
     } catch (error) {
         console.error('Register error:', error);
@@ -311,6 +378,77 @@ app.get('/api/orders/test-van-don/:maVanDon', async (req, res) => {
     }
 });
 
+// API cập nhật ERPNext Employee mapping cho user
+app.put('/api/accounts/:id/erpnext-employee', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        const { erpnextEmployeeId } = req.body;
+        const accountId = req.params.id;
+        
+        console.log(`[UPDATE ERPNext Employee] Admin ${req.session.user.username} mapping employee cho account ID: ${accountId} -> ${erpnextEmployeeId}`);
+        
+        const account = await Account.findById(accountId);
+        if (!account) {
+            return res.json({ success: false, message: 'Không tìm thấy tài khoản' });
+        }
+
+        // Cảnh báo nếu xóa mapping của production_worker
+        if (account.role === 'production_worker' && account.erpnextEmployeeId && !erpnextEmployeeId) {
+            return res.json({ 
+                success: false, 
+                message: 'Không thể xóa mapping Employee cho nhân viên sản xuất. Tài khoản này bắt buộc phải có mapping Employee để có thể đăng nhập.' 
+            });
+        }
+
+        // Nếu có employeeId, lấy thông tin từ ERPNext
+        let employeeName = null;
+        if (erpnextEmployeeId) {
+            try {
+                const employeeResult = await erpnextAPI('GET', `Employee/${erpnextEmployeeId}`, null, null, null);
+                if (employeeResult.data) {
+                    employeeName = employeeResult.data.employee_name || employeeResult.data.name;
+                } else {
+                    return res.json({ 
+                        success: false, 
+                        message: `Không tìm thấy Employee với ID: ${erpnextEmployeeId}. Vui lòng kiểm tra lại.` 
+                    });
+                }
+            } catch (error) {
+                console.error('Lỗi khi lấy thông tin Employee từ ERPNext:', error);
+                return res.json({ 
+                    success: false, 
+                    message: `Không tìm thấy Employee với ID: ${erpnextEmployeeId}. Vui lòng kiểm tra lại.` 
+                });
+            }
+        }
+
+        account.erpnextEmployeeId = erpnextEmployeeId || null;
+        account.erpnextEmployeeName = employeeName || null;
+        await account.save();
+
+        console.log(`[UPDATE ERPNext Employee] Đã cập nhật. User: ${account.username}, Employee: ${employeeName || 'None'}`);
+
+        const message = account.role === 'production_worker' && erpnextEmployeeId 
+            ? 'Đã cập nhật mapping Employee thành công. Nhân viên có thể đăng nhập.' 
+            : 'Đã cập nhật mapping Employee thành công';
+
+        res.json({
+            success: true,
+            message: message,
+            account: {
+                username: account.username,
+                erpnextEmployeeId: account.erpnextEmployeeId,
+                erpnextEmployeeName: account.erpnextEmployeeName
+            }
+        });
+    } catch (error) {
+        console.error('Update ERPNext Employee error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi cập nhật mapping Employee: ' + error.message
+        });
+    }
+});
+
 // API cập nhật role cho user
 app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) => {
     try {
@@ -319,7 +457,7 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
         
         console.log(`[UPDATE ROLE] Admin ${req.session.user.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
         
-        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff'].includes(role)) {
+        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker'].includes(role)) {
             console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
@@ -708,12 +846,45 @@ app.get('/api/me', async (req, res) => {
                 }
             }
 
+            // Lấy thông tin Employee từ ERPNext nếu có mapping
+            let erpnextEmployeeInfo = null;
+            if (account.erpnextEmployeeId) {
+                try {
+                    const employeeResult = await erpnextAPI('GET', `Employee/${account.erpnextEmployeeId}`, null, null, null);
+                    if (employeeResult.data) {
+                        erpnextEmployeeInfo = {
+                            id: employeeResult.data.name,
+                            name: employeeResult.data.employee_name || employeeResult.data.name,
+                            employeeNumber: employeeResult.data.employee_number || null
+                        };
+                        // Cập nhật cache nếu cần
+                        if (employeeResult.data.employee_name && account.erpnextEmployeeName !== employeeResult.data.employee_name) {
+                            account.erpnextEmployeeName = employeeResult.data.employee_name;
+                            await account.save();
+                        }
+                    }
+                } catch (error) {
+                    console.log('Không thể lấy thông tin Employee từ ERPNext:', error.message);
+                    // Dùng cache nếu có
+                    if (account.erpnextEmployeeName) {
+                        erpnextEmployeeInfo = {
+                            id: account.erpnextEmployeeId,
+                            name: account.erpnextEmployeeName,
+                            employeeNumber: null
+                        };
+                    }
+                }
+            }
+
             return res.json({ 
                 success: true, 
                 username: account.username, 
                 role: account.role,
                 scannerPermissions: account.scannerPermissions,
-                scannerConflict: scannerConflict
+                scannerConflict: scannerConflict,
+                erpnextEmployee: erpnextEmployeeInfo,
+                employeeName: erpnextEmployeeInfo?.name || account.erpnextEmployeeName || account.username,
+                erpnextEmployeeId: account.erpnextEmployeeId
             });
         } else {
             return res.json({ success: true, username, role });
@@ -810,6 +981,23 @@ app.get('/warehouse-staff', requireWarehouseLogin, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'warehouse-staff.html'));
 });
 
+// Middleware for production worker
+function requireProductionWorker(req, res, next) {
+    if (!req.session.user) {
+        return res.redirect('/login');
+    }
+    if (req.session.user.role !== 'production_worker') {
+        return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+    }
+    next();
+}
+
+// Route trang production worker
+app.get('/production-worker', requireProductionWorker, (req, res) => {
+    console.log('🔍 Production Worker Access - Session user:', req.session.user);
+    res.sendFile(path.join(__dirname, 'public', 'production-worker.html'));
+});
+
 // Route debug session
 app.get('/debug-session', (req, res) => {
     res.json({
@@ -836,6 +1024,9 @@ app.get('/', (req, res) => {
     }
     if (role === 'warehouse_staff') {
         return res.redirect('/warehouse-staff');
+    }
+    if (role === 'production_worker') {
+        return res.redirect('/production-worker');
     }
     return res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -2186,10 +2377,129 @@ function parseCaoNgangFromKichThuoc(kichThuoc) {
     return { cao: null, ngang: null };
 }
 
+// Hàm tính toán may áo gối từ items
+// Có 2 trường hợp:
+// 1. Kích thước có chiều cao 180cm (ví dụ: 100-180) → (ngang + 5) * SL
+// 2. Có 2 kích thước có tổng chiều cao = 180cm (ví dụ: 150-110 + 100-70) → (ngang1 + 5 + ngang2 + 5) * SL
+// Khi có kích thước này, phần vải còn lại (230-180=50cm) dùng để may áo gối
+function calculateMayAoGoi(items, maMau) {
+    const mayAoGoi = [];
+    
+    try {
+        if (!items || items.length === 0) return mayAoGoi;
+        
+        // Trường hợp 1: Tìm kích thước có chiều cao 180cm
+        items.forEach(it => {
+            // Tìm pattern trong cả kichThuoc và szSku (pattern có thể nằm trong szSku như "100-180")
+            const kichThuoc = (it.kichThuoc || '').toString();
+            const szSku = (it.szSku || '').toString();
+            
+            // Tìm pattern: số - 180 (ví dụ: "100-180", "100 - 180", "(100-180)")
+            let match = kichThuoc.match(/(\d+)\s*-\s*180/);
+            if (!match) {
+                match = kichThuoc.match(/\((\d+)\s*-\s*180\)/);
+            }
+            // Nếu không tìm thấy trong kichThuoc, tìm trong szSku
+            if (!match) {
+                match = szSku.match(/(\d+)\s*-\s*180/);
+            }
+            
+            if (match) {
+                const ngang = parseInt(match[1], 10);
+                if (!isNaN(ngang)) {
+                    const qty = parseInt(it.soLuong || 0, 10) || 0;
+                    if (qty > 0) {
+                        const value = (ngang + 5) * qty;
+                        mayAoGoi.push({
+                            maMau: maMau,
+                            label: 'May áo gối',
+                            ngang: ngang,
+                            qty: qty,
+                            calcStr: `(${ngang} + 5) * ${qty}`,
+                            value: value
+                        });
+                    }
+                }
+            }
+        });
+        
+        // Trường hợp 2: Tìm các cặp kích thước có tổng chiều cao = 180cm (110 + 70 = 180)
+        // CHỈ ÁP DỤNG CHO MẪU CÓ MÃ MẪU 4 VÀ 14 (Mùa đông, corgi)
+        const maMauNum = parseInt(maMau, 10);
+        const isMuaDongOrCorgi = (maMauNum === 4 || maMauNum === 14);
+        
+        if (isMuaDongOrCorgi) {
+            // Tìm kích thước có chiều cao 110cm (1m1) - tìm trong cả kichThuoc và szSku
+            const kichThuoc110 = items.filter(it => {
+                const kt = (it.kichThuoc || '').toString();
+                const szSku = (it.szSku || '').toString();
+                const match = kt.match(/(\d+)\s*-\s*110/) || szSku.match(/(\d+)\s*-\s*110/);
+                return match !== null;
+            });
+            
+            // Tìm kích thước có chiều cao 70cm (0.7m) - tìm trong cả kichThuoc và szSku
+            const kichThuoc70 = items.filter(it => {
+                const kt = (it.kichThuoc || '').toString();
+                const szSku = (it.szSku || '').toString();
+                const match = kt.match(/(\d+)\s*-\s*70/) || szSku.match(/(\d+)\s*-\s*70/);
+                return match !== null;
+            });
+            
+            // Nếu có cả 2 loại, tính toán may áo gối - tách riêng từng cặp
+            if (kichThuoc110.length > 0 && kichThuoc70.length > 0) {
+                // Duyệt từng cặp kích thước và tính riêng
+                kichThuoc110.forEach(item110 => {
+                    const kt110 = (item110.kichThuoc || '').toString();
+                    const szSku110 = (item110.szSku || '').toString();
+                    let match110 = kt110.match(/(\d+)\s*-\s*110/);
+                    if (!match110) match110 = szSku110.match(/(\d+)\s*-\s*110/);
+                    if (!match110) return;
+                    
+                    const ngang110 = parseInt(match110[1], 10);
+                    if (isNaN(ngang110)) return;
+                    const qty110 = parseInt(item110.soLuong || 0, 10);
+                    
+                    kichThuoc70.forEach(item70 => {
+                        const kt70 = (item70.kichThuoc || '').toString();
+                        const szSku70 = (item70.szSku || '').toString();
+                        let match70 = kt70.match(/(\d+)\s*-\s*70/);
+                        if (!match70) match70 = szSku70.match(/(\d+)\s*-\s*70/);
+                        if (!match70) return;
+                        
+                        const ngang70 = parseInt(match70[1], 10);
+                        if (isNaN(ngang70)) return;
+                        const qty70 = parseInt(item70.soLuong || 0, 10);
+                        
+                        // Số lượng = số lượng nhỏ nhất của cặp này
+                        const qty = Math.min(qty110, qty70);
+                        
+                        if (qty > 0) {
+                            const value = (ngang110 + 5 + ngang70 + 5) * qty;
+                            mayAoGoi.push({
+                                maMau: maMau,
+                                label: 'May áo gối',
+                                ngang: ngang110 + ngang70, // Lưu tổng của 2 ngang (Number)
+                                qty: qty,
+                                calcStr: `(${ngang110} + 5 + ${ngang70} + 5) * ${qty}`,
+                                value: value
+                            });
+                        }
+                    });
+                });
+            }
+        }
+        
+    } catch (e) {
+        console.warn('Error calculating mayAoGoi:', e);
+    }
+    
+    return mayAoGoi;
+}
+
 // API lưu/cập nhật nhập phôi
 app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
-        const { items, chieuDaiCayVai, vaiLoi, vaiThieu, nhapLaiKho, catVaiId } = req.body;
+        const { items, chieuDaiCayVai, vaiLoi, vaiThieu, nhapLaiKho, catVaiId, linkedItems } = req.body;
         const username = req.session.user.username;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -2265,6 +2575,9 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
         const vaiThieuData = vaiThieu && vaiThieu.soM !== undefined ? vaiThieu : { soM: 0 };
         const nhapLaiKhoData = nhapLaiKho && nhapLaiKho.soM !== undefined ? nhapLaiKho : { soM: 0 };
 
+        // Tính toán may áo gối từ items có chiều cao 180
+        const mayAoGoiData = calculateMayAoGoi(items, firstItem.maMau);
+
         // Lưu thông tin cây vải
         const CayVai = require('./models/CayVai');
         const cayVai = new CayVai({
@@ -2280,6 +2593,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             vaiThieu: vaiThieuData,
             nhapLaiKho: nhapLaiKhoData,
             items: itemsWithDienTich,
+            mayAoGoi: mayAoGoiData,
             createdBy: username
         });
 
@@ -2331,6 +2645,14 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                 // Nếu không tick thì giá trị là 0, nếu tick thì lấy soMConLai
                 doiTuongCatVai.nhapLaiKho.soM = Math.max(doiTuongCatVai.nhapLaiKho.soM || 0, nhapLaiKhoData.soM || 0);
                 
+                // Cập nhật may áo gối: cộng dồn vào danh sách hiện có
+                if (mayAoGoiData && mayAoGoiData.length > 0) {
+                    if (!doiTuongCatVai.mayAoGoi) {
+                        doiTuongCatVai.mayAoGoi = [];
+                    }
+                    doiTuongCatVai.mayAoGoi.push(...mayAoGoiData);
+                }
+                
                 await doiTuongCatVai.save();
             } else {
                 return res.status(404).json({
@@ -2360,6 +2682,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                 vaiThieu: vaiThieuData,
                 nhapLaiKho: nhapLaiKhoData,
                 items: itemsWithDienTich,
+                mayAoGoi: mayAoGoiData,
                 lichSuCat: [lichSuCatEntry],
                 trangThai: 'active'
             });
@@ -2367,7 +2690,167 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             await doiTuongCatVai.save();
         }
 
-        res.json({
+        // Xử lý linkedItems (Trời xanh 43) nếu có
+        const linkedCayVaiList = [];
+        if (linkedItems && Array.isArray(linkedItems) && linkedItems.length > 0) {
+            // Tính toán diện tích cho linkedItems
+            let linkedDienTichDaCat = 0;
+            const linkedItemsWithDienTich = [];
+            const firstLinkedItem = linkedItems[0];
+            
+            for (const item of linkedItems) {
+                const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
+                
+                if (!maMau || !tenMau || !kichThuoc || !szSku || soLuong === undefined || soLuong < 0) {
+                    continue;
+                }
+
+                // Lấy diện tích từ kích thước (nếu có trong database)
+                let kichThuocData = await KichThuoc.findOne({ szSku: szSku });
+                let dienTich = kichThuocData ? (kichThuocData.dienTich || 0) : 0;
+                
+                // Nếu không tìm thấy diện tích, tính từ szSku (format: 43-25-ngang-cao)
+                // Ví dụ: 43-25-100-120 => ngang=100cm, cao=120cm => dienTich = 1.2 m²
+                if (dienTich === 0 && szSku.includes('-')) {
+                    const parts = szSku.split('-');
+                    if (parts.length >= 4) {
+                        const ngang = parseFloat(parts[2]) || 0; // cm
+                        const cao = parseFloat(parts[3]) || 0; // cm
+                        if (ngang > 0 && cao > 0) {
+                            dienTich = (ngang * cao) / 10000; // Chuyển từ cm² sang m²
+                        }
+                    }
+                }
+                
+                const dienTichCat = soLuong * dienTich;
+                linkedDienTichDaCat += dienTichCat;
+
+                linkedItemsWithDienTich.push({
+                    kichThuoc,
+                    szSku,
+                    soLuong,
+                    dienTich,
+                    dienTichCat
+                });
+
+                // Lưu vào NhapPhoi cho Trời xanh (43)
+                await NhapPhoi.findOneAndUpdate(
+                    {
+                        maMau: maMau,
+                        kichThuoc: kichThuoc,
+                        createdBy: username
+                    },
+                    {
+                        $set: {
+                            tenMau: tenMau,
+                            szSku: szSku,
+                            soLuong: soLuong,
+                            importDate: new Date()
+                        }
+                    },
+                    {
+                        upsert: true,
+                        new: true,
+                        runValidators: true
+                    }
+                );
+            }
+            
+            // Tính toán các thông tin cho linkedCayVai
+            // Với linkedItems, không có chieuDaiCayVai riêng, tính từ diện tích
+            const linkedChieuDaiCayVai = linkedDienTichDaCat > 0 ? Math.round((linkedDienTichDaCat / 2.3) * 10) / 10 : 0;
+            const linkedDienTichBanDau = linkedDienTichDaCat; // Diện tích ban đầu = diện tích đã cắt (vì là phát sinh)
+            const linkedDienTichConLai = 0; // Không còn lại vì là phát sinh
+            const linkedSoMConLai = 0;
+            const linkedTienDoPercent = 100; // 100% vì đã cắt hết
+            
+            // Tính may áo gối cho linkedItems (nếu có)
+            const linkedMayAoGoi = calculateMayAoGoi(linkedItems, firstLinkedItem.maMau);
+            
+            // Tạo CayVai cho Trời xanh (43)
+            const linkedCayVai = new CayVai({
+                maMau: firstLinkedItem.maMau,
+                tenMau: firstLinkedItem.tenMau,
+                chieuDaiCayVai: linkedChieuDaiCayVai,
+                dienTichBanDau: linkedDienTichBanDau,
+                dienTichDaCat: linkedDienTichDaCat,
+                dienTichConLai: linkedDienTichConLai,
+                soMConLai: linkedSoMConLai,
+                tienDoPercent: linkedTienDoPercent,
+                vaiLoi: { chieuDai: 0, dienTich: 0, soM: 0 },
+                vaiThieu: { soM: 0 },
+                nhapLaiKho: { soM: 0 },
+                items: linkedItemsWithDienTich,
+                mayAoGoi: linkedMayAoGoi,
+                createdBy: username
+            });
+            
+            await linkedCayVai.save();
+            
+            // Tạo DoiTuongCatVai cho Trời xanh (43)
+            const linkedTimestamp = Date.now();
+            const linkedCatVaiId = `CV-${firstLinkedItem.maMau}-${linkedTimestamp}`;
+            
+            const linkedDoiTuongCatVai = new DoiTuongCatVai({
+                catVaiId: linkedCatVaiId,
+                maMau: firstLinkedItem.maMau,
+                tenMau: firstLinkedItem.tenMau,
+                ngayNhap: new Date(),
+                createdBy: username,
+                chieuDaiCayVai: linkedChieuDaiCayVai,
+                dienTichBanDau: linkedDienTichBanDau,
+                dienTichDaCat: linkedDienTichDaCat,
+                dienTichConLai: linkedDienTichConLai,
+                soMConLai: linkedSoMConLai,
+                tienDoPercent: linkedTienDoPercent,
+                vaiLoi: { chieuDai: 0, dienTich: 0, soM: 0 },
+                vaiThieu: { soM: 0 },
+                nhapLaiKho: { soM: 0 },
+                items: linkedItemsWithDienTich,
+                mayAoGoi: linkedMayAoGoi,
+                lichSuCat: [{
+                    ngayCat: new Date(),
+                    items: linkedItemsWithDienTich,
+                    dienTichDaCat: linkedDienTichDaCat,
+                    dienTichConLai: linkedDienTichConLai,
+                    soMConLai: linkedSoMConLai,
+                    vaiLoi: { chieuDai: 0, dienTich: 0, soM: 0 },
+                    vaiThieu: { soM: 0 },
+                    nhapLaiKho: { soM: 0 },
+                    createdBy: username
+                }],
+                trangThai: 'active'
+            });
+            
+            await linkedDoiTuongCatVai.save();
+            
+            // Thêm vào danh sách để trả về
+            linkedCayVaiList.push({
+                nhapPhoi: linkedItems,
+                cayVai: linkedCayVai,
+                doiTuongCatVai: {
+                    catVaiId: linkedDoiTuongCatVai.catVaiId,
+                    maMau: linkedDoiTuongCatVai.maMau,
+                    tenMau: linkedDoiTuongCatVai.tenMau,
+                    ngayNhap: linkedDoiTuongCatVai.ngayNhap,
+                    createdBy: linkedDoiTuongCatVai.createdBy,
+                    chieuDaiCayVai: linkedDoiTuongCatVai.chieuDaiCayVai,
+                    dienTichBanDau: linkedDoiTuongCatVai.dienTichBanDau,
+                    dienTichDaCat: linkedDoiTuongCatVai.dienTichDaCat,
+                    dienTichConLai: linkedDoiTuongCatVai.dienTichConLai,
+                    soMConLai: linkedDoiTuongCatVai.soMConLai,
+                    tienDoPercent: linkedDoiTuongCatVai.tienDoPercent,
+                    vaiLoi: linkedDoiTuongCatVai.vaiLoi,
+                    vaiThieu: linkedDoiTuongCatVai.vaiThieu,
+                    nhapLaiKho: linkedDoiTuongCatVai.nhapLaiKho,
+                    items: linkedDoiTuongCatVai.items,
+                    mayAoGoi: linkedDoiTuongCatVai.mayAoGoi,
+                    trangThai: linkedDoiTuongCatVai.trangThai
+                }
+            });
+        }
+
+        const responseData = {
             success: true,
             message: `Đã lưu ${items.length} mục nhập phôi và thông tin cây vải`,
             data: {
@@ -2389,10 +2872,18 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                     vaiThieu: doiTuongCatVai.vaiThieu,
                     nhapLaiKho: doiTuongCatVai.nhapLaiKho,
                     items: doiTuongCatVai.items,
+                    mayAoGoi: doiTuongCatVai.mayAoGoi,
                     trangThai: doiTuongCatVai.trangThai
                 }
             }
-        });
+        };
+        
+        // Thêm linkedCayVai vào response nếu có
+        if (linkedCayVaiList.length > 0) {
+            responseData.data.linkedCayVai = linkedCayVaiList;
+        }
+        
+        res.json(responseData);
 
     } catch (error) {
         console.error('❌ Lỗi lưu nhập phôi:', error);
@@ -2444,6 +2935,7 @@ app.get('/api/doi-tuong-cat-vai/:catVaiId', requireLogin, requireWarehouseAccess
                 vaiThieu: doiTuong.vaiThieu,
                 nhapLaiKho: doiTuong.nhapLaiKho,
                 items: doiTuong.items,
+                mayAoGoi: doiTuong.mayAoGoi || [],
                 trangThai: doiTuong.trangThai
             }
         });
@@ -2489,6 +2981,7 @@ app.get('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res)
             vaiThieu: doiTuong.vaiThieu,
             nhapLaiKho: doiTuong.nhapLaiKho,
             items: doiTuong.items,
+            mayAoGoi: doiTuong.mayAoGoi || [],
             createdBy: doiTuong.createdBy,
             importDate: doiTuong.ngayNhap,
             catVaiId: doiTuong.catVaiId
@@ -5334,3 +5827,1023 @@ app.get('/api/stats/orders-by-employee', requireLogin, async (req, res) => {
         });
     }
 });
+
+// ==================== ERPNext API Endpoints ====================
+
+// Helper function to make ERPNext API calls using Node.js https/http
+function erpnextAPI(method, endpoint, data = null, username = null, password = null) {
+    return new Promise((resolve, reject) => {
+        const erpnextUrl = config.ERPNEXT_URL;
+        const apiKey = config.ERPNEXT_API_KEY;
+        const apiSecret = config.ERPNEXT_API_SECRET;
+
+        // Use API Key/Secret if available, otherwise use username/password
+        let authHeader = '';
+        if (apiKey && apiSecret && apiKey.trim() !== '' && apiSecret.trim() !== '') {
+            authHeader = `token ${apiKey}:${apiSecret}`;
+        } else if (username && password) {
+            authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+        } else {
+            return reject(new Error('ERPNext authentication credentials not configured. Please set ERPNEXT_API_KEY and ERPNEXT_API_SECRET in .env file. See env.example for reference.'));
+        }
+
+        // Encode endpoint properly (ERPNext doctypes with spaces need encoding)
+        const encodedEndpoint = endpoint.split('/').map(part => encodeURIComponent(part)).join('/');
+        const baseUrl = new URL(erpnextUrl);
+        const isHttps = baseUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        const path = `/api/resource/${encodedEndpoint}`;
+
+        const options = {
+            hostname: baseUrl.hostname,
+            port: baseUrl.port || (isHttps ? 443 : 80),
+            path: path,
+            method: method,
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        };
+
+        if (data && (method === 'POST' || method === 'PUT')) {
+            const body = JSON.stringify(data);
+            options.headers['Content-Length'] = Buffer.byteLength(body);
+        }
+
+        const req = httpModule.request(options, (res) => {
+            let responseData = '';
+
+            res.on('data', (chunk) => {
+                responseData += chunk;
+            });
+
+            res.on('end', () => {
+                try {
+                    const result = JSON.parse(responseData);
+
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve(result);
+                    } else {
+                        // Log chi tiết lỗi từ ERPNext
+                        console.error(`[ERPNext API Error ${res.statusCode}]`, {
+                            endpoint: endpoint,
+                            method: method,
+                            response: result,
+                            responseData: responseData
+                        });
+                        
+                        // Cải thiện thông báo lỗi cho các mã lỗi phổ biến
+                        let errorMessage = result.message || result.exc || result.exc_type || `ERPNext API error: ${res.statusCode}`;
+                        
+                        if (res.statusCode === 403) {
+                            errorMessage = `Lỗi 403 Forbidden: API Key không có quyền truy cập. Vui lòng kiểm tra:\n1. API Key có đúng không?\n2. User được gán cho API Key có quyền Read/Write Job Card không?\n3. API Key có còn active không?`;
+                        } else if (res.statusCode === 401) {
+                            errorMessage = `Lỗi 401 Unauthorized: API Key/Secret không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại thông tin xác thực.`;
+                        } else if (res.statusCode === 404) {
+                            errorMessage = `Lỗi 404 Not Found: Không tìm thấy tài nguyên. Có thể Job Card không tồn tại hoặc URL không đúng.`;
+                        } else if (res.statusCode === 500) {
+                            // Lỗi 500 thường do validation hoặc custom fields không tồn tại
+                            const excMessage = result.exc || result.message || '';
+                            if (excMessage.includes('custom_')) {
+                                errorMessage = `Lỗi 500: Custom field không tồn tại trong ERPNext. Vui lòng tạo các custom fields sau trong Job Card doctype:\n- custom_scrap_reason (Data)\n- custom_notes (Small Text)\n- custom_support_employees (Data)\n\nChi tiết: ${excMessage}`;
+                            } else if (excMessage.includes('employee') || excMessage.includes('Employee')) {
+                                errorMessage = `Lỗi 500: Employee không hợp lệ. Vui lòng kiểm tra Employee ID: ${data?.employee || 'N/A'}\n\nChi tiết: ${excMessage}`;
+                            } else {
+                                errorMessage = `Lỗi 500 Internal Server Error từ ERPNext.\n\nChi tiết: ${excMessage || result.message || 'Không có thông tin chi tiết'}\n\nVui lòng kiểm tra:\n1. Custom fields có tồn tại trong Job Card doctype không?\n2. Dữ liệu có đúng format không?\n3. Employee ID có hợp lệ không?`;
+                            }
+                        }
+                        
+                        reject(new Error(errorMessage));
+                    }
+                } catch (error) {
+                    console.error('[ERPNext API] Failed to parse response:', {
+                        error: error.message,
+                        responseData: responseData,
+                        statusCode: res.statusCode
+                    });
+                    reject(new Error(`Failed to parse response: ${error.message}. Response: ${responseData.substring(0, 200)}`));
+                }
+            });
+        });
+
+        req.on('error', (error) => {
+            console.error('ERPNext API Request Error:', error);
+            // Cải thiện thông báo lỗi cho người dùng
+            if (error.code === 'ECONNREFUSED') {
+                reject(new Error(`Không thể kết nối đến ERPNext tại ${erpnextUrl}. Vui lòng kiểm tra: 1) ERPNext có đang chạy không? 2) URL và port có đúng không? 3) Firewall có chặn không?`));
+            } else if (error.code === 'ENOTFOUND') {
+                reject(new Error(`Không tìm thấy server ERPNext tại ${erpnextUrl}. Vui lòng kiểm tra URL.`));
+            } else if (error.code === 'ETIMEDOUT') {
+                reject(new Error(`Kết nối đến ERPNext bị timeout tại ${erpnextUrl}. Vui lòng kiểm tra kết nối mạng.`));
+            } else {
+                reject(new Error(`Lỗi kết nối ERPNext: ${error.message}. URL: ${erpnextUrl}`));
+            }
+        });
+
+        if (data && (method === 'POST' || method === 'PUT')) {
+            req.write(JSON.stringify(data));
+        }
+
+        req.end();
+    });
+}
+
+// Get Job Card by ID
+app.post('/api/erpnext/job-card', requireLogin, async (req, res) => {
+    try {
+        const { jobCardId } = req.body;
+        if (!jobCardId) {
+            return res.json({ success: false, message: 'Vui lòng cung cấp Job Card ID' });
+        }
+
+        // Get user's ERPNext credentials from session or use system credentials
+        const username = req.session.user?.erpnext_username || null;
+        const password = req.session.user?.erpnext_password || null;
+
+        const result = await erpnextAPI('GET', `Job Card/${jobCardId}`, null, username, password);
+
+        if (result.data) {
+            res.json({
+                success: true,
+                jobCard: result.data
+            });
+        } else {
+            res.json({ success: false, message: 'Không tìm thấy Job Card' });
+        }
+    } catch (error) {
+        console.error('Get Job Card error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi lấy thông tin Job Card'
+        });
+    }
+});
+
+// Get Job Card by Work Order and Employee
+app.post('/api/erpnext/job-card-by-work-order', requireLogin, async (req, res) => {
+    try {
+        const { workOrder, employeeId } = req.body;
+        if (!workOrder) {
+            return res.json({ success: false, message: 'Vui lòng cung cấp Work Order' });
+        }
+        if (!employeeId) {
+            return res.json({ success: false, message: 'Tài khoản chưa được mapping với Employee. Vui lòng liên hệ quản trị viên.' });
+        }
+
+        const username = req.session.user?.erpnext_username || null;
+        const password = req.session.user?.erpnext_password || null;
+
+        // Search for Job Card by Work Order and Employee
+        const baseUrl = new URL(config.ERPNEXT_URL);
+        const isHttps = baseUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        // Encode doctype name and build search params
+        // Tìm Job Card có work_order = workOrder
+        // Lưu ý: Một số fields không được phép query trong API list (như total_scrap_qty)
+        const doctypeName = encodeURIComponent('Job Card');
+        const filters = JSON.stringify([["work_order","=",workOrder]]);
+        // Chỉ query các fields được phép - không query total_scrap_qty vì không được phép
+        const path = `/api/resource/${doctypeName}?filters=${encodeURIComponent(filters)}&limit_page_length=1000`;
+        
+        let authHeader = '';
+        if (config.ERPNEXT_API_KEY && config.ERPNEXT_API_SECRET && 
+            config.ERPNEXT_API_KEY.trim() !== '' && config.ERPNEXT_API_SECRET.trim() !== '') {
+            authHeader = `token ${config.ERPNEXT_API_KEY}:${config.ERPNEXT_API_SECRET}`;
+        } else if (username && password) {
+            authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+        } else {
+            throw new Error('ERPNext authentication credentials not configured. Please set ERPNEXT_API_KEY and ERPNEXT_API_SECRET in .env file.');
+        }
+
+        const result = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: baseUrl.hostname,
+                port: baseUrl.port || (isHttps ? 443 : 80),
+                path: path,
+                method: 'GET',
+                headers: {
+                    'Authorization': authHeader,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            const req = httpModule.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => { responseData += chunk; });
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(responseData));
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                console.error('ERPNext API Request Error:', error);
+                if (error.code === 'ECONNREFUSED') {
+                    reject(new Error(`Không thể kết nối đến ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra: 1) ERPNext có đang chạy không? 2) URL và port có đúng không? 3) Firewall có chặn không?`));
+                } else if (error.code === 'ENOTFOUND') {
+                    reject(new Error(`Không tìm thấy server ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra URL.`));
+                } else if (error.code === 'ETIMEDOUT') {
+                    reject(new Error(`Kết nối đến ERPNext bị timeout tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra kết nối mạng.`));
+                } else {
+                    reject(new Error(`Lỗi kết nối ERPNext: ${error.message}. URL: ${config.ERPNEXT_URL}`));
+                }
+            });
+            
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error(`Kết nối đến ERPNext timeout sau 10 giây tại ${config.ERPNEXT_URL}`));
+            });
+            
+            req.end();
+        });
+
+        // Log kết quả từ ERPNext để debug
+        console.log(`[ERPNext Response] Work Order: ${workOrder}, Employee: ${employeeId}`);
+        console.log(`[ERPNext Response] Total Job Cards found: ${result.data?.length || 0}`);
+        
+        if (!result.data || result.data.length === 0) {
+            console.log(`[ERPNext Response] No Job Cards found or result.data is empty`);
+            console.log(`[ERPNext Response] Full result:`, JSON.stringify(result, null, 2));
+            return res.json({ 
+                success: false, 
+                message: `Không tìm thấy Job Card nào trong Work Order ${workOrder}. Vui lòng kiểm tra lại Work Order.` 
+            });
+        }
+
+        // API list chỉ trả về name, cần gọi GET từng Job Card để lấy đầy đủ thông tin
+        console.log(`[Fetching Details] Fetching full details for ${result.data.length} Job Cards...`);
+        
+        // Gọi song song để tối ưu performance
+        const jobCardPromises = result.data.map(jc => 
+            erpnextAPI('GET', `Job Card/${jc.name}`, null, username, password)
+                .then(detail => ({ success: true, data: detail.data }))
+                .catch(error => {
+                    console.error(`[Error] Failed to fetch Job Card ${jc.name}:`, error.message);
+                    return { success: false, error: error.message };
+                })
+        );
+        
+        const jobCardResults = await Promise.all(jobCardPromises);
+        const jobCardsWithDetails = jobCardResults
+            .filter(result => result.success && result.data)
+            .map(result => result.data);
+        
+        console.log(`[Fetching Details] Successfully fetched ${jobCardsWithDetails.length}/${result.data.length} Job Cards with full details`);
+
+        if (jobCardsWithDetails.length === 0) {
+            return res.json({ 
+                success: false, 
+                message: `Không thể lấy thông tin chi tiết của Job Card trong Work Order ${workOrder}. Vui lòng kiểm tra quyền API.` 
+            });
+        }
+
+        // Log summary sau khi có đầy đủ thông tin
+        console.log(`[Job Cards With Details] Summary:`, jobCardsWithDetails.map(jc => ({
+            name: jc.name,
+            operation: jc.operation,
+            status: jc.status,
+            docstatus: jc.docstatus,
+            sequence_id: jc.sequence_id,
+            employee_count: (jc.employee || []).length,
+            time_logs_count: (jc.time_logs || []).length,
+            total_completed_qty: jc.total_completed_qty,
+            for_quantity: jc.for_quantity
+        })));
+
+        // Sử dụng jobCardsWithDetails thay vì result.data
+        const resultData = jobCardsWithDetails;
+
+        if (resultData && resultData.length > 0) {
+            // KHÔNG CẦN kiểm tra Employee - Tìm trực tiếp Job Card kế tiếp chưa hoàn thành
+            // Logic: Tìm tất cả Job Card chưa hoàn thành trong Work Order, sắp xếp theo sequence_id
+            // Tự động gán employee vào Job Card kế tiếp nếu chưa có
+            
+            console.log(`[Job Card Search] Work Order: ${workOrder}, Employee: ${employeeId}`);
+            console.log(`[Job Card Search] Searching for next incomplete Job Card (no employee check required)...`);
+            
+            // Log TẤT CẢ Job Card trước khi filter để xem trạng thái thực tế
+            console.log(`[All Job Cards Before Filter] Total: ${resultData.length}`);
+            resultData.forEach((jc, idx) => {
+                console.log(`[Job Card ${idx + 1}] ${jc.name}:`, {
+                    operation: jc.operation,
+                    status: jc.status || 'NULL',
+                    docstatus: jc.docstatus,
+                    sequence_id: jc.sequence_id,
+                    total_completed_qty: jc.total_completed_qty,
+                    for_quantity: jc.for_quantity,
+                    employee_count: (jc.employee || []).length
+                });
+            });
+            
+            // Tìm tất cả Job Card chưa hoàn thành (KHÔNG cần kiểm tra employee)
+            const allIncompleteJobCards = resultData.filter(jc => {
+                // Logic: Job Card chưa hoàn thành = docstatus = 0 (Draft) và chưa bị hủy
+                // Chấp nhận TẤT CẢ status nếu docstatus = 0, trừ Completed và Cancelled
+                const isDraft = jc.docstatus === 0;
+                const isNotCompleted = jc.status !== 'Completed';
+                const isNotCancelled = jc.status !== 'Cancelled' && jc.docstatus !== 2;
+                    
+                const isIncomplete = isDraft && isNotCompleted && isNotCancelled;
+                    
+                console.log(`[Filter Check] Job Card ${jc.name}:`, {
+                    docstatus: jc.docstatus,
+                    status: jc.status || 'NULL',
+                    isDraft: isDraft,
+                    isNotCompleted: isNotCompleted,
+                    isNotCancelled: isNotCancelled,
+                    isIncomplete: isIncomplete,
+                    reason: !isIncomplete ? 
+                        (!isDraft ? `docstatus=${jc.docstatus} (not Draft, must be 0)` : 
+                         !isNotCompleted ? 'status=Completed' :
+                         !isNotCancelled ? 'status=Cancelled or docstatus=2' : 'unknown') : 'PASSED - Will include'
+                });
+                    
+                return isIncomplete;
+            });
+
+                console.log(`[Filter] Total Job Cards: ${resultData.length}, Incomplete: ${allIncompleteJobCards.length}`);
+                if (allIncompleteJobCards.length > 0) {
+                    console.log(`[Filter] Incomplete Job Cards:`, allIncompleteJobCards.map(jc => ({
+                        name: jc.name,
+                        operation: jc.operation,
+                        status: jc.status,
+                        docstatus: jc.docstatus,
+                        sequence_id: jc.sequence_id
+                    })));
+                }
+
+                if (allIncompleteJobCards.length === 0) {
+                    // Log chi tiết tất cả Job Card để debug
+                    const statusBreakdown = {
+                        completed: resultData.filter(jc => jc.status === 'Completed' || jc.docstatus === 1).length,
+                        cancelled: resultData.filter(jc => jc.docstatus === 2 || jc.status === 'Cancelled').length,
+                        draft: resultData.filter(jc => jc.docstatus === 0 && jc.status === 'Draft').length,
+                        workInProgress: resultData.filter(jc => jc.docstatus === 0 && jc.status === 'Work In Progress').length,
+                        other: resultData.filter(jc => {
+                            const status = jc.status || 'Unknown';
+                            const docstatus = jc.docstatus;
+                            return !(status === 'Completed' || docstatus === 1 || 
+                                    docstatus === 2 || status === 'Cancelled' ||
+                                    status === 'Draft' || status === 'Work In Progress');
+                        }).length
+                    };
+                    
+                    console.log(`[Status Breakdown]`, statusBreakdown);
+                    console.log(`[All Job Cards Details]`, resultData.map(jc => ({
+                        name: jc.name,
+                        operation: jc.operation,
+                        status: jc.status,
+                        docstatus: jc.docstatus,
+                        total_completed_qty: jc.total_completed_qty,
+                        for_quantity: jc.for_quantity,
+                        sequence_id: jc.sequence_id
+                    })));
+                    
+                    return res.json({ 
+                        success: false, 
+                        message: `Tất cả Job Card trong Work Order ${workOrder} đã hoàn thành hoặc bị hủy. Không còn công đoạn nào cần thực hiện.\n\nChi tiết: ${statusBreakdown.completed} đã hoàn thành, ${statusBreakdown.cancelled} bị hủy, ${statusBreakdown.draft} Draft, ${statusBreakdown.workInProgress} Work In Progress, ${statusBreakdown.other} trạng thái khác.\n\nVui lòng kiểm tra log trên server để xem chi tiết từng Job Card.` 
+                    });
+                }
+
+                // Sắp xếp theo sequence_id và chọn Job Card kế tiếp
+                allIncompleteJobCards.sort((a, b) => {
+                    const seqA = a.sequence_id || 999;
+                    const seqB = b.sequence_id || 999;
+                    return seqA - seqB;
+                });
+
+                const nextJobCard = allIncompleteJobCards[0];
+                
+                // Kiểm tra xem employee đã có trong Job Card chưa
+                const employees = nextJobCard.employee || [];
+                const employeeExists = employees.some(emp => emp.employee === employeeId);
+                
+                if (!employeeExists) {
+                    // Tự động gán employee vào Job Card
+                    console.log(`[Auto Assign] Auto-assigning employee ${employeeId} to Job Card ${nextJobCard.name}`);
+                    
+                    try {
+                        // Cập nhật Job Card để thêm employee vào child table
+                        const updatedEmployees = [
+                            ...employees,
+                            { employee: employeeId }
+                        ];
+                        
+                        const updateData = {
+                            employee: updatedEmployees
+                        };
+                        
+                        // Update Job Card với employee mới
+                        await erpnextAPI('PUT', `Job Card/${nextJobCard.name}`, updateData, username, password);
+                        
+                        // Lấy lại Job Card sau khi update
+                        const updatedJobCard = await erpnextAPI('GET', `Job Card/${nextJobCard.name}`, null, username, password);
+                        nextJobCard.employee = updatedJobCard.data?.employee || updatedEmployees;
+                        
+                        console.log(`[Auto Assign] Successfully assigned employee ${employeeId} to Job Card ${nextJobCard.name}`);
+                    } catch (error) {
+                        console.error(`[Auto Assign] Error assigning employee:`, error);
+                        // Tiếp tục với Job Card hiện tại dù có lỗi khi gán
+                    }
+                }
+                
+                // Trả về Job Card kế tiếp (đã tự động gán employee nếu cần)
+                console.log(`[Job Card Search] Returning next incomplete Job Card: ${nextJobCard.name}, Operation: ${nextJobCard.operation}`);
+                
+                res.json({
+                    success: true,
+                    jobCard: nextJobCard,
+                    message: `Đã tự động tìm thấy công đoạn kế tiếp: ${nextJobCard.operation || 'N/A'} (Job Card: ${nextJobCard.name})${!employeeExists ? ' - Đã tự động gán bạn vào Job Card này' : ''}`,
+                    totalIncomplete: allIncompleteJobCards.length,
+                    isNextOperation: true,
+                    autoAssigned: !employeeExists
+                });
+                
+                return; // Return early - đã tìm thấy và trả về Job Card kế tiếp
+        } else {
+            res.json({ 
+                success: false, 
+                message: `Không tìm thấy Job Card nào trong Work Order ${workOrder}. Vui lòng kiểm tra lại Work Order.` 
+            });
+        }
+    } catch (error) {
+        console.error('Get Job Card by Work Order error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi lấy thông tin Job Card'
+        });
+    }
+});
+
+// Get Job Card by Work Order + Operation
+app.post('/api/erpnext/job-card-by-wo', requireLogin, async (req, res) => {
+    try {
+        const { workOrder, operation } = req.body;
+        if (!workOrder || !operation) {
+            return res.json({ success: false, message: 'Vui lòng cung cấp Work Order và Operation' });
+        }
+
+        const username = req.session.user?.erpnext_username || null;
+        const password = req.session.user?.erpnext_password || null;
+
+        // Search for Job Card by Work Order and Operation
+        const baseUrl = new URL(config.ERPNEXT_URL);
+        const isHttps = baseUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        // Encode doctype name and build search params
+        const doctypeName = encodeURIComponent('Job Card');
+        const filters = JSON.stringify([["work_order","=",workOrder],["operation","=",operation]]);
+        const path = `/api/resource/${doctypeName}?filters=${encodeURIComponent(filters)}&limit_page_length=1`;
+        
+        let authHeader = '';
+        if (config.ERPNEXT_API_KEY && config.ERPNEXT_API_SECRET && 
+            config.ERPNEXT_API_KEY.trim() !== '' && config.ERPNEXT_API_SECRET.trim() !== '') {
+            authHeader = `token ${config.ERPNEXT_API_KEY}:${config.ERPNEXT_API_SECRET}`;
+        } else if (username && password) {
+            authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+        } else {
+            throw new Error('ERPNext authentication credentials not configured. Please set ERPNEXT_API_KEY and ERPNEXT_API_SECRET in .env file.');
+        }
+
+        const result = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: baseUrl.hostname,
+                port: baseUrl.port || (isHttps ? 443 : 80),
+                path: path,
+                method: 'GET',
+                headers: {
+                    'Authorization': authHeader,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            const req = httpModule.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => { responseData += chunk; });
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(responseData));
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                console.error('ERPNext API Request Error:', error);
+                if (error.code === 'ECONNREFUSED') {
+                    reject(new Error(`Không thể kết nối đến ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra: 1) ERPNext có đang chạy không? 2) URL và port có đúng không? 3) Firewall có chặn không?`));
+                } else if (error.code === 'ENOTFOUND') {
+                    reject(new Error(`Không tìm thấy server ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra URL.`));
+                } else if (error.code === 'ETIMEDOUT') {
+                    reject(new Error(`Kết nối đến ERPNext bị timeout tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra kết nối mạng.`));
+                } else {
+                    reject(new Error(`Lỗi kết nối ERPNext: ${error.message}. URL: ${config.ERPNEXT_URL}`));
+                }
+            });
+            
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error(`Kết nối đến ERPNext timeout sau 10 giây tại ${config.ERPNEXT_URL}`));
+            });
+            
+            req.end();
+        });
+
+        if (result.data && result.data.length > 0) {
+            res.json({
+                success: true,
+                jobCard: result.data[0]
+            });
+        } else {
+            res.json({ success: false, message: 'Không tìm thấy Job Card với Work Order và Operation này' });
+        }
+    } catch (error) {
+        console.error('Get Job Card by WO error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi lấy thông tin Job Card'
+        });
+    }
+});
+
+// Update Job Card (Draft only - no submit)
+app.post('/api/erpnext/update-job-card', requireLogin, async (req, res) => {
+    try {
+        const { jobCardId, completedQty, scrapQty, scrapReason, notes, employee, supportEmployees } = req.body;
+
+        if (!jobCardId) {
+            return res.json({ success: false, message: 'Vui lòng cung cấp Job Card ID' });
+        }
+
+        const username = req.session.user?.erpnext_username || null;
+        const password = req.session.user?.erpnext_password || null;
+
+        // First, get current Job Card
+        const currentJobCard = await erpnextAPI('GET', `Job Card/${jobCardId}`, null, username, password);
+
+        if (!currentJobCard.data) {
+            return res.json({ success: false, message: 'Không tìm thấy Job Card' });
+        }
+
+        // Check Job Card status - cannot update if cancelled or submitted
+        const docstatus = currentJobCard.data.docstatus || 0;
+        const status = currentJobCard.data.status || '';
+        
+        if (docstatus === 2) {
+            return res.json({ 
+                success: false, 
+                message: 'Không thể cập nhật Job Card đã bị hủy (Cancelled). Vui lòng liên hệ quản lý.' 
+            });
+        }
+        
+        if (docstatus === 1) {
+            return res.json({ 
+                success: false, 
+                message: 'Không thể cập nhật Job Card đã được submit. Job Card này chỉ có thể được cập nhật khi ở trạng thái Draft hoặc Work In Progress.' 
+            });
+        }
+        
+        // Check if status allows updates
+        if (status === 'Cancelled' || status === 'Completed') {
+            return res.json({ 
+                success: false, 
+                message: `Không thể cập nhật Job Card ở trạng thái "${status}". Chỉ có thể cập nhật khi Job Card ở trạng thái Draft hoặc Work In Progress.` 
+            });
+        }
+
+        // IMPORTANT: ERPNext calculates total_completed_qty and total_scrap_qty from time_logs child table
+        // DO NOT update total_completed_qty and total_scrap_qty directly
+        // Only update time_logs, and ERPNext will automatically calculate the totals
+
+        // Validate employee exists in ERPNext
+        if (employee) {
+            try {
+                const empCheck = await erpnextAPI('GET', `Employee/${employee}`, null, username, password);
+                if (!empCheck.data) {
+                    console.warn(`[WARNING] Employee ${employee} not found in ERPNext, but continuing...`);
+                }
+            } catch (error) {
+                console.warn(`[WARNING] Could not verify Employee ${employee}:`, error.message);
+                // Continue anyway, ERPNext will validate
+            }
+        }
+
+        // Prepare update data - DO NOT include total_completed_qty or total_scrap_qty
+        const updateData = {};
+
+        // Update time_logs child table - ERPNext calculates totals from this
+        const currentTimeLogs = currentJobCard.data.time_logs || [];
+        const currentTimeLog = currentTimeLogs.find(log => log.employee === employee && log.from_time) || null;
+        
+        const completedQtyValue = parseFloat(completedQty) || 0;
+        const scrapQtyValue = parseFloat(scrapQty) || 0;
+        const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        
+        if (currentTimeLog) {
+            // Update existing time log - add to existing completed_qty and scrap_qty
+            updateData.time_logs = currentTimeLogs.map(log => {
+                if (log.employee === employee && log.from_time) {
+                    const updatedLog = {
+                        ...log,
+                        completed_qty: (parseFloat(log.completed_qty) || 0) + completedQtyValue
+                    };
+                    // Add scrap_qty if the field exists in time_logs
+                    if (scrapQtyValue > 0) {
+                        updatedLog.scrap_qty = (parseFloat(log.scrap_qty) || 0) + scrapQtyValue;
+                    }
+                    return updatedLog;
+                }
+                return log;
+            });
+        } else if (employee && (completedQtyValue > 0 || scrapQtyValue > 0)) {
+            // Create new time log entry
+            const newTimeLog = {
+                employee: employee,
+                from_time: now,
+                time_in_mins: 0,
+                completed_qty: completedQtyValue
+            };
+            // Add scrap_qty if > 0
+            if (scrapQtyValue > 0) {
+                newTimeLog.scrap_qty = scrapQtyValue;
+            }
+            updateData.time_logs = [
+                ...currentTimeLogs,
+                newTimeLog
+            ];
+        }
+
+        // Update employee child table (if needed for tracking)
+        if (employee) {
+            const currentEmployees = currentJobCard.data.employee || [];
+            const employeeExists = currentEmployees.some(emp => emp.employee === employee);
+            
+            if (!employeeExists) {
+                // Add new employee to the list
+                updateData.employee = [
+                    ...currentEmployees,
+                    { 
+                        employee: employee,
+                        completed_qty: completedQtyValue,
+                        time_in_mins: 0
+                    }
+                ];
+            } else {
+                // Update existing employee's completed_qty
+                updateData.employee = currentEmployees.map(emp => {
+                    if (emp.employee === employee) {
+                        return {
+                            ...emp,
+                            completed_qty: (parseFloat(emp.completed_qty) || 0) + completedQtyValue
+                        };
+                    }
+                    return emp;
+                });
+            }
+        }
+
+        // IMPORTANT: Do NOT send custom fields via API if they might be child tables
+        // ERPNext will try to process them as child tables and fail with TypeError
+        // We'll only update standard fields: total_completed_qty, total_scrap_qty, employee
+        // Custom fields (scrap_reason, notes, support_employees) will need to be configured
+        // properly in ERPNext as Data/Small Text fields (NOT child tables)
+        
+        // For now, we skip custom fields entirely to avoid errors
+        // The custom data (scrap reason, notes, support employees) will be logged
+        // and can be added manually in ERPNext or configured properly later
+        console.log('[INFO] Custom data (not sent to avoid child table errors):', {
+            scrapReason: scrapReason,
+            notes: notes,
+            supportEmployees: supportEmployees
+        });
+        
+        // Note: To save custom data, ensure custom fields are created in ERPNext as:
+        // - custom_scrap_reason: Data type (NOT child table)
+        // - custom_notes: Small Text type (NOT child table)  
+        // - custom_support_employees: Data type (NOT child table)
+        // Then uncomment the code below:
+        /*
+        if (scrapReason && scrapReason.trim()) {
+            updateData.custom_scrap_reason = scrapReason.trim();
+        }
+        if (notes && notes.trim()) {
+            updateData.custom_notes = notes.trim();
+        }
+        if (supportEmployees && supportEmployees.length > 0) {
+            updateData.custom_support_employees = supportEmployees.join(', ');
+        }
+        */
+
+        // Log update data for debugging
+        console.log(`[Update Job Card] ${jobCardId}:`, {
+            updateData: JSON.stringify(updateData, null, 2),
+            employee: employee,
+            completedQty: completedQty,
+            scrapQty: scrapQty,
+            completedQtyValue: completedQtyValue,
+            scrapQtyValue: scrapQtyValue
+        });
+
+        // Update Job Card (will remain in Draft status)
+        const updateResult = await erpnextAPI('PUT', `Job Card/${jobCardId}`, updateData, username, password);
+
+        // Log the update
+        console.log(`[ERPNext] Job Card ${jobCardId} updated by ${employee}: +${completedQty} completed, +${scrapQty} scrap`);
+
+        res.json({
+            success: true,
+            message: 'Job Card đã được cập nhật thành công (Draft)',
+            jobCard: updateResult.data
+        });
+    } catch (error) {
+        console.error('[Update Job Card Error]', {
+            error: error.message,
+            stack: error.stack,
+            jobCardId: req.body.jobCardId,
+            updateData: {
+                completedQty: req.body.completedQty,
+                scrapQty: req.body.scrapQty,
+                employee: req.body.employee
+            }
+        });
+        
+        // Provide more helpful error message
+        let errorMessage = error.message || 'Lỗi khi cập nhật Job Card';
+        
+        // Check for cancelled document error
+        if (errorMessage.includes('Không thể chỉnh sửa tài liệu hủy') || 
+            errorMessage.includes('Cannot edit cancelled document') ||
+            errorMessage.includes('cancelled document') ||
+            errorMessage.includes('hủy')) {
+            errorMessage = 'Không thể cập nhật Job Card đã bị hủy (Cancelled). Vui lòng liên hệ quản lý để kiểm tra trạng thái Job Card.';
+        }
+        
+        // Check for submitted document error
+        if (errorMessage.includes('submitted') || errorMessage.includes('đã được submit')) {
+            errorMessage = 'Không thể cập nhật Job Card đã được submit. Job Card này chỉ có thể được cập nhật khi ở trạng thái Draft hoặc Work In Progress.';
+        }
+        
+        // If it's a 500 error about custom fields, provide specific guidance
+        if (errorMessage.includes('custom_')) {
+            errorMessage += '\n\nVui lòng tạo các Custom Fields sau trong ERPNext:\n' +
+                '1. Vào Job Card doctype\n' +
+                '2. Thêm Custom Fields:\n' +
+                '   - custom_scrap_reason (Data type)\n' +
+                '   - custom_notes (Small Text type)\n' +
+                '   - custom_support_employees (Data type)';
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: errorMessage
+        });
+    }
+});
+
+// Get Employees list
+app.get('/api/erpnext/employees', requireLogin, async (req, res) => {
+    try {
+        const username = req.session.user?.erpnext_username || null;
+        const password = req.session.user?.erpnext_password || null;
+
+        // Search for active employees
+        const baseUrl = new URL(config.ERPNEXT_URL);
+        const isHttps = baseUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        const filters = JSON.stringify([["status","=","Active"]]);
+        const fields = JSON.stringify(["name","employee_name","employee_number"]);
+        const path = `/api/resource/Employee?filters=${encodeURIComponent(filters)}&fields=${encodeURIComponent(fields)}&limit_page_length=1000`;
+        
+        let authHeader = '';
+        if (config.ERPNEXT_API_KEY && config.ERPNEXT_API_SECRET && 
+            config.ERPNEXT_API_KEY.trim() !== '' && config.ERPNEXT_API_SECRET.trim() !== '') {
+            authHeader = `token ${config.ERPNEXT_API_KEY}:${config.ERPNEXT_API_SECRET}`;
+        } else if (username && password) {
+            authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+        } else {
+            throw new Error('ERPNext authentication credentials not configured. Please set ERPNEXT_API_KEY and ERPNEXT_API_SECRET in .env file.');
+        }
+
+        const result = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: baseUrl.hostname,
+                port: baseUrl.port || (isHttps ? 443 : 80),
+                path: path,
+                method: 'GET',
+                headers: {
+                    'Authorization': authHeader,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            const req = httpModule.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => { responseData += chunk; });
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(responseData));
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                console.error('ERPNext API Request Error:', error);
+                if (error.code === 'ECONNREFUSED') {
+                    reject(new Error(`Không thể kết nối đến ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra: 1) ERPNext có đang chạy không? 2) URL và port có đúng không? 3) Firewall có chặn không?`));
+                } else if (error.code === 'ENOTFOUND') {
+                    reject(new Error(`Không tìm thấy server ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra URL.`));
+                } else if (error.code === 'ETIMEDOUT') {
+                    reject(new Error(`Kết nối đến ERPNext bị timeout tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra kết nối mạng.`));
+                } else {
+                    reject(new Error(`Lỗi kết nối ERPNext: ${error.message}. URL: ${config.ERPNEXT_URL}`));
+                }
+            });
+            
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error(`Kết nối đến ERPNext timeout sau 10 giây tại ${config.ERPNEXT_URL}`));
+            });
+            
+            req.end();
+        });
+
+        if (result.data) {
+            res.json({
+                success: true,
+                employees: result.data
+            });
+        } else {
+            res.json({ success: false, message: 'Không thể lấy danh sách nhân viên' });
+        }
+    } catch (error) {
+        console.error('Get Employees error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi lấy danh sách nhân viên'
+        });
+    }
+});
+
+// Test ERPNext Connection
+app.get('/api/erpnext/test-connection', requireLogin, async (req, res) => {
+    try {
+        const erpnextUrl = config.ERPNEXT_URL;
+        const apiKey = config.ERPNEXT_API_KEY;
+        const apiSecret = config.ERPNEXT_API_SECRET;
+
+        // Kiểm tra cấu hình
+        if (!erpnextUrl || !apiKey || !apiSecret || 
+            apiKey.trim() === '' || apiSecret.trim() === '') {
+            return res.json({
+                success: false,
+                message: 'ERPNext chưa được cấu hình. Vui lòng kiểm tra file .env',
+                config: {
+                    hasUrl: !!erpnextUrl,
+                    hasApiKey: !!(apiKey && apiKey.trim() !== ''),
+                    hasApiSecret: !!(apiSecret && apiSecret.trim() !== ''),
+                    url: erpnextUrl || 'Chưa cấu hình'
+                }
+            });
+        }
+
+        // Thử kết nối đến ERPNext
+        const baseUrl = new URL(erpnextUrl);
+        const isHttps = baseUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        // Test với endpoint đơn giản
+        const testPath = '/api/method/frappe.auth.get_logged_user';
+        const authHeader = `token ${apiKey}:${apiSecret}`;
+
+        const result = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: baseUrl.hostname,
+                port: baseUrl.port || (isHttps ? 443 : 80),
+                path: testPath,
+                method: 'GET',
+                headers: {
+                    'Authorization': authHeader,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                timeout: 5000
+            };
+
+            const req = httpModule.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => { responseData += chunk; });
+                res.on('end', () => {
+                    resolve({
+                        statusCode: res.statusCode,
+                        data: responseData
+                    });
+                });
+            });
+
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            req.setTimeout(5000, () => {
+                req.destroy();
+                reject(new Error('Connection timeout'));
+            });
+
+            req.end();
+        });
+
+        // Kiểm tra response
+        let responseData;
+        try {
+            responseData = JSON.parse(result.data);
+        } catch (e) {
+            responseData = result.data;
+        }
+
+        // Kiểm tra nếu có lỗi 403 hoặc 401
+        if (result.statusCode === 403) {
+            return res.status(403).json({
+                success: false,
+                message: 'API Key không có quyền truy cập (403 Forbidden). Vui lòng kiểm tra quyền của API Key trong ERPNext.',
+                details: {
+                    url: erpnextUrl,
+                    statusCode: result.statusCode,
+                    troubleshooting: {
+                        step1: 'Đăng nhập ERPNext với tài khoản Administrator',
+                        step2: 'Vào Settings > Integrations > API Keys',
+                        step3: 'Kiểm tra API Key có còn active không',
+                        step4: 'Kiểm tra User được gán cho API Key có quyền Read Job Card không',
+                        step5: 'Kiểm tra Role của User có quyền truy cập Job Card không',
+                        step6: 'Xem file ERPNext_API_KEY_SETUP.md để biết chi tiết'
+                    }
+                }
+            });
+        } else if (result.statusCode === 401) {
+            return res.status(401).json({
+                success: false,
+                message: 'API Key/Secret không đúng hoặc đã hết hạn (401 Unauthorized).',
+                details: {
+                    url: erpnextUrl,
+                    statusCode: result.statusCode
+                }
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Kết nối ERPNext thành công!',
+            details: {
+                url: erpnextUrl,
+                statusCode: result.statusCode,
+                hostname: baseUrl.hostname,
+                port: baseUrl.port || (isHttps ? 443 : 80),
+                response: responseData
+            }
+        });
+
+    } catch (error) {
+        console.error('Test ERPNext connection error:', error);
+        
+        let message = 'Không thể kết nối đến ERPNext.';
+        if (error.code === 'ECONNREFUSED') {
+            message = `Không thể kết nối đến ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra:\n1. ERPNext có đang chạy không?\n2. URL và port có đúng không? (Bạn truy cập ERPNext qua URL nào?)\n3. Firewall có chặn không?`;
+        } else if (error.code === 'ENOTFOUND') {
+            message = `Không tìm thấy server ERPNext tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra URL.`;
+        } else if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+            message = `Kết nối đến ERPNext bị timeout tại ${config.ERPNEXT_URL}. Vui lòng kiểm tra kết nối mạng.`;
+        } else {
+            message = `Lỗi: ${error.message}`;
+        }
+
+        res.status(500).json({
+            success: false,
+            message: message,
+            error: {
+                code: error.code,
+                message: error.message,
+                url: config.ERPNEXT_URL
+            },
+            troubleshooting: {
+                step1: 'Kiểm tra ERPNext có đang chạy: Mở trình duyệt và truy cập URL ERPNext',
+                step2: 'Kiểm tra file .env có đúng URL không (chỉ base URL, không có /app/home)',
+                step3: 'Kiểm tra port có đúng không (nếu truy cập qua http://localhost:8080/app/home thì port là 8080)',
+                step4: 'Restart server sau khi thay đổi .env'
+            }
+        });
+    }
+});
+
+// ==================== End ERPNext API Endpoints ====================

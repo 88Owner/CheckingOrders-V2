@@ -1347,6 +1347,7 @@
                         vaiThieu: item.vaiThieu || { soM: 0 },
                         nhapLaiKho: item.nhapLaiKho || { soM: 0 },
                         items: item.items || [],
+                        mayAoGoi: item.mayAoGoi || [],
                         lichSuCat: item.lichSuCat || [],
                         trangThai: item.trangThai || 'active',
                         soLanCat: item.lichSuCat ? item.lichSuCat.length : 1
@@ -1442,6 +1443,14 @@
                         <td colspan="13" style="padding: 20px;">
                             <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
                                 <h4 style="margin-bottom: 12px; color: #333;">Chi tiết lịch sử cắt - ID: ${item.catVaiId}</h4>
+                                ${item.mayAoGoi && item.mayAoGoi.length > 0 ? `
+                                    <div style="margin-bottom: 16px; padding: 12px; background: #e9f7ef; border-radius: 6px; border-left: 4px solid #20c997;">
+                                        <strong style="color: #20c997;">📦 May áo gối:</strong>
+                                        <span style="margin-left: 8px; font-size: 0.95rem; color: #333;">
+                                            ${item.mayAoGoi.reduce((sum, m) => sum + (m.value || 0), 0)} m
+                                        </span>
+                                    </div>
+                                ` : ''}
                                 ${item.lichSuCat && item.lichSuCat.length > 0 ? `
                                     <div style="max-height: 400px; overflow-y: auto;">
                                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">

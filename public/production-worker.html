@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghi nhận công đoạn sản xuất - Shisonson</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #007bff;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-group label span {
+            font-weight: 400;
+            font-size: 0.85rem;
+        }
+
+        .required-asterisk {
+            color: #dc3545;
+            margin-left: 3px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .form-group input[readonly] {
+            background: #f8f9fa;
+            cursor: not-allowed;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .form-group input[readonly]:focus {
+            border-color: #6c757d;
+            box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .scan-section {
+                flex-direction: column;
+            }
+
+            .btn-scan {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .logout-btn {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin-top: 10px;
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 15px 20px;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .card-title {
+                font-size: 1.2rem;
+            }
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .scan-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .scan-input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .scan-input {
+            width: 100%;
+            padding: 12px 50px 12px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .scan-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .scan-icon-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+        }
+
+        .scan-icon-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .scan-icon-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .scan-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+        }
+
+        .btn-scan {
+            padding: 12px 24px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-scan:hover {
+            background: #218838;
+        }
+
+        .job-card-info {
+            background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+            border-left: 4px solid #007bff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .info-row {
+            padding: 4px 0;
+            transition: background 0.2s ease;
+            border-radius: 4px;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .info-row:hover {
+            background: rgba(0, 123, 255, 0.05);
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            animation: slideDown 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .alert::before {
+            font-size: 1.2rem;
+        }
+
+        .alert-success::before {
+            content: 'OKOK';
+        }
+
+        .alert-error::before {
+            content: 'No';
+        }
+
+        .alert-info::before {
+            content: 'What!!';
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .employee-filter {
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .employee-filter input {
+            width: 100%;
+            padding: 10px 40px 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .employee-filter input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .employee-filter::after {
+            content: '';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            font-size: 1.1rem;
+        }
+
+        .multi-select {
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .multi-select-item.hidden {
+            display: none;
+        }
+
+        .multi-select-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .multi-select-item:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+            transform: translateX(4px);
+        }
+
+        .multi-select-item input[type="checkbox"]:checked + label {
+            color: #007bff;
+            font-weight: 600;
+        }
+
+        .multi-select-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+
+        .multi-select-item label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .hidden {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #007bff;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #007bff;
+        }
+
+        .qr-scanner-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .qr-scanner-container video {
+            max-width: 90%;
+            max-height: 70%;
+            border: 4px solid #007bff;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 123, 255, 0.5);
+            animation: scaleIn 0.3s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .qr-scanner-container .close-scanner {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+            z-index: 1001;
+            position: relative;
+        }
+
+        .qr-scanner-container .close-scanner:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+        }
+
+        .qr-scanner-container .close-scanner:active {
+            transform: translateY(0);
+        }
+
+        /* Thêm nút đóng ở góc trên bên phải */
+        .qr-scanner-close-x {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1002;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .qr-scanner-close-x:hover {
+            background: rgba(220, 53, 69, 1);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .scanner-instruction {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Ghi nhận công đoạn sản xuất</h1>
+        <p>Nhân viên sản xuất - Shisonson</p>
+        <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+    </div>
+
+    <div class="container">
+        <!-- Alert Messages -->
+        <div id="alertContainer"></div>
+
+        <!-- Scan Section -->
+        <div class="card">
+            <h2 class="card-title">Quét/ Nhập thông tin</h2>
+            <div class="form-group">
+                <label>Quét QR/Barcode hoặc nhập Work Order</label>
+                <div class="scan-section">
+                    <div class="scan-input-wrapper">
+                        <input type="text" 
+                               id="scanInput" 
+                               class="scan-input" 
+                               placeholder="Quét mã hoặc nhập Work Order (VD: MFG-WO-2025-00014)"
+                               autocomplete="off"
+                               autofocus>
+                        <button class="scan-icon-btn" onclick="startQRScanner()" title="Quét QR/Barcode">
+                            <svg class="scan-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Top left corner -->
+                                <path d="M4 4H8V8H4V4Z" stroke="#28a745" stroke-width="2" fill="none"/>
+                                <!-- Top right corner -->
+                                <path d="M16 4H20V8H16V4Z" stroke="#28a745" stroke-width="2" fill="none"/>
+                                <!-- Bottom left corner -->
+                                <path d="M4 16H8V20H4V16Z" stroke="#28a745" stroke-width="2" fill="none"/>
+                                <!-- Bottom right corner -->
+                                <path d="M16 16H20V20H16V16Z" stroke="#28a745" stroke-width="2" fill="none"/>
+                                <!-- Scanning line -->
+                                <line x1="4" y1="12" x2="20" y2="12" stroke="#28a745" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="btn-scan" onclick="startQRScanner()">
+                        <svg class="scan-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Top left corner -->
+                            <path d="M4 4H8V8H4V4Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <!-- Top right corner -->
+                            <path d="M16 4H20V8H16V4Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <!-- Bottom left corner -->
+                            <path d="M4 16H8V20H4V16Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <!-- Bottom right corner -->
+                            <path d="M16 16H20V20H16V16Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <!-- Scanning line -->
+                            <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span>Quét QR</span>
+                    </button>
+                </div>
+                <small style="color: #666; margin-top: 8px; display: block; font-style: italic;">
+                    <strong>Hướng dẫn:</strong> Bạn có thể <strong>nhập Work Order trực tiếp</strong> vào ô trên (VD: MFG-WO-2025-00014) hoặc <strong>tùy chọn</strong> bbiểu tượng quét để quét mã WO.
+                </small>
+            </div>
+        </div>
+
+        <!-- Job Card Info -->
+        <div class="card hidden" id="jobCardInfoCard">
+            <h2 class="card-title">Thông tin Job Card</h2>
+            <div class="job-card-info" id="jobCardInfo">
+                <!-- Job Card info will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <div class="card hidden" id="inputFormCard">
+            <h2 class="card-title">Ghi nhận công đoạn</h2>
+            <form id="productionForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Mã đơn (Work Order)</label>
+                        <input type="text" id="workOrder" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Công đoạn (Operation)</label>
+                        <input type="text" id="operation" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số lượng kế hoạch</label>
+                        <input type="number" id="plannedQty" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Số lượng đã hoàn thành (trước đó)</label>
+                        <input type="number" id="previousCompletedQty" readonly>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Nhân viên chính <span style="color: #28a745;">(Tự động)</span></label>
+                    <input type="text" id="mainEmployee" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Nhân viên hỗ trợ (có thể chọn nhiều)</label>
+                    <div class="employee-filter">
+                        <input type="text" 
+                               id="employeeFilterInput" 
+                               placeholder="Tìm kiếm nhân viên theo tên..."
+                               autocomplete="off">
+                    </div>
+                    <div class="multi-select" id="supportEmployeesContainer">
+                        <!-- Support employees will be loaded here -->
+                    </div>
+                    <small style="color: #666; margin-top: 5px; display: block; font-style: italic;">
+                        Nhập tên nhân viên.
+                    </small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số lượng hoàn thành (lần này) <span class="required-asterisk">*</span></label>
+                        <input type="number" 
+                               id="completedQty" 
+                               min="0" 
+                               step="1" 
+                               required
+                               onchange="validateQuantities()"
+                               placeholder="Nhập số lượng">
+                    </div>
+                    <div class="form-group">
+                        <label>Số lượng lỗi <span class="required-asterisk">*</span></label>
+                        <input type="number" 
+                               id="scrapQty" 
+                               min="0" 
+                               step="1" 
+                               required
+                               onchange="validateQuantities()"
+                               placeholder="Nhập số lượng lỗi">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Lý do lỗi <span id="scrapReasonRequired" style="color: red; display: none;">*</span></label>
+                    <textarea id="scrapReason" 
+                              rows="3" 
+                              placeholder="Nhập lý do lỗi nếu có số lượng lỗi"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi chú (tùy chọn)</label>
+                    <textarea id="notes" rows="2" placeholder="Ghi chú thêm nếu có"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-success">Lưu ghi nhận (Draft)</button>
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">Làm mới</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Scanner Modal -->
+    <div class="qr-scanner-container hidden" id="qrScannerContainer">
+        <button class="qr-scanner-close-x" onclick="stopQRScanner()" title="Đóng (ESC)">✕</button>
+        <div class="scanner-instruction">
+            <p>Đưa mã QR/Barcode vào khung hình</p>
+            <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 5px;">Mã sẽ được quét tự động</p>
+        </div>
+        <video id="qrVideo" autoplay playsinline></video>
+        <button class="close-scanner" onclick="stopQRScanner()">✕ Đóng</button>
+    </div>
+
+    <script>
+        let currentJobCard = null;
+        let currentUser = null;
+        let employeesList = [];
+        let qrStream = null;
+        let qrCodeDetector = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Đảm bảo scanner bị ẩn ngay từ đầu
+            const scannerContainer = document.getElementById('qrScannerContainer');
+            if (scannerContainer) {
+                scannerContainer.classList.add('hidden');
+            }
+            
+            await checkAuth();
+            await loadEmployees();
+            setupEventListeners();
+            
+            // Đảm bảo scanner vẫn bị ẩn sau khi setup
+            if (scannerContainer) {
+                scannerContainer.classList.add('hidden');
+            }
+        });
+
+        // Check authentication
+        async function checkAuth() {
+            try {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = 'Bearer ' + token;
+                }
+
+                const res = await fetch('/api/me', {
+                    credentials: 'include',
+                    headers
+                });
+                const result = await res.json();
+
+                if (!result.success || result.role !== 'production_worker') {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                currentUser = result;
+                // Hiển thị tên nhân viên từ ERPNext nếu có, nếu không thì dùng username
+                const displayName = result.employeeName || result.erpnextEmployee?.name || result.username;
+                document.querySelector('.header p').textContent = `Nhân viên: ${displayName}`;
+            } catch (error) {
+                console.error('Auth error:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // Load employees list
+        async function loadEmployees() {
+            try {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const res = await fetch('/api/erpnext/employees', {
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    employeesList = result.employees || [];
+                    renderSupportEmployees();
+                }
+            } catch (error) {
+                console.error('Load employees error:', error);
+                showAlert('Không thể tải danh sách nhân viên', 'error');
+            }
+        }
+
+        // Render support employees
+        function renderSupportEmployees() {
+            const container = document.getElementById('supportEmployeesContainer');
+            container.innerHTML = '';
+
+            employeesList.forEach(emp => {
+                const item = document.createElement('div');
+                item.className = 'multi-select-item';
+                item.setAttribute('data-employee-name', (emp.employee_name || emp.name).toLowerCase());
+                item.setAttribute('data-employee-id', emp.name);
+                item.innerHTML = `
+                    <input type="checkbox" id="emp_${emp.name}" value="${emp.name}">
+                    <label for="emp_${emp.name}">${emp.employee_name || emp.name}</label>
+                `;
+                container.appendChild(item);
+            });
+
+            // Setup filter event listener
+            setupEmployeeFilter();
+        }
+
+        // Setup employee filter
+        function setupEmployeeFilter() {
+            const filterInput = document.getElementById('employeeFilterInput');
+            if (!filterInput) return;
+
+            filterInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                filterEmployees(searchTerm);
+            });
+
+            // Clear filter on focus if needed
+            filterInput.addEventListener('focus', (e) => {
+                // Optional: có thể thêm logic nếu cần
+            });
+        }
+
+        // Filter employees by search term
+        function filterEmployees(searchTerm) {
+            const items = document.querySelectorAll('#supportEmployeesContainer .multi-select-item');
+            
+            if (!searchTerm) {
+                // Hiển thị tất cả nếu không có từ khóa
+                items.forEach(item => {
+                    item.classList.remove('hidden');
+                });
+                return;
+            }
+
+            // Lọc theo tên nhân viên
+            items.forEach(item => {
+                const employeeName = item.getAttribute('data-employee-name') || '';
+                if (employeeName.includes(searchTerm)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const scanInput = document.getElementById('scanInput');
+            
+            // Đảm bảo scanner container bị ẩn khi load trang
+            const scannerContainer = document.getElementById('qrScannerContainer');
+            if (scannerContainer && !scannerContainer.classList.contains('hidden')) {
+                scannerContainer.classList.add('hidden');
+                stopQRScanner(); // Đảm bảo dừng mọi stream nếu có
+            }
+            
+            // Auto-focus vào input khi trang load
+            scanInput.focus();
+            
+            // Scan input enter key - tự động load khi nhấn Enter
+            scanInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const value = scanInput.value.trim();
+                    if (value) {
+                        loadJobCard(value);
+                    }
+                }
+            });
+
+            // Đóng scanner bằng phím ESC
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' || e.key === 'Esc') {
+                    const scannerContainer = document.getElementById('qrScannerContainer');
+                    if (scannerContainer && !scannerContainer.classList.contains('hidden')) {
+                        stopQRScanner();
+                    }
+                }
+            });
+
+            // Xử lý khi input thay đổi (cho phép paste hoặc nhập từ bàn phím)
+            scanInput.addEventListener('paste', (e) => {
+                // Delay một chút để paste hoàn tất
+                setTimeout(() => {
+                    const value = scanInput.value.trim();
+                    if (value) {
+                        loadJobCard(value);
+                    }
+                }, 100);
+            });
+
+            // Cho phép nhập từ bàn phím bất cứ lúc nào (không bị block bởi scanner)
+            scanInput.addEventListener('input', (e) => {
+                // Người dùng có thể tiếp tục nhập bình thường
+                // Không làm gì cả, chỉ để đảm bảo input luôn hoạt động
+            });
+
+            // Xử lý khi mất focus - không tự động load để tránh load nhầm
+            // Người dùng phải nhấn Enter để load
+
+            // Form submit
+            document.getElementById('productionForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveJobCard();
+            });
+
+            // Scrap quantity change
+            document.getElementById('scrapQty').addEventListener('input', (e) => {
+                const scrapQty = parseFloat(e.target.value) || 0;
+                const requiredLabel = document.getElementById('scrapReasonRequired');
+                if (scrapQty > 0) {
+                    requiredLabel.style.display = 'inline';
+                    document.getElementById('scrapReason').required = true;
+                } else {
+                    requiredLabel.style.display = 'none';
+                    document.getElementById('scrapReason').required = false;
+                }
+            });
+        }
+
+        // Load Job Card by Work Order - tự động tìm Job Card của nhân viên
+        async function loadJobCard(workOrder) {
+            if (!workOrder || !workOrder.trim()) {
+                showAlert('Vui lòng nhập Work Order vào ô input hoặc quét mã', 'error');
+                // Focus vào input để người dùng có thể nhập ngay
+                document.getElementById('scanInput').focus();
+                return;
+            }
+
+            // Kiểm tra xem user đã có employee mapping chưa
+            // Logic: 1 username nội bộ → 1 employee → chỉ thấy Job Card có employee đó được gán
+            if (!currentUser || !currentUser.erpnextEmployeeId) {
+                showAlert('Tài khoản chưa được mapping với Employee trong ERPNext. Vui lòng liên hệ quản trị viên để được cấu hình.', 'error');
+                return;
+            }
+
+            showLoading('Đang tìm Job Card của bạn trong Work Order...');
+
+            try {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const res = await fetch('/api/erpnext/job-card-by-work-order', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ 
+                        workOrder: workOrder.trim(),
+                        employeeId: currentUser.erpnextEmployeeId || currentUser.erpnextEmployee?.id
+                    })
+                });
+
+                const result = await res.json();
+                hideLoading();
+
+                if (result.success) {
+                    currentJobCard = result.jobCard;
+                    displayJobCardInfo(result.jobCard);
+                    populateForm(result.jobCard);
+                    
+                    // Hiển thị thông báo nếu đây là công đoạn kế tiếp
+                    if (result.isNextOperation && result.message) {
+                        showAlert(result.message, 'success');
+                    }
+                } else {
+                    showAlert(result.message || 'Không tìm thấy Job Card của bạn trong Work Order này', 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                console.error('Load Job Card error:', error);
+                showAlert('Lỗi khi tải thông tin Job Card', 'error');
+            }
+        }
+
+
+        // Display Job Card info
+        function displayJobCardInfo(jobCard) {
+            const infoDiv = document.getElementById('jobCardInfo');
+            infoDiv.innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">Mã đơn:</span>
+                    <span class="info-value">${jobCard.work_order || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Công đoạn:</span>
+                    <span class="info-value">${jobCard.operation || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Số lượng kế hoạch:</span>
+                    <span class="info-value">${jobCard.for_quantity || 0}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Số lượng đã hoàn thành:</span>
+                    <span class="info-value">${jobCard.total_completed_qty || 0}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Số lượng lỗi:</span>
+                    <span class="info-value">${jobCard.total_scrap_qty || 0}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Trạng thái:</span>
+                    <span class="info-value">${jobCard.docstatus === 0 ? 'Draft' : jobCard.docstatus === 1 ? 'Submitted' : 'Cancelled'}</span>
+                </div>
+            `;
+
+            document.getElementById('jobCardInfoCard').classList.remove('hidden');
+        }
+
+        // Populate form
+        function populateForm(jobCard) {
+            document.getElementById('workOrder').value = jobCard.work_order || '';
+            document.getElementById('operation').value = jobCard.operation || '';
+            document.getElementById('plannedQty').value = jobCard.for_quantity || 0;
+            document.getElementById('previousCompletedQty').value = jobCard.total_completed_qty || 0;
+            // Hiển thị tên nhân viên từ ERPNext nếu có, nếu không thì dùng username
+            const employeeDisplayName = currentUser?.employeeName || currentUser?.erpnextEmployee?.name || currentUser?.username || '';
+            document.getElementById('mainEmployee').value = employeeDisplayName;
+
+            // Reset form values
+            document.getElementById('completedQty').value = '';
+            document.getElementById('scrapQty').value = '';
+            document.getElementById('scrapReason').value = '';
+            document.getElementById('notes').value = '';
+
+            // Uncheck all support employees
+            document.querySelectorAll('#supportEmployeesContainer input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+
+            // Clear filter
+            const filterInput = document.getElementById('employeeFilterInput');
+            if (filterInput) {
+                filterInput.value = '';
+                filterEmployees(''); // Hiển thị tất cả
+            }
+
+            document.getElementById('inputFormCard').classList.remove('hidden');
+        }
+
+        // Validate quantities
+        function validateQuantities() {
+            const plannedQty = parseFloat(document.getElementById('plannedQty').value) || 0;
+            const previousCompleted = parseFloat(document.getElementById('previousCompletedQty').value) || 0;
+            const completedQty = parseFloat(document.getElementById('completedQty').value) || 0;
+            const scrapQty = parseFloat(document.getElementById('scrapQty').value) || 0;
+
+            const remainingQty = plannedQty - previousCompleted;
+            const totalInput = completedQty + scrapQty;
+
+            if (totalInput > remainingQty) {
+                showAlert(`Tổng số lượng hoàn thành + lỗi (${totalInput}) không được vượt quá số lượng còn lại (${remainingQty})`, 'error');
+                return false;
+            }
+
+            if (completedQty < 0 || scrapQty < 0) {
+                showAlert('Số lượng không được âm', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Save Job Card
+        async function saveJobCard() {
+            if (!currentJobCard) {
+                showAlert('Vui lòng tải thông tin Job Card trước', 'error');
+                return;
+            }
+
+            if (!validateQuantities()) {
+                return;
+            }
+
+            const completedQty = parseFloat(document.getElementById('completedQty').value) || 0;
+            const scrapQty = parseFloat(document.getElementById('scrapQty').value) || 0;
+            const scrapReason = document.getElementById('scrapReason').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+
+            if (scrapQty > 0 && !scrapReason) {
+                showAlert('Vui lòng nhập lý do lỗi khi có số lượng lỗi', 'error');
+                return;
+            }
+
+            // Get selected support employees
+            const supportEmployees = [];
+            document.querySelectorAll('#supportEmployeesContainer input[type="checkbox"]:checked').forEach(cb => {
+                supportEmployees.push(cb.value);
+            });
+
+            showLoading('Đang lưu ghi nhận...');
+
+            try {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const res = await fetch('/api/erpnext/update-job-card', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        jobCardId: currentJobCard.name,
+                        completedQty: completedQty,
+                        scrapQty: scrapQty,
+                        scrapReason: scrapReason,
+                        notes: notes,
+                        employee: currentUser.erpnextEmployeeId || currentUser.erpnextEmployee?.id || currentUser.username,
+                        supportEmployees: supportEmployees
+                    })
+                });
+
+                const result = await res.json();
+                hideLoading();
+
+                if (result.success) {
+                    showAlert('Ghi nhận đã được lưu thành công (Draft). Quản lý sẽ kiểm tra và submit trong ERPNext.', 'success');
+                    resetForm();
+                } else {
+                    showAlert(result.message || 'Lỗi khi lưu ghi nhận', 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                console.error('Save Job Card error:', error);
+                showAlert('Lỗi khi lưu ghi nhận', 'error');
+            }
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('scanInput').value = '';
+            document.getElementById('jobCardInfoCard').classList.add('hidden');
+            document.getElementById('inputFormCard').classList.add('hidden');
+            currentJobCard = null;
+            // Focus lại vào input để tiếp tục quét/nhập
+            document.getElementById('scanInput').focus();
+        }
+
+        // QR Scanner - Tùy chọn, không bắt buộc
+        async function startQRScanner() {
+            // Đảm bảo input vẫn có thể sử dụng được
+            const scanInput = document.getElementById('scanInput');
+            
+            try {
+                // Kiểm tra xem có hỗ trợ camera không
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showAlert('Trình duyệt không hỗ trợ camera. Bạn có thể nhập mã trực tiếp vào ô input phía trên.', 'info');
+                    // Focus vào input để người dùng có thể nhập ngay
+                    scanInput.focus();
+                    return;
+                }
+
+                // Yêu cầu quyền camera (chỉ khi người dùng click scan)
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment', // Camera sau (mobile)
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                }).catch((error) => {
+                    // Nếu từ chối hoặc lỗi, vẫn cho phép nhập thủ công
+                    console.log('Camera access denied or error:', error);
+                    handleCameraError(error);
+                    throw error;
+                });
+
+                // Nếu có stream, mở scanner
+                qrStream = stream;
+                const video = document.getElementById('qrVideo');
+                video.srcObject = stream;
+                document.getElementById('qrScannerContainer').classList.remove('hidden');
+
+                // Initialize QR code detector if available
+                if ('BarcodeDetector' in window) {
+                    qrCodeDetector = new BarcodeDetector({ 
+                        formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'codabar', 'itf'] 
+                    });
+                    detectQRCode();
+                } else {
+                    // Fallback: hướng dẫn nhập thủ công
+                    showAlert('Trình duyệt không hỗ trợ quét QR tự động. Bạn có thể nhập mã thủ công vào ô input.', 'info');
+                    // Đóng camera sau 3 giây và focus vào input
+                    setTimeout(() => {
+                        stopQRScanner();
+                        scanInput.focus();
+                    }, 3000);
+                }
+            } catch (error) {
+                // Xử lý lỗi một cách graceful, không block người dùng
+                handleCameraError(error);
+            }
+        }
+
+        // Xử lý lỗi camera một cách thân thiện
+        function handleCameraError(error) {
+            console.log('Camera error (non-blocking):', error);
+            
+            let message = 'Bạn có thể nhập mã trực tiếp vào ô input phía trên.';
+            
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                message = 'Quyền truy cập camera bị từ chối. ' + message;
+            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                message = 'Không tìm thấy camera. ' + message;
+            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                message = 'Camera đang được sử dụng bởi ứng dụng khác. ' + message;
+            } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+                message = 'Camera không hỗ trợ yêu cầu. ' + message;
+            } else {
+                message = 'Không thể mở camera. ' + message;
+            }
+            
+            showAlert(message, 'info');
+            
+            // Luôn focus vào input để người dùng có thể nhập ngay
+            const scanInput = document.getElementById('scanInput');
+            scanInput.focus();
+            
+            // Đảm bảo scanner đã đóng
+            stopQRScanner();
+        }
+
+        function detectQRCode() {
+            if (!qrCodeDetector || !qrStream) return;
+
+            const video = document.getElementById('qrVideo');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                qrCodeDetector.detect(video)
+                    .then(barcodes => {
+                        if (barcodes.length > 0) {
+                            const code = barcodes[0].rawValue;
+                            stopQRScanner();
+                            // Đặt giá trị vào input và tự động load
+                            document.getElementById('scanInput').value = code;
+                            // Hiển thị thông báo thành công
+                            showAlert(`Đã quét mã: ${code}`, 'success');
+                            // Tự động load Job Card
+                            loadJobCard(code);
+                        } else {
+                            requestAnimationFrame(detectQRCode);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Barcode detection error:', error);
+                        requestAnimationFrame(detectQRCode);
+                    });
+            } else {
+                requestAnimationFrame(detectQRCode);
+            }
+        }
+
+        function stopQRScanner() {
+            // Dừng tất cả camera tracks
+            if (qrStream) {
+                qrStream.getTracks().forEach(track => {
+                    track.stop();
+                    track.enabled = false;
+                });
+                qrStream = null;
+            }
+            
+            // Clear video source
+            const video = document.getElementById('qrVideo');
+            if (video) {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+                video.pause();
+            }
+            
+            // Ẩn container
+            const scannerContainer = document.getElementById('qrScannerContainer');
+            if (scannerContainer) {
+                scannerContainer.classList.add('hidden');
+            }
+            
+            // Reset detector
+            qrCodeDetector = null;
+            
+            // Focus lại vào input để người dùng có thể tiếp tục nhập
+            const scanInput = document.getElementById('scanInput');
+            if (scanInput) {
+                setTimeout(() => {
+                    scanInput.focus();
+                }, 100);
+            }
+        }
+
+        // Show/Hide loading
+        function showLoading(message) {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div class="loading-text">${message}</div>
+                </div>
+            `;
+        }
+
+        function hideLoading() {
+            // Keep last alert if exists
+        }
+
+        // Show alert
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Logout
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>
+

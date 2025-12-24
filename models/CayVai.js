@@ -58,6 +58,15 @@ const cayVaiSchema = new mongoose.Schema({
         dienTich: Number,
         dienTichCat: Number
     }],
+    // Thông tin may áo gối (từ vải còn lại khi cắt kích thước có chiều cao 180)
+    mayAoGoi: [{
+        maMau: String,
+        label: { type: String, default: 'May áo gối' },
+        ngang: Number, // Chiều ngang (cm)
+        qty: Number, // Số lượng
+        calcStr: String, // Chuỗi công thức tính (VD: "(100 + 5) * 30")
+        value: Number // Kết quả tính toán
+    }],
     createdBy: {
         type: String,
         required: true

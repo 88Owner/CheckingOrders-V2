@@ -338,6 +338,10 @@
             background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
             color: white;
         }
+        .role-badge.production_worker {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
 
         /* Enhanced button styles for table actions */
         .btn-small {
@@ -677,6 +681,7 @@
                             <option value="packer">Packer</option>
                             <option value="warehouse_manager">Quản lý kho phôi</option>
                             <option value="warehouse_staff">Nhân viên kho phôi</option>
+                            <option value="production_worker">Nhân viên sản xuất</option>
                             <option value="user">User</option>
                         </select>
                 </div>
@@ -691,6 +696,7 @@
                     <tr>
                         <th>Tên đăng nhập</th>
                         <th>Quyền</th>
+                        <th>ERPNext Employee</th>
                         <th>Ngày tạo</th>
                         <th>Thao tác</th>
                                 </tr>
@@ -1075,7 +1081,7 @@
                     if (tbody) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="4" style="text-align: center; padding: 20px; color: #667eea;">
+                                <td colspan="5" style="text-align: center; padding: 20px; color: #667eea;">
                                     <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
                                     Đang tải danh sách tài khoản...
                                 </td>
@@ -1100,7 +1106,7 @@
                 
                 if (result.success) {
                     console.log('✅ Accounts data received, displaying...');
-                    displayAccounts(result.data);
+                    await displayAccounts(result.data);
                 } else {
                     console.error('❌ API returned error:', result.message);
                     if (!suppressAlerts) showError(result.message);
@@ -1109,7 +1115,7 @@
                     if (tbody) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="4" style="text-align: center; padding: 20px; color: #dc3545;">
+                                <td colspan="5" style="text-align: center; padding: 20px; color: #dc3545;">
                                     <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
                                     Lỗi tải danh sách tài khoản: ${result.message}
                                 </td>
@@ -1125,10 +1131,10 @@
                 if (tbody) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="4" style="text-align: center; padding: 20px; color: #dc3545;">
-                                <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
-                                Lỗi kết nối: ${error.message}
-                            </td>
+                                <td colspan="5" style="text-align: center; padding: 20px; color: #dc3545;">
+                                    <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+                                    Lỗi kết nối: ${error.message}
+                                </td>
                         </tr>
                     `;
                 }
@@ -1136,7 +1142,7 @@
         }
 
         // Display accounts
-        function displayAccounts(accounts) {
+        async function displayAccounts(accounts) {
             console.log('📊 Displaying accounts:', accounts.length, 'accounts');
             
             const tbody = document.getElementById('accountsTableBody');
@@ -1151,7 +1157,7 @@
                 console.log('📋 No accounts to display');
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="4" class="empty-state">
+                        <td colspan="5" class="empty-state">
                             <div class="empty-state-icon">👥</div>
                             <div class="empty-state-message">Không có tài khoản nào</div>
                         </td>
@@ -1160,25 +1166,76 @@
                 return;
             }
 
+            // Load employees list for mapping
+            let employeesList = [];
+            try {
+                const empRes = await fetch('/api/erpnext/employees', {
+                    credentials: 'include'
+                });
+                if (empRes.ok) {
+                    const empResult = await empRes.json();
+                    if (empResult.success && empResult.employees) {
+                        employeesList = empResult.employees;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading employees:', error);
+            }
+
             accounts.forEach(account => {
                 const row = document.createElement('tr');
+                // Escape HTML để tránh XSS
+                const username = account.username || '';
+                const role = account.role || 'user';
+                const erpnextEmployeeId = account.erpnextEmployeeId || '';
+                const erpnextEmployeeName = account.erpnextEmployeeName || '';
+                const accountId = account._id || '';
+                const createdAt = account.createdAt ? new Date(account.createdAt).toLocaleDateString('vi-VN') : '';
+                
+                // Build employee options HTML
+                const employeeOptions = employeesList.length > 0 
+                    ? employeesList.map(emp => {
+                        const empName = emp.employee_name || emp.name || '';
+                        const empId = emp.name || '';
+                        const empNumber = emp.employee_number || '';
+                        const selected = erpnextEmployeeId === empId ? 'selected' : '';
+                        return `<option value="${empId}" ${selected}>${empName}${empNumber ? ` (${empNumber})` : ''}</option>`;
+                    }).join('')
+                    : '<option value="">-- Đang tải danh sách Employee... --</option>';
+                
                 row.innerHTML = `
-                    <td>${account.username}</td>
-                    <td><span class="role-badge ${account.role}">${account.role.toUpperCase()}</span></td>
-                    <td>${new Date(account.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td>${username}</td>
+                    <td><span class="role-badge ${role}">${role.toUpperCase()}</span></td>
                     <td>
-                        ${account.username !== 'admin' ? `
-                            <select id="roleSelect_${account._id}" style="padding: 8px; border-radius: 6px; border: 2px solid #ddd;">
-                                <option value="admin" ${account.role === 'admin' ? 'selected' : ''}>Admin</option>
-                                <option value="checker" ${account.role === 'checker' ? 'selected' : ''}>Checker</option>
-                                <option value="packer" ${account.role === 'packer' ? 'selected' : ''}>Packer</option>
-                                <option value="warehouse_manager" ${account.role === 'warehouse_manager' ? 'selected' : ''}>Quản lý kho phôi</option>
-                                <option value="warehouse_staff" ${account.role === 'warehouse_staff' ? 'selected' : ''}>Nhân viên kho phôi</option>
-                                <option value="user" ${account.role === 'user' ? 'selected' : ''}>User</option>
+                        ${role === 'production_worker' ? `
+                            <select id="employeeSelect_${accountId}" style="padding: 8px; border-radius: 6px; border: 2px solid ${erpnextEmployeeId ? '#28a745' : '#dc3545'}; width: 200px;" onchange="saveEmployeeMapping('${accountId}')" title="${erpnextEmployeeId ? 'Đã mapping' : 'BẮT BUỘC: Phải mapping Employee để login'}">
+                                <option value="">-- Chưa mapping (BẮT BUỘC) --</option>
+                                ${employeeOptions}
                             </select>
-                            <button class="btn-small btn-success" onclick="saveRole('${account._id}')">💾 Save</button>
-                            <button class="btn-small btn-warning" onclick="showChangePasswordModal('${account._id}', '${account.username}')">🔑 Đổi MK</button>
-                            <button class="btn-small btn-danger" onclick="deleteAccount('${account._id}')">🗑️ Xóa</button>
+                            ${erpnextEmployeeName ? `<br><small style="color: #28a745;">✓ ${erpnextEmployeeName}</small>` : '<br><small style="color: #dc3545;">⚠ Chưa mapping - Không thể login</small>'}
+                        ` : `
+                            <select id="employeeSelect_${accountId}" style="padding: 8px; border-radius: 6px; border: 2px solid #ddd; width: 200px;" onchange="saveEmployeeMapping('${accountId}')">
+                                <option value="">-- Chưa mapping --</option>
+                                ${employeeOptions}
+                            </select>
+                            ${erpnextEmployeeName ? `<br><small style="color: #666;">${erpnextEmployeeName}</small>` : ''}
+                        `}
+                    </td>
+                    <td>${createdAt}</td>
+                    <td>
+                        ${username !== 'admin' ? `
+                            <select id="roleSelect_${accountId}" style="padding: 8px; border-radius: 6px; border: 2px solid #ddd;">
+                                <option value="admin" ${role === 'admin' ? 'selected' : ''}>Admin</option>
+                                <option value="checker" ${role === 'checker' ? 'selected' : ''}>Checker</option>
+                                <option value="packer" ${role === 'packer' ? 'selected' : ''}>Packer</option>
+                                <option value="warehouse_manager" ${role === 'warehouse_manager' ? 'selected' : ''}>Quản lý kho phôi</option>
+                                <option value="warehouse_staff" ${role === 'warehouse_staff' ? 'selected' : ''}>Nhân viên kho phôi</option>
+                                <option value="production_worker" ${role === 'production_worker' ? 'selected' : ''}>Nhân viên sản xuất</option>
+                                <option value="user" ${role === 'user' ? 'selected' : ''}>User</option>
+                            </select>
+                            <button class="btn-small btn-success" onclick="saveRole('${accountId}')">💾 Save</button>
+                            <button class="btn-small btn-warning" onclick="showChangePasswordModal('${accountId}', '${username}')">🔑 Đổi MK</button>
+                            <button class="btn-small btn-danger" onclick="deleteAccount('${accountId}')">🗑️ Xóa</button>
                         ` : 'Tài khoản gốc'}
                     </td>
                 `;
@@ -1186,6 +1243,42 @@
             });
         }
         
+        // Save ERPNext Employee mapping
+        async function saveEmployeeMapping(accountId) {
+            const selectElement = document.getElementById(`employeeSelect_${accountId}`);
+            if (!selectElement) {
+                showError('Không tìm thấy dropdown employee!');
+                return;
+            }
+
+            const erpnextEmployeeId = selectElement.value || null;
+
+            try {
+                const response = await fetch(`/api/accounts/${accountId}/erpnext-employee`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ erpnextEmployeeId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message || 'Đã cập nhật mapping Employee thành công');
+                    loadAccounts(false); // Reload without showing loading
+                } else {
+                    showError(result.message || 'Lỗi khi cập nhật mapping Employee');
+                    // Reload to reset dropdown
+                    loadAccounts(false);
+                }
+            } catch (error) {
+                showError('Lỗi khi cập nhật mapping Employee: ' + error.message);
+                loadAccounts(false);
+            }
+        }
+
         // Save role
         async function saveRole(accountId) {
             const selectElement = document.getElementById(`roleSelect_${accountId}`);

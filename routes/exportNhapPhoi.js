@@ -195,19 +195,40 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
             }
             
             // Bước 1: Lấy thông tin kích thước từ KichThuoc collection bằng szSku
+            let cao = null;
+            let ngang = null;
+            let kichThuocData = null;
+            
             if (item.szSku) {
-                const kichThuocData = await KichThuoc.findOne({ szSku: item.szSku });
+                kichThuocData = await KichThuoc.findOne({ szSku: item.szSku });
                 
                 if (kichThuocData && kichThuocData.kichThuoc) {
                     // Bước 2: Parse cao và ngang từ kích thước
-                    const { cao, ngang } = parseCaoNgangFromKichThuoc(kichThuocData.kichThuoc);
-                    
-                    if (cao && ngang) {
-                        // Bước 3: cao và ngang đã được chuẩn hóa trong hàm parse (loại bỏ .0)
-                        // Chuẩn hóa tenMau để so sánh (trim và loại bỏ khoảng trắng thừa)
-                        const tenMauNormalized = tenMau ? String(tenMau || '').trim() : String(maMau || '').trim();
-                        const caoNormalized = String(cao || '').trim();
-                        const ngangNormalized = String(ngang || '').trim();
+                    const parsed = parseCaoNgangFromKichThuoc(kichThuocData.kichThuoc);
+                    cao = parsed.cao;
+                    ngang = parsed.ngang;
+                } else {
+                    // Không tìm thấy trong KichThuoc - thử parse trực tiếp từ szSku
+                    // LinkedItems có format: 43-25-ngang-cao (ví dụ: 43-25-100-120)
+                    const szSkuParts = item.szSku.split('-');
+                    if (szSkuParts.length >= 4) {
+                        // Format: maMau-loai-ngang-cao
+                        ngang = szSkuParts[szSkuParts.length - 2]; // Phần áp cuối thứ 2
+                        cao = szSkuParts[szSkuParts.length - 1]; // Phần cuối cùng
+                        console.log(`📋 Parse trực tiếp từ szSku: ${item.szSku} => ngang=${ngang}, cao=${cao}`);
+                    } else {
+                        console.warn(`Không tìm thấy kích thước với szSku: ${item.szSku} và không parse được từ szSku`);
+                    }
+                }
+                
+                // Nếu đã có cao và ngang (từ KichThuoc hoặc parse từ szSku), tìm SKU từ MasterDataVai
+                if (cao && ngang) {
+                    // Bước 3: cao và ngang đã được chuẩn hóa trong hàm parse (loại bỏ .0)
+                    // Chuẩn hóa tenMau để so sánh (trim và loại bỏ khoảng trắng thừa)
+                    const tenMauNormalized = tenMau ? String(tenMau || '').trim() : String(maMau || '').trim();
+                    // Nếu cao/ngang là từ szSku (format số nguyên), chuẩn hóa
+                    const caoNormalized = String(cao || '').trim().replace(/\.0+$/, '');
+                    const ngangNormalized = String(ngang || '').trim().replace(/\.0+$/, '');
                         
                         // Tìm SKU từ MasterDataVai bằng Mẫu (tenMau) + cao + ngang
                         // Thử nhiều cách query để đảm bảo tìm thấy
@@ -264,10 +285,12 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
                         
                         if (masterData && masterData.sku) {
                             sku = masterData.sku;
-                            console.log(`✅ Tìm thấy SKU: ${sku} cho Mẫu (tenMau): ${tenMauNormalized} (maMau: ${maMau}), Cao: ${caoNormalized}, Ngang: ${ngangNormalized}, kichThuoc: ${kichThuocData.kichThuoc}`);
+                            const kichThuocInfo = kichThuocData && kichThuocData.kichThuoc ? `kichThuoc: ${kichThuocData.kichThuoc}` : `szSku: ${item.szSku}`;
+                            console.log(`✅ Tìm thấy SKU: ${sku} cho Mẫu (tenMau): ${tenMauNormalized} (maMau: ${maMau}), Cao: ${caoNormalized}, Ngang: ${ngangNormalized}, ${kichThuocInfo}`);
                         } else {
                             // KHÔNG fallback về szSku - phải tìm thấy SKU từ MasterDataVai
-                            console.error(`❌ KHÔNG TÌM THẤY SKU trong MasterDataVai cho Mẫu (tenMau): ${tenMauNormalized} (maMau: ${maMau}), Cao: ${caoNormalized}, Ngang: ${ngangNormalized}, szSku: ${item.szSku}, kichThuoc: ${kichThuocData.kichThuoc}`);
+                            const kichThuocInfo = kichThuocData && kichThuocData.kichThuoc ? `kichThuoc: ${kichThuocData.kichThuoc}` : `szSku: ${item.szSku}`;
+                            console.error(`❌ KHÔNG TÌM THẤY SKU trong MasterDataVai cho Mẫu (tenMau): ${tenMauNormalized} (maMau: ${maMau}), Cao: ${caoNormalized}, Ngang: ${ngangNormalized}, szSku: ${item.szSku}, ${kichThuocInfo}`);
                             
                             // Log thêm để debug: xem có dữ liệu nào trong MasterDataVai với mau này không
                             const sampleData = await MasterDataVai.findOne({ mau: { $regex: new RegExp(`^${tenMauNormalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
@@ -289,11 +312,8 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
                             sku = '';
                         }
                     } else {
-                        console.warn(`❌ Không parse được cao/ngang từ kích thước: ${kichThuocData.kichThuoc}, szSku: ${item.szSku}`);
+                        console.warn(`❌ Không parse được cao/ngang từ kích thước hoặc szSku: ${item.szSku}`);
                     }
-                } else {
-                    console.warn(`Không tìm thấy kích thước với szSku: ${item.szSku}`);
-                }
             } else {
                 console.warn('Item thiếu szSku:', item);
             }

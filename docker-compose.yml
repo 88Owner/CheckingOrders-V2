@@ -22,6 +22,12 @@ services:
       SESSION_SECRET: change_this_session_secret_in_production
       PORT: 3001
       NODE_ENV: production
+      # ERPNext Configuration
+      # Nếu ERPNext chạy trên máy host (không trong Docker), dùng host.docker.internal
+      # Nếu ERPNext chạy trong Docker khác, dùng tên service hoặc IP container
+      ERPNEXT_URL: ${ERPNEXT_URL:-http://host.docker.internal:8080}
+      ERPNEXT_API_KEY: ${ERPNEXT_API_KEY:-7da6579c83ee8ff}
+      ERPNEXT_API_SECRET: ${ERPNEXT_API_SECRET:-406e4001191ddc0}
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs

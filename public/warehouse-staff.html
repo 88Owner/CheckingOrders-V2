@@ -895,9 +895,18 @@
                     </div>
                 </div>
 
+                <!-- Form liên kết Sương đêm - Trời xanh -->
+                <div class="linked-mau-form" id="linkedMauForm" style="display: none; margin-top: 20px; padding: 20px; background: #f0f8ff; border-radius: 8px; border: 2px solid #4a90e2;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: #4a90e2;">🔗 Thông tin mẫu liên kết</h3>
+                    <div id="linkedMauContent"></div>
+                </div>
+
                 <div class="quick-actions">
                     <button type="button" class="btn" id="themMauBtn" onclick="themMau()">
                         ➕ Thêm mẫu
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-quick" id="pasteSizesBtn" onclick="pasteCopiedSizes()" title="Dán kích thước đã sao chép">
+                        Dán kích thước
                     </button>
                     <button type="button" class="btn btn-secondary btn-quick" onclick="clearForm()">
                         Xóa form
@@ -918,6 +927,7 @@
         let selectedMauVaiIndex = -1;
         let filteredMauVaiList = [];
         let currentCatVaiId = null; // Lưu ID đối tượng cắt vải hiện tại
+        let copiedKichThuocTemplate = null; // Template kích thước đã sao chép (dùng để dán cho mẫu khác)
         const CHIEU_CAO_MAC_DINH = 230; // cm = 2.3m
 
         // Khởi tạo trang
@@ -1134,6 +1144,151 @@
             
             loadKichThuocForMau();
             renderKichThuocList();
+            
+            // Kiểm tra nếu là mẫu Sương đêm (2) hoặc Trời xanh (43) để hiển thị form liên kết
+            checkAndShowLinkedMauForm();
+        }
+        
+        // Kiểm tra và hiển thị form liên kết Sương đêm - Trời xanh
+        function checkAndShowLinkedMauForm() {
+            const linkedForm = document.getElementById('linkedMauForm');
+            const linkedContent = document.getElementById('linkedMauContent');
+            
+            if (!currentMauVai) {
+                linkedForm.style.display = 'none';
+                return;
+            }
+            
+            const maMau = currentMauVai.maMau;
+            const isSuongDem = (maMau === '2' || maMau === 2);
+            
+            // Chỉ hiển thị form khi chọn Sương đêm (2)
+            if (!isSuongDem) {
+                linkedForm.style.display = 'none';
+                return;
+            }
+            
+            // Hiển thị form liên kết
+            linkedForm.style.display = 'block';
+            
+            // Hiển thị form để nhập thông tin Trời xanh (43) - phát sinh khi cắt Sương đêm
+            linkedContent.innerHTML = `
+                <p style="margin-bottom: 15px; color: #333;">Khi nhập mẫu <strong>Sương đêm (2)</strong>, bạn có thể nhập thông tin phát sinh cho mẫu <strong>Trời xanh (43)</strong>:</p>
+                <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Chọn trường hợp:</label>
+                    <select id="linkedCaseSelect" onchange="updateLinkedFormContent()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">-- Chọn trường hợp --</option>
+                        <option value="th1">TH1: 1mx1m → 1mx1m2</option>
+                        <option value="th2">TH2: Ngang bất kỳ cao 1m1 → Ngang1x1m1 hoặc 1m1xCao2</option>
+                        <option value="th3">TH3: Cao 1m5 → 1 kích thước 70 + 2 biến tùy ý</option>
+                    </select>
+                </div>
+                <div id="linkedFormDetails"></div>
+            `;
+        }
+        
+        // Cập nhật nội dung form liên kết dựa trên trường hợp đã chọn
+        function updateLinkedFormContent() {
+            const caseSelect = document.getElementById('linkedCaseSelect');
+            const detailsDiv = document.getElementById('linkedFormDetails');
+            const selectedCase = caseSelect.value;
+            
+            if (!selectedCase) {
+                detailsDiv.innerHTML = '';
+                return;
+            }
+            
+            const isSuongDem = (currentMauVai.maMau === '2' || currentMauVai.maMau === 2);
+            
+                    if (selectedCase === 'th1') {
+                        detailsDiv.innerHTML = `
+                            <div style="background: white; padding: 15px; border-radius: 6px;">
+                                <p style="margin-bottom: 10px; color: #666;">Tự động tạo kích thước 1mx1m2 cho Trời xanh (43)</p>
+                                <p style="margin-bottom: 10px; color: #999; font-size: 0.9rem;">Số lượng sẽ tự động lấy từ SL của kích thước 1mx1m của Sương đêm</p>
+                            </div>
+                        `;
+                    } else if (selectedCase === 'th2') {
+                detailsDiv.innerHTML = `
+                    <div style="background: white; padding: 15px; border-radius: 6px;">
+                        <p style="margin-bottom: 10px; color: #666;">Nhập thông tin cho Trời xanh (43):</p>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Chọn loại kích thước:</label>
+                            <select id="linkedTh2Type" onchange="updateTh2Form()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">-- Chọn --</option>
+                                <option value="ngang1x1m1">Ngang1x1m1</option>
+                                <option value="1m1xcao2">1m1xCao2</option>
+                            </select>
+                        </div>
+                        <div id="th2FormFields"></div>
+                    </div>
+                `;
+            } else if (selectedCase === 'th3') {
+                detailsDiv.innerHTML = `
+                    <div style="background: white; padding: 15px; border-radius: 6px;">
+                        <p style="margin-bottom: 10px; color: #666;">Nhập thông tin cho Trời xanh (43):</p>
+                        <p style="margin-bottom: 10px; color: #999; font-size: 0.9rem;">1 kích thước 70 + 2 biến tùy ý</p>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px;">Kích thước 1 (ngang-70):</label>
+                            <input type="number" id="linkedTh3Ngang1" min="1" step="1" placeholder="Ngang (cm)" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px;">Kích thước 2 (ngang2-cao2):</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="number" id="linkedTh3Ngang2" min="1" step="1" placeholder="Ngang (cm)" 
+                                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="number" id="linkedTh3Cao2" min="1" step="1" placeholder="Cao (cm)" 
+                                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px;">Số lượng:</label>
+                            <input type="number" id="linkedTh3Qty" min="1" step="1" placeholder="SL" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Cập nhật form TH2
+        function updateTh2Form() {
+            const typeSelect = document.getElementById('linkedTh2Type');
+            const fieldsDiv = document.getElementById('th2FormFields');
+            const selectedType = typeSelect.value;
+            
+            if (!selectedType) {
+                fieldsDiv.innerHTML = '';
+                return;
+            }
+            
+            if (selectedType === 'ngang1x1m1') {
+                fieldsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px;">Ngang1 (cm):</label>
+                        <input type="number" id="linkedTh2Ngang1" min="1" step="1" placeholder="Ngang1" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px;">Số lượng:</label>
+                        <input type="number" id="linkedTh2Qty1" min="1" step="1" placeholder="SL" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            } else if (selectedType === '1m1xcao2') {
+                fieldsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px;">Cao2 (cm):</label>
+                        <input type="number" id="linkedTh2Cao2" min="1" step="1" placeholder="Cao2" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px;">Số lượng:</label>
+                        <input type="number" id="linkedTh2Qty2" min="1" step="1" placeholder="SL" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            }
         }
 
         // Load danh sách kích thước
@@ -1481,6 +1636,12 @@
             // Diện tích ban đầu = chiều dài * 230 (cm) = chiều dài * 2.3 (m)
             const dienTichBanDau = chieuDaiCayVai * 2.3;
 
+            // Nếu có vải lỗi, trừ diện tích lỗi khỏi diện tích ban đầu khi tính tiến độ
+            const vaiLoiChecked = document.getElementById('vaiLoiCheckbox').checked;
+            const chieuDaiLoi = vaiLoiChecked ? (parseFloat(document.getElementById('vaiLoiInput').value) || 0) : 0;
+            const dienTichLoi = chieuDaiLoi * 2.3;
+            const dienTichBanDauHuuDung = Math.max(0, dienTichBanDau - dienTichLoi);
+
             // Tính diện tích đã cắt
             let dienTichDaCat = 0;
             for (const szSku in currentKichThuocData) {
@@ -1488,8 +1649,8 @@
                 dienTichDaCat += data.soLuong * data.dienTich;
             }
 
-            // Diện tích còn lại
-            const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
+            // Diện tích còn lại (lấy diện tích hữu dụng làm gốc)
+            const dienTichConLai = Math.max(0, dienTichBanDauHuuDung - dienTichDaCat);
 
             // Số m còn lại = diện tích còn lại / 2.3 (làm tròn 1 chữ số thập phân)
             const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
@@ -1499,6 +1660,10 @@
 
             // Cập nhật UI
             document.getElementById('dienTichBanDau').textContent = dienTichBanDau.toFixed(2) + ' m²';
+            // Cập nhật hiển thị diện tích lỗi nếu có
+            if (document.getElementById('dienTichLoi')) {
+                document.getElementById('dienTichLoi').textContent = (dienTichLoi || 0).toFixed(2) + ' m²';
+            }
             document.getElementById('dienTichDaCat').textContent = dienTichDaCat.toFixed(2) + ' m²';
             document.getElementById('dienTichConLai').textContent = dienTichConLai.toFixed(2) + ' m²';
             document.getElementById('soMConLai').textContent = soMConLai.toFixed(1) + ' m';
@@ -1531,6 +1696,8 @@
                 document.getElementById('vaiLoiInput').value = '';
                 document.getElementById('dienTichLoi').textContent = '0 m²';
             }
+            // Recalculate progress when toggling vải lỗi
+            calculateArea();
         }
 
         // Tính diện tích vải lỗi
@@ -1538,17 +1705,33 @@
             const chieuDaiLoi = parseFloat(document.getElementById('vaiLoiInput').value) || 0;
             const dienTichLoi = chieuDaiLoi * 2.3;
             document.getElementById('dienTichLoi').textContent = dienTichLoi.toFixed(2) + ' m²';
+            // Update progress immediately when lỗi value changes
+            calculateArea();
         }
 
         // Toggle vải thiếu
         function toggleVaiThieu() {
             const checkbox = document.getElementById('vaiThieuCheckbox');
             const info = document.getElementById('vaiThieuInfo');
-            
+            const nhapCheckbox = document.getElementById('nhapLaiKhoCheckbox');
+            const nhapInfo = document.getElementById('nhapLaiKhoInfo');
+
+            // Nếu chọn 'Vải thiếu' thì ẩn và bỏ chọn 'Nhập lại kho'
             if (checkbox.checked) {
                 info.style.display = 'block';
+                if (nhapCheckbox) {
+                    nhapCheckbox.checked = false;
+                    if (nhapInfo) nhapInfo.style.display = 'none';
+                    const parent = nhapCheckbox.closest('.checkbox-item');
+                    if (parent) parent.style.display = 'none';
+                }
             } else {
                 info.style.display = 'none';
+                // Hiện lại tùy chọn 'Nhập lại kho' khi bỏ chọn 'Vải thiếu'
+                if (nhapCheckbox) {
+                    const parent = nhapCheckbox.closest('.checkbox-item');
+                    if (parent) parent.style.display = 'block';
+                }
             }
         }
 
@@ -1556,11 +1739,25 @@
         function toggleNhapLaiKho() {
             const checkbox = document.getElementById('nhapLaiKhoCheckbox');
             const info = document.getElementById('nhapLaiKhoInfo');
-            
+            const thieuCheckbox = document.getElementById('vaiThieuCheckbox');
+            const thieuInfo = document.getElementById('vaiThieuInfo');
+
+            // Nếu chọn 'Nhập lại kho' thì ẩn và bỏ chọn 'Vải thiếu'
             if (checkbox.checked) {
                 info.style.display = 'block';
+                if (thieuCheckbox) {
+                    thieuCheckbox.checked = false;
+                    if (thieuInfo) thieuInfo.style.display = 'none';
+                    const parent = thieuCheckbox.closest('.checkbox-item');
+                    if (parent) parent.style.display = 'none';
+                }
             } else {
                 info.style.display = 'none';
+                // Hiện lại tùy chọn 'Vải thiếu' khi bỏ chọn 'Nhập lại kho'
+                if (thieuCheckbox) {
+                    const parent = thieuCheckbox.closest('.checkbox-item');
+                    if (parent) parent.style.display = 'block';
+                }
             }
         }
 
@@ -1596,6 +1793,121 @@
                 return;
             }
 
+            // Thu thập thông tin liên kết Trời xanh (43) nếu có (chỉ khi nhập Sương đêm 2)
+            const linkedItems = [];
+            const isSuongDem = (currentMauVai.maMau === '2' || currentMauVai.maMau === 2);
+            
+            if (isSuongDem) {
+                const caseSelect = document.getElementById('linkedCaseSelect');
+                if (caseSelect && caseSelect.value) {
+                    const selectedCase = caseSelect.value;
+                    
+                    if (selectedCase === 'th1') {
+                        // TH1: 1mx1m → 1mx1m2
+                        // Tìm kích thước 1mx1m (100-100) trong items của Sương đêm để lấy SL
+                        const item1mx1m = items.find(it => {
+                            const szSku = (it.szSku || '').toString();
+                            return szSku === '100-100' || szSku.includes('100-100');
+                        });
+                        
+                        const qty = item1mx1m ? parseInt(item1mx1m.soLuong || 0, 10) : 0;
+                        
+                        if (qty > 0) {
+                            const ngang = 100; // 1m = 100cm
+                            const cao = 120; // 1m2 = 120cm
+                            const sku = `43-25-${ngang}-${cao}`;
+                            const kichThuoc = `Ngang1mxCao1m2`;
+                            linkedItems.push({
+                                maMau: '43',
+                                tenMau: 'Trời xanh',
+                                kichThuoc: kichThuoc,
+                                szSku: sku,
+                                soLuong: qty,
+                                isLinked: true, // Đánh dấu là item phát sinh
+                                linkedFrom: '2' // Từ mẫu Sương đêm
+                            });
+                        }
+                    } else if (selectedCase === 'th2') {
+                        // TH2: Ngang bất kỳ cao 1m1 → Ngang1x1m1 hoặc 1m1xCao2
+                        const typeSelect = document.getElementById('linkedTh2Type');
+                        if (typeSelect && typeSelect.value) {
+                            const selectedType = typeSelect.value;
+                            
+                            if (selectedType === 'ngang1x1m1') {
+                                const ngang1 = parseInt(document.getElementById('linkedTh2Ngang1')?.value || 0, 10);
+                                const qty = parseInt(document.getElementById('linkedTh2Qty1')?.value || 0, 10);
+                                if (ngang1 > 0 && qty > 0) {
+                                    const cao = 110; // 1m1 = 110cm
+                                    const sku = `43-25-${ngang1}-${cao}`;
+                                    const kichThuoc = `Ngang${ngang1/100}mxCao1m1`;
+                                    linkedItems.push({
+                                        maMau: '43',
+                                        tenMau: 'Trời xanh',
+                                        kichThuoc: kichThuoc,
+                                        szSku: sku,
+                                        soLuong: qty,
+                                        isLinked: true,
+                                        linkedFrom: '2'
+                                    });
+                                }
+                            } else if (selectedType === '1m1xcao2') {
+                                const cao2 = parseInt(document.getElementById('linkedTh2Cao2')?.value || 0, 10);
+                                const qty = parseInt(document.getElementById('linkedTh2Qty2')?.value || 0, 10);
+                                if (cao2 > 0 && qty > 0) {
+                                    const ngang = 110; // 1m1 = 110cm
+                                    const sku = `43-25-${ngang}-${cao2}`;
+                                    const kichThuoc = `Ngang1m1xCao${cao2/100}m`;
+                                    linkedItems.push({
+                                        maMau: '43',
+                                        tenMau: 'Trời xanh',
+                                        kichThuoc: kichThuoc,
+                                        szSku: sku,
+                                        soLuong: qty,
+                                        isLinked: true,
+                                        linkedFrom: '2'
+                                    });
+                                }
+                            }
+                        }
+                    } else if (selectedCase === 'th3') {
+                        // TH3: Cao 1m5 → 1 kích thước 70 + 2 biến tùy ý
+                        const ngang1 = parseInt(document.getElementById('linkedTh3Ngang1')?.value || 0, 10);
+                        const ngang2 = parseInt(document.getElementById('linkedTh3Ngang2')?.value || 0, 10);
+                        const cao2 = parseInt(document.getElementById('linkedTh3Cao2')?.value || 0, 10);
+                        const qty = parseInt(document.getElementById('linkedTh3Qty')?.value || 0, 10);
+                        
+                        if (ngang1 > 0 && qty > 0) {
+                            const cao1 = 70; // 70cm
+                            const sku1 = `43-25-${ngang1}-${cao1}`;
+                            const kichThuoc1 = `Ngang${ngang1/100}mxCao70`;
+                            linkedItems.push({
+                                maMau: '43',
+                                tenMau: 'Trời xanh',
+                                kichThuoc: kichThuoc1,
+                                szSku: sku1,
+                                soLuong: qty,
+                                isLinked: true,
+                                linkedFrom: '2'
+                            });
+                        }
+                        
+                        if (ngang2 > 0 && cao2 > 0 && qty > 0) {
+                            const sku2 = `43-25-${ngang2}-${cao2}`;
+                            const kichThuoc2 = `Ngang${ngang2/100}mxCao${cao2/100}m`;
+                            linkedItems.push({
+                                maMau: '43',
+                                tenMau: 'Trời xanh',
+                                kichThuoc: kichThuoc2,
+                                szSku: sku2,
+                                soLuong: qty,
+                                isLinked: true,
+                                linkedFrom: '2'
+                            });
+                        }
+                    }
+                }
+            }
+
             // Tính toán lại để lấy số m còn lại
             const dienTichBanDau = chieuDaiCayVai * 2.3;
             let dienTichDaCat = 0;
@@ -1603,45 +1915,144 @@
                 const data = currentKichThuocData[szSku];
                 dienTichDaCat += data.soLuong * data.dienTich;
             }
-            const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
-            const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
 
-            // Lấy thông tin lỗi, thiếu, nhập lại kho
-            // Luôn lưu, nếu không tick thì giá trị là 0
+            // Lấy thông tin lỗi trước khi tính diện tích còn lại
             const vaiLoi = document.getElementById('vaiLoiCheckbox').checked ? 
                 parseFloat(document.getElementById('vaiLoiInput').value) || 0 : 0;
-            
+            const dienTichLoi = vaiLoi * 2.3;
+
+            // Diện tích còn lại tính trên diện tích hữu dụng (đã trừ vải lỗi)
+            const dienTichConLai = Math.max(0, (dienTichBanDau - dienTichLoi) - dienTichDaCat);
+            const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
+
             // Vải thiếu: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
             const vaiThieuChecked = document.getElementById('vaiThieuCheckbox').checked;
             const vaiThieuSoM = vaiThieuChecked ? soMConLai : 0;
-            
+
             // Nhập lại kho: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
             const nhapLaiKhoChecked = document.getElementById('nhapLaiKhoCheckbox').checked;
             const nhapLaiKhoSoM = nhapLaiKhoChecked ? soMConLai : 0;
 
+            // Tính thông tin mayAoGoi từ items
+            // Trường hợp 1: Kích thước có chiều cao 180 (ví dụ: 100-180) → (ngang + 5) * SL
+            // Trường hợp 2: Có 2 kích thước: 110 (1m1) + 70 (0.7m) = 180 → (ngang1 + 5 + ngang2 + 5) * SL
+            const mayAoGoi = [];
             try {
+                // Trường hợp 1: Tìm kích thước có chiều cao 180cm (tìm trong cả kichThuoc và szSku)
+                (items || []).forEach(it => {
+                    const kt = (it.kichThuoc || '').toString();
+                    const szSku = (it.szSku || '').toString();
+                    let m = kt.match(/(\d+)\s*-\s*180/);
+                    if (!m) m = kt.match(/\((\d+)\s*-\s*180\)/);
+                    // Nếu không tìm thấy trong kichThuoc, tìm trong szSku
+                    if (!m) m = szSku.match(/(\d+)\s*-\s*180/);
+                    if (m) {
+                        const ngang = parseInt(m[1], 10);
+                        if (!isNaN(ngang)) {
+                            const qty = parseInt(it.soLuong || 0, 10) || 0;
+                            if (qty > 0) {
+                                const value = (ngang + 5) * qty;
+                                mayAoGoi.push({ maMau: currentMauVai.maMau, label: 'May áo gối', ngang: ngang, qty: qty, calcStr: `(${ngang} + 5) * ${qty}`, value: value });
+                            }
+                        }
+                    }
+                });
+                
+                // Trường hợp 2: Tìm các cặp kích thước có tổng chiều cao = 180cm (110 + 70 = 180)
+                // CHỈ ÁP DỤNG CHO MẪU CÓ MÃ MẪU 4 VÀ 14 (Mùa đông, corgi)
+                const maMauNum = parseInt(currentMauVai.maMau, 10);
+                const isMuaDongOrCorgi = (maMauNum === 4 || maMauNum === 14);
+                
+                if (isMuaDongOrCorgi) {
+                    const kichThuoc110 = items.filter(it => {
+                        const kt = (it.kichThuoc || '').toString();
+                        const szSku = (it.szSku || '').toString();
+                        const match = kt.match(/(\d+)\s*-\s*110/) || szSku.match(/(\d+)\s*-\s*110/);
+                        return match !== null;
+                    });
+                    
+                    const kichThuoc70 = items.filter(it => {
+                        const kt = (it.kichThuoc || '').toString();
+                        const szSku = (it.szSku || '').toString();
+                        const match = kt.match(/(\d+)\s*-\s*70/) || szSku.match(/(\d+)\s*-\s*70/);
+                        return match !== null;
+                    });
+                    
+                    // Nếu có cả 2 loại, tính toán may áo gối
+                                if (kichThuoc110.length > 0 && kichThuoc70.length > 0) {
+                                    kichThuoc110.forEach(item110 => {
+                                        const kt110 = (item110.kichThuoc || '').toString();
+                                        const szSku110 = (item110.szSku || '').toString();
+                                        let match110 = kt110.match(/(\d+)\s*-\s*110/);
+                                        if (!match110) match110 = szSku110.match(/(\d+)\s*-\s*110/);
+                                        if (!match110) return;
+                                        
+                                        const ngang110 = parseInt(match110[1], 10);
+                                        if (isNaN(ngang110)) return;
+                                        
+                                        kichThuoc70.forEach(item70 => {
+                                            const kt70 = (item70.kichThuoc || '').toString();
+                                            const szSku70 = (item70.szSku || '').toString();
+                                            let match70 = kt70.match(/(\d+)\s*-\s*70/);
+                                            if (!match70) match70 = szSku70.match(/(\d+)\s*-\s*70/);
+                                            if (!match70) return;
+                            
+                            const ngang70 = parseInt(match70[1], 10);
+                            if (isNaN(ngang70)) return;
+                            
+                            // Số lượng = số lượng nhỏ nhất của 2 kích thước
+                            const qty110 = parseInt(item110.soLuong || 0, 10);
+                            const qty70 = parseInt(item70.soLuong || 0, 10);
+                            const qty = Math.min(qty110, qty70);
+                            
+                            if (qty > 0) {
+                                const value = (ngang110 + 5 + ngang70 + 5) * qty;
+                                mayAoGoi.push({ 
+                                    maMau: currentMauVai.maMau, 
+                                    label: 'May áo gối', 
+                                    ngang: ngang110 + ngang70, // Lưu tổng của 2 ngang (Number)
+                                    qty: qty, 
+                                    calcStr: `(${ngang110} + 5 + ${ngang70} + 5) * ${qty}`, 
+                                    value: value 
+                                });
+                            }
+                        });
+                        });
+                    }
+                }
+            } catch (e) { console.warn('mayAoGoi calc error', e); }
+
+            try {
+                const requestBody = { 
+                    items,
+                    chieuDaiCayVai: chieuDaiCayVai,
+                    vaiLoi: vaiLoi > 0 ? {
+                        chieuDai: vaiLoi,
+                        dienTich: vaiLoi * 2.3,
+                        soM: vaiLoi
+                    } : { chieuDai: 0, dienTich: 0, soM: 0 },
+                    vaiThieu: {
+                        soM: vaiThieuSoM
+                    },
+                    nhapLaiKho: {
+                        soM: nhapLaiKhoSoM
+                    },
+                    mayAoGoi: mayAoGoi,
+                    catVaiId: currentCatVaiId || null // Gửi ID nếu có
+                };
+                
+                // Thêm linkedItems nếu có (items phát sinh cho Trời xanh 43)
+                if (linkedItems.length > 0) {
+                    requestBody.linkedItems = linkedItems;
+                }
+                
                 const response = await fetch('/api/nhap-phoi', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     credentials: 'include',
-                    body: JSON.stringify({ 
-                        items,
-                        chieuDaiCayVai: chieuDaiCayVai,
-                        vaiLoi: vaiLoi > 0 ? {
-                            chieuDai: vaiLoi,
-                            dienTich: vaiLoi * 2.3,
-                            soM: vaiLoi
-                        } : { chieuDai: 0, dienTich: 0, soM: 0 },
-                        vaiThieu: {
-                            soM: vaiThieuSoM
-                        },
-                        nhapLaiKho: {
-                            soM: nhapLaiKhoSoM
-                        },
-                        catVaiId: currentCatVaiId || null // Gửi ID nếu có
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const result = await response.json();
@@ -1679,6 +2090,13 @@
                             catVaiId: result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null
                         };
                         
+                        // Lấy mayAoGoi từ response (ưu tiên từ doiTuongCatVai, nếu không có thì lấy từ cayVai)
+                        if (result.data.doiTuongCatVai && result.data.doiTuongCatVai.mayAoGoi) {
+                            cayVaiToAdd.mayAoGoi = result.data.doiTuongCatVai.mayAoGoi;
+                        } else if (cayVaiData.mayAoGoi) {
+                            cayVaiToAdd.mayAoGoi = cayVaiData.mayAoGoi;
+                        }
+                        
                         // Kiểm tra xem mẫu này đã có trong danh sách chưa (nếu có thì cập nhật, không thì thêm mới)
                         const existingIndex = savedCayVaiList.findIndex(cv => 
                             cv.maMau === cayVaiData.maMau && 
@@ -1689,6 +2107,10 @@
                             // Cập nhật cây vải đã có (cộng dồn items)
                             const existing = savedCayVaiList[existingIndex];
                             existing.items.push(...cayVaiToAdd.items);
+                            // Merge mayAoGoi
+                            if (cayVaiToAdd.mayAoGoi && cayVaiToAdd.mayAoGoi.length) {
+                                existing.mayAoGoi = (existing.mayAoGoi || []).concat(cayVaiToAdd.mayAoGoi);
+                            }
                             existing.dienTichDaCat += cayVaiToAdd.dienTichDaCat;
                             existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
                             existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 10) / 10;
@@ -1708,6 +2130,65 @@
                         }
                         
                         // Render lại danh sách
+                        renderSavedList();
+                    }
+                    
+                    // Xử lý linkedItems (Trời xanh 43) nếu có - thêm vào danh sách bên trái
+                    if (result.data && result.data.linkedCayVai && result.data.linkedCayVai.length > 0) {
+                        result.data.linkedCayVai.forEach(linkedData => {
+                            const linkedDoiTuong = linkedData.doiTuongCatVai;
+                            const linkedCayVai = linkedData.cayVai;
+                            
+                            if (!linkedDoiTuong || !linkedCayVai) return;
+                            
+                            const linkedCayVaiToAdd = {
+                                _id: linkedCayVai._id,
+                                maMau: linkedCayVai.maMau,
+                                tenMau: linkedCayVai.tenMau,
+                                chieuDaiCayVai: linkedCayVai.chieuDaiCayVai || 0,
+                                dienTichBanDau: linkedCayVai.dienTichBanDau || 0,
+                                dienTichDaCat: linkedCayVai.dienTichDaCat || 0,
+                                dienTichConLai: linkedCayVai.dienTichConLai || 0,
+                                soMConLai: linkedCayVai.soMConLai || 0,
+                                tienDoPercent: linkedCayVai.tienDoPercent || 0,
+                                vaiLoi: linkedCayVai.vaiLoi || { chieuDai: 0, dienTich: 0, soM: 0 },
+                                vaiThieu: linkedCayVai.vaiThieu || { soM: 0 },
+                                nhapLaiKho: linkedCayVai.nhapLaiKho || { soM: 0 },
+                                items: linkedCayVai.items || [],
+                                createdBy: linkedCayVai.createdBy,
+                                importDate: linkedCayVai.importDate || new Date(),
+                                catVaiId: linkedDoiTuong.catVaiId,
+                                mayAoGoi: linkedCayVai.mayAoGoi || [],
+                                isLinked: true, // Đánh dấu là item liên kết
+                                linkedFrom: '2' // Từ mẫu Sương đêm
+                            };
+                            
+                            // Kiểm tra xem mẫu này đã có trong danh sách chưa
+                            const existingLinkedIndex = savedCayVaiList.findIndex(cv => 
+                                cv.maMau === linkedCayVai.maMau && 
+                                cv.catVaiId === linkedDoiTuong.catVaiId &&
+                                cv.isLinked === true
+                            );
+                            
+                            if (existingLinkedIndex >= 0) {
+                                // Cập nhật cây vải đã có (cộng dồn items)
+                                const existing = savedCayVaiList[existingLinkedIndex];
+                                existing.items.push(...linkedCayVaiToAdd.items);
+                                if (linkedCayVaiToAdd.mayAoGoi && linkedCayVaiToAdd.mayAoGoi.length) {
+                                    existing.mayAoGoi = (existing.mayAoGoi || []).concat(linkedCayVaiToAdd.mayAoGoi);
+                                }
+                                existing.dienTichDaCat += linkedCayVaiToAdd.dienTichDaCat;
+                                existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
+                                existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 10) / 10;
+                                existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
+                                    Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
+                            } else {
+                                // Thêm mới vào danh sách
+                                savedCayVaiList.push(linkedCayVaiToAdd);
+                            }
+                        });
+                        
+                        // Render lại danh sách sau khi thêm linked items
                         renderSavedList();
                     }
                     
@@ -1863,10 +2344,111 @@
                 const hasVaiThieu = cayVai.vaiThieu && cayVai.vaiThieu.soM > 0;
                 const hasNhapLaiKho = cayVai.nhapLaiKho && cayVai.nhapLaiKho.soM > 0;
                 
+                // Tính toán lại mayAoGoi nếu không có (cho dữ liệu cũ)
+                if (!cayVai.mayAoGoi || cayVai.mayAoGoi.length === 0) {
+                    try {
+                        const mayAoGoi = [];
+                        const itemsList = cayVai.items || [];
+                        const maMau = cayVai.maMau;
+                        
+                        // Trường hợp 1: Tìm kích thước có chiều cao 180cm (tìm trong cả kichThuoc và szSku)
+                        itemsList.forEach(it => {
+                            const kt = (it.kichThuoc || '').toString();
+                            const szSku = (it.szSku || '').toString();
+                            let m = kt.match(/(\d+)\s*-\s*180/);
+                            if (!m) m = kt.match(/\((\d+)\s*-\s*180\)/);
+                            // Nếu không tìm thấy trong kichThuoc, tìm trong szSku
+                            if (!m) m = szSku.match(/(\d+)\s*-\s*180/);
+                            if (m) {
+                                const ngang = parseInt(m[1], 10);
+                                if (!isNaN(ngang)) {
+                                    const qty = parseInt(it.soLuong || 0, 10) || 0;
+                                    if (qty > 0) {
+                                        const value = (ngang + 5) * qty;
+                                        mayAoGoi.push({ maMau: maMau, label: 'May áo gối', ngang: ngang, qty: qty, calcStr: `(${ngang} + 5) * ${qty}`, value: value });
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // Trường hợp 2: Tìm các cặp kích thước có tổng chiều cao = 180cm (110 + 70 = 180)
+                        // CHỈ ÁP DỤNG CHO MẪU CÓ MÃ MẪU 4 VÀ 14 (Mùa đông, corgi)
+                        const maMauNum = parseInt(maMau, 10);
+                        const isMuaDongOrCorgi = (maMauNum === 4 || maMauNum === 14);
+                        
+                        if (isMuaDongOrCorgi) {
+                            const kichThuoc110 = itemsList.filter(it => {
+                                const kt = (it.kichThuoc || '').toString();
+                                const szSku = (it.szSku || '').toString();
+                                const match = kt.match(/(\d+)\s*-\s*110/) || szSku.match(/(\d+)\s*-\s*110/);
+                                return match !== null;
+                            });
+                            
+                            const kichThuoc70 = itemsList.filter(it => {
+                                const kt = (it.kichThuoc || '').toString();
+                                const szSku = (it.szSku || '').toString();
+                                const match = kt.match(/(\d+)\s*-\s*70/) || szSku.match(/(\d+)\s*-\s*70/);
+                                return match !== null;
+                            });
+                            
+                            if (kichThuoc110.length > 0 && kichThuoc70.length > 0) {
+                                kichThuoc110.forEach(item110 => {
+                                    const kt110 = (item110.kichThuoc || '').toString();
+                                    const szSku110 = (item110.szSku || '').toString();
+                                    let match110 = kt110.match(/(\d+)\s*-\s*110/);
+                                    if (!match110) match110 = szSku110.match(/(\d+)\s*-\s*110/);
+                                    if (!match110) return;
+                                    
+                                    const ngang110 = parseInt(match110[1], 10);
+                                    if (isNaN(ngang110)) return;
+                                    
+                                    kichThuoc70.forEach(item70 => {
+                                        const kt70 = (item70.kichThuoc || '').toString();
+                                        const szSku70 = (item70.szSku || '').toString();
+                                        let match70 = kt70.match(/(\d+)\s*-\s*70/);
+                                        if (!match70) match70 = szSku70.match(/(\d+)\s*-\s*70/);
+                                        if (!match70) return;
+                                        
+                                        const ngang70 = parseInt(match70[1], 10);
+                                        if (isNaN(ngang70)) return;
+                                        
+                                        const qty110 = parseInt(item110.soLuong || 0, 10);
+                                        const qty70 = parseInt(item70.soLuong || 0, 10);
+                                        const qty = Math.min(qty110, qty70);
+                                        
+                                        if (qty > 0) {
+                                            const value = (ngang110 + 5 + ngang70 + 5) * qty;
+                                            mayAoGoi.push({ 
+                                                maMau: maMau, 
+                                                label: 'May áo gối', 
+                                                ngang: ngang110 + ngang70, // Lưu tổng của 2 ngang (Number)
+                                                qty: qty, 
+                                                calcStr: `(${ngang110} + 5 + ${ngang70} + 5) * ${qty}`, 
+                                                value: value 
+                                            });
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                        
+                        cayVai.mayAoGoi = mayAoGoi;
+                    } catch (e) {
+                        console.warn('Error computing mayAoGoi in render:', e);
+                    }
+                }
+                
                 li.innerHTML = `
                     <div class="saved-item-header">
                         <div class="saved-item-title">${cayVai.maMau} - ${cayVai.tenMau}</div>
-                        <div style="font-size: 0.85rem; color: #666;">${dateStr}</div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div style="font-size: 0.85rem; color: #666; margin-right:8px;">${dateStr}</div>
+                            <div class="saved-item-actions">
+                                <button class="btn btn-small btn-secondary" onclick="editSavedCayVai('${cayVai._id}')">Sửa</button>
+                                <button class="btn btn-small btn-secondary" onclick="duplicateSavedCayVai('${cayVai._id}')">Sao chép</button>
+                                <button class="btn btn-small btn-danger" onclick="deleteSavedCayVai('${cayVai._id}')">Xóa</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="saved-item-details">
                         <div style="margin-bottom: 10px;">
@@ -1886,24 +2468,28 @@
                                 ${hasNhapLaiKho ? `<div><strong>📦 Nhập lại kho:</strong> ${cayVai.nhapLaiKho.soM.toFixed(1)} m</div>` : ''}
                             </div>
                         ` : ''}
+                        ${cayVai.mayAoGoi && cayVai.mayAoGoi.length ? `
+                            <div style="margin-bottom:10px; padding:10px; background:#e9f7ef; border-radius:6px; border-left:4px solid #20c997;">
+                                <strong>May áo gối:</strong>
+                                <span style="margin-left:8px; font-size:0.95rem; color:#333;">
+                                    ${cayVai.mayAoGoi.reduce((sum, m) => sum + (m.value || 0), 0)} cm
+                                </span>
+                            </div>
+                        ` : ''}
                         <div style="margin-top: 10px;">
                             <strong>Chi tiết kích thước:</strong>
                             <table style="width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.9rem;">
                                 <thead>
-                                    <tr style="background: #28a745; color: white;">
-                                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Kích thước</th>
-                                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">SL</th>
-                                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Diện tích (m²)</th>
-                                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Diện tích cắt (m²)</th>
-                                    </tr>
+                                            <tr style="background: #28a745; color: white;">
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Kích thước</th>
+                                                <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">SL</th>
+                                            </tr>
                                 </thead>
                                 <tbody>
                                     ${cayVai.items.map(item => `
                                         <tr>
                                             <td style="padding: 6px; border: 1px solid #ddd;">${item.kichThuoc} (${item.szSku})</td>
                                             <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.soLuong}</td>
-                                            <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.dienTich.toFixed(2)}</td>
-                                            <td style="padding: 6px; text-align: center; border: 1px solid #ddd;"><strong>${item.dienTichCat.toFixed(2)}</strong></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1953,10 +2539,12 @@
                 li.innerHTML = `
                     <div class="saved-item-header">
                         <div class="saved-item-title">${group.maMau} - ${group.tenMau}</div>
-                        <div class="saved-item-actions">
-                            <button class="btn btn-small btn-secondary" onclick="updateMau('${group.maMau}')">
-                                ✏️ Cập nhật
-                            </button>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div class="saved-item-actions">
+                                <button class="btn btn-small btn-secondary" onclick="editGroupMau('${group.maMau}')">✏️ Sửa</button>
+                                <button class="btn btn-small btn-secondary" onclick="duplicateGroupMau('${group.maMau}')">📄 Sao chép</button>
+                                <button class="btn btn-small btn-danger" onclick="deleteGroupMau('${group.maMau}')">🗑️ Xóa</button>
+                            </div>
                         </div>
                     </div>
                     <div class="saved-item-details">
@@ -2003,6 +2591,129 @@
 
             // Scroll to form
             document.querySelector('.right-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- New actions: edit / duplicate / delete for saved entries and groups ---
+        function editSavedCayVai(id) {
+            const index = savedCayVaiList.findIndex(c => c._id === id);
+            if (index === -1) return;
+            const cayVai = savedCayVaiList.splice(index, 1)[0];
+            // Populate form with data for editing
+            const mau = mauVaiList.find(m => m.maMau === cayVai.maMau);
+            if (mau) {
+                currentMauVai = mau;
+                document.getElementById('mauVaiInput').value = `${mau.maMau} - ${mau.tenMau}`;
+                document.getElementById('mauVaiSelect').value = mau.maMau;
+            }
+            document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
+            document.getElementById('catVaiIdGroup').style.display = 'block';
+            document.getElementById('chieuDaiCayVaiInput').value = cayVai.chieuDaiCayVai || '';
+            currentKichThuocData = {};
+            (cayVai.items || []).forEach(item => {
+                const dienTich = item.dienTich || (kichThuocList.find(k=>k.szSku===item.szSku)?.dienTich||0);
+                currentKichThuocData[item.szSku] = {
+                    kichThuoc: item.kichThuoc,
+                    szSku: item.szSku,
+                    soLuong: item.soLuong,
+                    dienTich: dienTich
+                };
+            });
+            renderKichThuocList();
+            calculateArea();
+            renderSavedList();
+            document.querySelector('.right-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function deleteSavedCayVai(id) {
+            // Xóa ngay lập tức khỏi danh sách bên trái (không gọi server)
+            const index = savedCayVaiList.findIndex(c => c._id === id);
+            if (index === -1) return;
+            if (!confirm('Xóa mục này khỏi danh sách (không lưu lại)?')) return;
+            savedCayVaiList.splice(index, 1);
+            renderSavedList();
+            showSuccess('Đã xóa khỏi danh sách (không lưu)');
+        }
+
+        function duplicateSavedCayVai(id) {
+            const cayVai = savedCayVaiList.find(c => c._id === id);
+            if (!cayVai) return;
+            // Lưu template vào sessionStorage để dùng cho mẫu khác
+            copiedKichThuocTemplate = (cayVai.items || []).map(it => ({ szSku: it.szSku, kichThuoc: it.kichThuoc, soLuong: it.soLuong, dienTich: it.dienTich }));
+            try { sessionStorage.setItem('copiedKichThuocTemplate', JSON.stringify(copiedKichThuocTemplate)); } catch(e){}
+            showSuccess('Đã sao chép danh sách kích thước. Chọn mẫu khác và nhấn "Dán kích thước".');
+        }
+
+        // For grouped savedItems (no _id), provide similar actions
+        function editGroupMau(maMau) {
+            // Remove group items from savedItems and fill form
+            if (!confirm('Sửa mẫu này sẽ xoá khỏi danh sách bên trái và đưa vào form để chỉnh. Tiếp tục?')) return;
+            const groupItems = savedItems.filter(i => i.maMau === maMau);
+            savedItems = savedItems.filter(i => i.maMau !== maMau);
+            const mau = mauVaiList.find(m => m.maMau === maMau);
+            if (mau) {
+                currentMauVai = mau;
+                document.getElementById('mauVaiInput').value = `${mau.maMau} - ${mau.tenMau}`;
+                document.getElementById('mauVaiSelect').value = mau.maMau;
+            }
+            currentKichThuocData = {};
+            groupItems.forEach(item => {
+                const dienTich = item.dienTich || (kichThuocList.find(k=>k.szSku===item.szSku)?.dienTich||0);
+                currentKichThuocData[item.szSku] = { kichThuoc: item.kichThuoc, szSku: item.szSku, soLuong: item.soLuong, dienTich };
+            });
+            renderKichThuocList();
+            calculateArea();
+            renderSavedList();
+            document.querySelector('.right-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function deleteGroupMau(maMau) {
+            if (!confirm('Xóa nhóm mẫu này khỏi danh sách (không lưu lại)?')) return;
+            savedItems = savedItems.filter(i => i.maMau !== maMau);
+            renderSavedList();
+            showSuccess('Đã xóa nhóm mẫu khỏi danh sách (không lưu)');
+        }
+
+        function duplicateGroupMau(maMau) {
+            const groupItems = savedItems.filter(i => i.maMau === maMau);
+            if (!groupItems || groupItems.length === 0) return;
+            copiedKichThuocTemplate = groupItems.map(it => ({ szSku: it.szSku, kichThuoc: it.kichThuoc, soLuong: it.soLuong, dienTich: it.dienTich }));
+            try { sessionStorage.setItem('copiedKichThuocTemplate', JSON.stringify(copiedKichThuocTemplate)); } catch(e){}
+            showSuccess('Đã sao chép danh sách kích thước của nhóm. Chọn mẫu khác và nhấn "Dán kích thước".');
+        }
+
+        // Dán kích thước đã sao chép vào mẫu hiện tại
+        function pasteCopiedSizes() {
+            if (!copiedKichThuocTemplate) {
+                // Try to load from sessionStorage
+                try { copiedKichThuocTemplate = JSON.parse(sessionStorage.getItem('copiedKichThuocTemplate') || 'null'); } catch(e) { copiedKichThuocTemplate = null; }
+            }
+            if (!copiedKichThuocTemplate || copiedKichThuocTemplate.length === 0) {
+                showError('Chưa có kích thước nào được sao chép');
+                return;
+            }
+            if (!currentMauVai) {
+                showError('Vui lòng chọn mẫu vải muốn dán kích thước trước');
+                return;
+            }
+            // Dán mỗi kích thước nếu chưa tồn tại
+            let added = 0;
+            copiedKichThuocTemplate.forEach(item => {
+                if (!currentKichThuocData[item.szSku]) {
+                    // Find dienTich from kichThuocList if available
+                    const kt = kichThuocList.find(k => k.szSku === item.szSku);
+                    const dienTich = kt ? (kt.dienTich || 0) : (item.dienTich || 0);
+                    currentKichThuocData[item.szSku] = {
+                        kichThuoc: item.kichThuoc,
+                        szSku: item.szSku,
+                        soLuong: item.soLuong || 0,
+                        dienTich: dienTich
+                    };
+                    added++;
+                }
+            });
+            renderKichThuocList();
+            calculateArea();
+            showSuccess(`Đã dán ${added} kích thước vào mẫu hiện tại`);
         }
 
         // Xóa mục nhập phôi
@@ -2053,10 +2764,14 @@
             }
 
             // Gộp tất cả items từ tất cả cây vải đã lưu, kèm theo maMau
+            // Lưu ý: không include bất kỳ field metadata nào (ví dụ mayAoGoi)
             const allItemsWithMau = savedCayVaiList.flatMap(cayVai => 
-                cayVai.items.map(item => ({
-                    ...item,
-                    maMau: cayVai.maMau // Thêm maMau vào mỗi item
+                (cayVai.items || []).map(item => ({
+                    maMau: cayVai.maMau,
+                    szSku: item.szSku,
+                    kichThuoc: item.kichThuoc,
+                    soLuong: item.soLuong,
+                    dienTich: item.dienTich || 0
                 }))
             );
 

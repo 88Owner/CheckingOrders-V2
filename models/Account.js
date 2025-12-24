@@ -3,7 +3,11 @@ const mongoose = require('mongoose');
 const accountSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff'], default: 'user' },
+    role: { type: String, enum: ['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker'], default: 'user' },
+    
+    // Mapping với ERPNext Employee
+    erpnextEmployeeId: { type: String, default: null }, // Employee ID/Name trong ERPNext
+    erpnextEmployeeName: { type: String, default: null }, // Tên nhân viên trong ERPNext (cache)
     
     // Thông tin máy tính
     machineInfo: {

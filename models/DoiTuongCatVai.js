@@ -117,7 +117,16 @@ const doiTuongCatVaiSchema = new mongoose.Schema({
         type: String,
         enum: ['active', 'completed', 'archived'],
         default: 'active'
-    }
+    },
+    // Thông tin may áo gối (từ vải còn lại khi cắt kích thước có chiều cao 180)
+    mayAoGoi: [{
+        maMau: String,
+        label: { type: String, default: 'May áo gối' },
+        ngang: Number, // Chiều ngang (cm)
+        qty: Number, // Số lượng
+        calcStr: String, // Chuỗi công thức tính (VD: "(100 + 5) * 30")
+        value: Number // Kết quả tính toán
+    }]
 }, {
     timestamps: true
 });
