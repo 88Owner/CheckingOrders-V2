@@ -30,6 +30,7 @@ const KichThuoc = require('./models/KichThuoc');
 const MasterDataVai = require('./models/MasterDataVai');
 const NhapPhoi = require('./models/NhapPhoi');
 const DoiTuongCatVai = require('./models/DoiTuongCatVai');
+const DatabaseConfig = require('./models/DatabaseConfig');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -44,14 +45,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Session configuration - Phải setup trước các router cần authentication
+// Sử dụng mongoUrl với config.MONGODB_URI
+// Lưu reference đến session store để có thể cập nhật khi chuyển đổi database
+let sessionStore = MongoStore.create({
+    mongoUrl: config.MONGODB_URI,
+    ttl: 14 * 24 * 60 * 60 // 14 days
+});
+
 app.use(session({
     secret: config.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: config.MONGODB_URI,
-        ttl: 14 * 24 * 60 * 60 // 14 days
-    }),
+    store: sessionStore,
     cookie: {
         secure: false, // Set to true if using HTTPS
         httpOnly: true,
@@ -60,6 +65,27 @@ app.use(session({
     },
     name: 'sessionId' // Đặt tên session cookie cụ thể
 }));
+
+// Middleware để cập nhật session store động khi chuyển đổi database
+// Override sessionStore trong request để dùng store mới
+app.use((req, res, next) => {
+    // Nếu session store đã được cập nhật, override trong request
+    if (sessionStore && req.sessionStore) {
+        // Thay thế sessionStore trong request bằng store mới
+        // Điều này đảm bảo các operations session sử dụng store mới
+        try {
+            Object.defineProperty(req, 'sessionStore', {
+                value: sessionStore,
+                writable: true,
+                configurable: true
+            });
+        } catch (e) {
+            // Nếu không thể override, ít nhất log warning
+            console.warn('[SESSION STORE] Không thể override sessionStore:', e.message);
+        }
+    }
+    next();
+});
 
 // Đăng ký router upload SAU KHI session middleware đã được setup
 app.use(masterDataUploadRouter);
@@ -545,6 +571,403 @@ app.get('/api/accounts/:id/verify-role', requireLogin, requireAdmin, async (req,
     } catch (error) {
         console.error(`[VERIFY ROLE] Lỗi:`, error);
         res.status(500).json({ success: false, message: 'Lỗi kiểm tra role: ' + error.message });
+    }
+});
+
+// API lấy trạng thái database
+app.get('/api/admin/database-status', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        const dbConfig = await DatabaseConfig.getConfig();
+        const isConnected = mongoose.connection.readyState === 1;
+        
+        res.json({
+            success: true,
+            data: {
+                currentDbType: dbConfig.currentDbType,
+                lastBackupTime: dbConfig.lastBackupTime,
+                isConnected: isConnected,
+                connectionState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+            }
+        });
+    } catch (error) {
+        console.error('[DATABASE STATUS] Lỗi:', error);
+        res.status(500).json({ success: false, message: 'Lỗi lấy trạng thái database: ' + error.message });
+    }
+});
+
+// API backup database từ local lên cloud
+app.post('/api/admin/backup-database', requireLogin, requireAdmin, async (req, res) => {
+    const startTime = Date.now();
+    const backupStartTime = new Date(); // Thời điểm bắt đầu backup
+    let collectionsBackedUp = 0;
+    let documentsBackedUp = 0;
+    let documentsSkipped = 0;
+    
+    try {
+        console.log('[BACKUP DATABASE] Bắt đầu backup database...');
+        console.log('[BACKUP DATABASE] Thời điểm backup:', backupStartTime.toISOString());
+        
+        const dbConfig = await DatabaseConfig.getConfig();
+        
+        if (dbConfig.currentDbType !== 'local') {
+            return res.json({ 
+                success: false, 
+                message: 'Chỉ có thể backup từ Local database. Database hiện tại: ' + dbConfig.currentDbType 
+            });
+        }
+        
+        // Đảm bảo cloud URI có database name
+        let cloudUri = dbConfig.cloudDbUri.trim();
+        
+        // Parse URI để đảm bảo có database name
+        // Format mongodb+srv: mongodb+srv://user:pass@cluster0.xxx.mongodb.net/?appName=...
+        // Cần có: mongodb+srv://user:pass@cluster0.xxx.mongodb.net/OrderDetailing?appName=...
+        
+        if (cloudUri.includes('mongodb+srv://') || cloudUri.includes('mongodb://')) {
+            // Tách URI thành parts
+            const urlParts = cloudUri.match(/^(mongodb\+?srv?:\/\/[^\/]+)(\/[^?]*)?(\?.*)?$/);
+            if (urlParts) {
+                const base = urlParts[1]; // mongodb+srv://user:pass@host
+                const currentDb = urlParts[2]; // /database hoặc null
+                const query = urlParts[3] || ''; // ?appName=...
+                
+                // Nếu chưa có database name hoặc database name rỗng
+                if (!currentDb || currentDb === '/') {
+                    cloudUri = base + '/OrderDetailing' + query;
+                } else {
+                    // Đã có database name, giữ nguyên
+                    cloudUri = base + currentDb + query;
+                }
+            }
+        }
+        
+        console.log('[BACKUP DATABASE] Cloud URI (masked):', cloudUri.replace(/:[^:]+@/, ':****@')); // Ẩn password
+        
+        // Kết nối đến cloud database
+        const cloudConnection = mongoose.createConnection(cloudUri, {
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000
+        });
+        
+        // Đợi kết nối sẵn sàng
+        try {
+            // Thử sử dụng asPromise() nếu có
+            if (typeof cloudConnection.asPromise === 'function') {
+                await cloudConnection.asPromise();
+            } else {
+                // Hoặc đợi readyState === 1
+                let retryCount = 0;
+                while (cloudConnection.readyState !== 1 && retryCount < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retryCount++;
+                }
+                if (cloudConnection.readyState !== 1) {
+                    throw new Error('Cloud connection timeout. ReadyState: ' + cloudConnection.readyState);
+                }
+            }
+        } catch (connectError) {
+            await cloudConnection.close().catch(() => {});
+            throw new Error('Không thể kết nối đến cloud database: ' + connectError.message);
+        }
+        
+        // Đợi db object được khởi tạo - thử nhiều cách
+        let cloudDb = null;
+        let retryCount = 0;
+        while (!cloudDb && retryCount < 15) {
+            // Thử lấy từ connection.db
+            if (cloudConnection.db) {
+                cloudDb = cloudConnection.db;
+                break;
+            }
+            
+            // Thử lấy từ client nếu có
+            if (cloudConnection.getClient && cloudConnection.readyState === 1) {
+                try {
+                    const client = cloudConnection.getClient();
+                    if (client && client.db) {
+                        // Lấy database name từ URI
+                        const dbName = cloudUri.match(/\/([^\/?]+)(\?|$)/);
+                        const databaseName = dbName ? dbName[1] : 'OrderDetailing';
+                        cloudDb = client.db(databaseName);
+                        if (cloudDb) break;
+                    }
+                } catch (clientError) {
+                    console.warn('[BACKUP DATABASE] Không thể lấy db từ client:', clientError.message);
+                }
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            retryCount++;
+        }
+        
+        if (!cloudDb) {
+            await cloudConnection.close().catch(() => {});
+            throw new Error(`Cloud connection không có db object sau ${retryCount} lần thử. ReadyState: ${cloudConnection.readyState}`);
+        }
+        
+        console.log('[BACKUP DATABASE] ✅ Đã kết nối đến cloud database');
+        console.log('[BACKUP DATABASE] Cloud connection readyState:', cloudConnection.readyState);
+        console.log('[BACKUP DATABASE] Cloud database name:', cloudDb.databaseName);
+        
+        // Lấy danh sách collections từ local database
+        if (!mongoose.connection.db) {
+            throw new Error('Local connection không có db object');
+        }
+        
+        const localCollections = await mongoose.connection.db.listCollections().toArray();
+        
+        console.log(`[BACKUP DATABASE] Tìm thấy ${localCollections.length} collections trong local database`);
+        console.log(`[BACKUP DATABASE] Chỉ backup documents có createdAt <= ${backupStartTime.toISOString()}`);
+        
+        // Backup từng collection
+        for (const collectionInfo of localCollections) {
+            const collectionName = collectionInfo.name;
+            
+            // Bỏ qua system collections
+            if (collectionName.startsWith('system.') || collectionName === 'databaseconfigs') {
+                continue;
+            }
+            
+            try {
+                if (!mongoose.connection.db) {
+                    console.error(`[BACKUP DATABASE] Local connection không có db object cho collection: ${collectionName}`);
+                    continue;
+                }
+                
+                const localCollection = mongoose.connection.db.collection(collectionName);
+                
+                // Đảm bảo cloud db vẫn còn active
+                if (!cloudDb) {
+                    throw new Error('Cloud db đã bị null. ReadyState: ' + cloudConnection.readyState);
+                }
+                
+                // Thử lấy collection từ cloud db
+                let cloudCollection;
+                try {
+                    cloudCollection = cloudDb.collection(collectionName);
+                } catch (collectionError) {
+                    console.error(`[BACKUP DATABASE] Không thể lấy collection ${collectionName} từ cloud:`, collectionError.message);
+                    throw collectionError;
+                }
+                
+                // Lấy TẤT CẢ documents từ local có createdAt trước thời điểm backup
+                // Chỉ backup documents được tạo TRƯỚC khi click backup để tránh backup dữ liệu đang được tạo trong quá trình backup
+                let query = {
+                    $or: [
+                        { createdAt: { $lte: backupStartTime } }, // Documents có createdAt <= thời điểm backup
+                        { createdAt: { $exists: false } } // Documents không có createdAt (dữ liệu cũ)
+                    ]
+                };
+                
+                // Đếm tổng số documents trong collection
+                const totalCount = await localCollection.countDocuments({});
+                const documentsToBackup = await localCollection.find(query).toArray();
+                const skippedCount = totalCount - documentsToBackup.length;
+                
+                console.log(`[BACKUP DATABASE] Collection ${collectionName}:`);
+                console.log(`  - Tổng số documents: ${totalCount}`);
+                console.log(`  - Documents sẽ backup (createdAt <= ${backupStartTime.toISOString()}): ${documentsToBackup.length}`);
+                console.log(`  - Documents bỏ qua (createdAt > ${backupStartTime.toISOString()}): ${skippedCount}`);
+                
+                if (documentsToBackup.length > 0) {
+                    // Sử dụng bulkWrite để tăng hiệu suất
+                    const bulkOps = documentsToBackup.map(doc => ({
+                        replaceOne: {
+                            filter: { _id: doc._id },
+                            replacement: doc,
+                            upsert: true
+                        }
+                    }));
+                    
+                    // Chia nhỏ thành các batch 1000 documents để tránh quá tải
+                    const batchSize = 1000;
+                    let batchNumber = 0;
+                    for (let i = 0; i < bulkOps.length; i += batchSize) {
+                        batchNumber++;
+                        const batch = bulkOps.slice(i, i + batchSize);
+                        const result = await cloudCollection.bulkWrite(batch, { ordered: false });
+                        const batchBackedUp = result.upsertedCount + result.modifiedCount;
+                        documentsBackedUp += batchBackedUp;
+                        console.log(`[BACKUP DATABASE] Collection ${collectionName}: Batch ${batchNumber}/${Math.ceil(bulkOps.length/batchSize)} - Upserted: ${result.upsertedCount}, Modified: ${result.modifiedCount}`);
+                    }
+                    
+                    collectionsBackedUp++;
+                    documentsSkipped += skippedCount;
+                    console.log(`[BACKUP DATABASE] ✅ Đã backup ${documentsToBackup.length} documents từ collection: ${collectionName}`);
+                } else {
+                    console.log(`[BACKUP DATABASE] ⏭️ Collection ${collectionName}: Không có documents để backup (tất cả đều có createdAt sau thời điểm backup)`);
+                }
+            } catch (collectionError) {
+                console.error(`[BACKUP DATABASE] ❌ Lỗi backup collection ${collectionName}:`, collectionError.message);
+                console.error(`[BACKUP DATABASE] Stack:`, collectionError.stack);
+                // Tiếp tục với collection tiếp theo
+            }
+        }
+        
+        // Đóng kết nối cloud
+        await cloudConnection.close();
+        
+        // Cập nhật thời gian backup gần nhất = thời điểm bắt đầu backup
+        dbConfig.lastBackupTime = backupStartTime;
+        await dbConfig.save();
+        
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2) + 's';
+        
+        console.log(`[BACKUP DATABASE] Backup hoàn tất:`);
+        console.log(`  - Collections đã backup: ${collectionsBackedUp}`);
+        console.log(`  - Documents đã backup: ${documentsBackedUp}`);
+        console.log(`  - Documents đã bỏ qua (createdAt sau thời điểm backup): ${documentsSkipped}`);
+        console.log(`  - Thời gian thực hiện: ${duration}`);
+        
+        res.json({
+            success: true,
+            message: `Backup thành công: ${collectionsBackedUp} collections, ${documentsBackedUp} documents đã backup, ${documentsSkipped} documents đã bỏ qua`,
+            data: {
+                collectionsBackedUp,
+                documentsBackedUp,
+                documentsSkipped,
+                backupStartTime: backupStartTime.toISOString(),
+                duration
+            }
+        });
+    } catch (error) {
+        console.error('[BACKUP DATABASE] Lỗi:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Lỗi backup database: ' + error.message 
+        });
+    }
+});
+
+// API chuyển đổi database (local/cloud)
+app.post('/api/admin/switch-database', requireLogin, requireAdmin, async (req, res) => {
+    try {
+        const { dbType } = req.body;
+        
+        if (!dbType || !['local', 'cloud'].includes(dbType)) {
+            return res.json({ 
+                success: false, 
+                message: 'dbType phải là "local" hoặc "cloud"' 
+            });
+        }
+        
+        console.log(`[SWITCH DATABASE] Chuyển đổi sang ${dbType} database...`);
+        
+        const dbConfig = await DatabaseConfig.getConfig();
+        
+        if (dbConfig.currentDbType === dbType) {
+            return res.json({ 
+                success: false, 
+                message: `Database hiện tại đã là ${dbType}` 
+            });
+        }
+        
+        // Đóng kết nối hiện tại
+        await mongoose.connection.close();
+        console.log('[SWITCH DATABASE] Đã đóng kết nối database hiện tại');
+        
+        // Xác định URI mới
+        const newUri = dbType === 'local' ? dbConfig.localDbUri : dbConfig.cloudDbUri;
+        
+        // Kết nối đến database mới
+        await mongoose.connect(newUri, {
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000,
+            maxPoolSize: 10
+        });
+        
+        console.log(`[SWITCH DATABASE] Đã kết nối đến ${dbType} database`);
+        
+        // Cập nhật cấu hình
+        dbConfig.currentDbType = dbType;
+        await dbConfig.save();
+        
+        // Cập nhật MONGODB_URI trong config
+        config.MONGODB_URI = newUri;
+        
+        // QUAN TRỌNG: Cập nhật session store với URI mới
+        // Đóng session store cũ và tạo mới với URI mới
+        try {
+            // Đóng session store cũ
+            if (sessionStore && typeof sessionStore.close === 'function') {
+                await new Promise((resolve, reject) => {
+                    try {
+                        sessionStore.close(() => {
+                            console.log('[SWITCH DATABASE] Đã đóng session store cũ');
+                            resolve();
+                        });
+                    } catch (closeError) {
+                        console.warn('[SWITCH DATABASE] Lỗi đóng session store cũ:', closeError.message);
+                        resolve(); // Vẫn tiếp tục dù có lỗi
+                    }
+                });
+            }
+            
+            // Tạo session store mới với URI mới
+            const newSessionStore = MongoStore.create({
+                mongoUrl: newUri,
+                ttl: 14 * 24 * 60 * 60 // 14 days
+            });
+            
+            // QUAN TRỌNG: Cập nhật session store
+            // Vì session middleware đã được setup, không thể thay đổi store trực tiếp
+            // Nhưng có thể cập nhật biến sessionStore để các request mới sử dụng store mới
+            // Tuy nhiên, các session hiện tại vẫn dùng store cũ
+            // Giải pháp: Cần yêu cầu user logout và login lại
+            sessionStore = newSessionStore;
+            
+            // Cập nhật session middleware store bằng cách thay đổi req.sessionStore trong middleware
+            // Tạo middleware để override sessionStore cho mỗi request
+            // Lưu ý: Điều này chỉ hoạt động nếu session middleware cho phép override
+            console.log('[SWITCH DATABASE] ✅ Đã tạo session store mới với URI:', newUri.replace(/:[^:]+@/, ':****@'));
+            console.warn('[SWITCH DATABASE] ⚠️ CẢNH BÁO: Session store đã được cập nhật.');
+            console.warn('[SWITCH DATABASE] ⚠️ Các session hiện tại có thể không hoạt động. Vui lòng logout và login lại.');
+        } catch (storeError) {
+            console.error('[SWITCH DATABASE] ❌ Lỗi cập nhật session store:', storeError.message);
+            throw new Error('Không thể cập nhật session store: ' + storeError.message);
+        }
+        
+        // Khởi tạo lại cache
+        try {
+            await comboCache.refreshCache();
+            console.log('[SWITCH DATABASE] ✅ ComboData cache đã được refresh');
+        } catch (cacheError) {
+            console.error('[SWITCH DATABASE] ⚠️ ComboData cache refresh failed:', cacheError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: `Đã chuyển sang ${dbType} database thành công. Vui lòng logout và login lại để session hoạt động đúng với database mới.`,
+            data: {
+                currentDbType: dbType,
+                connectionState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+                requiresReLogin: true // Yêu cầu user logout và login lại
+            }
+        });
+    } catch (error) {
+        console.error('[SWITCH DATABASE] Lỗi:', error);
+        
+        // Thử reconnect lại database cũ nếu chuyển đổi thất bại
+        try {
+            const dbConfig = await DatabaseConfig.getConfig();
+            const fallbackUri = dbConfig.currentDbType === 'local' ? dbConfig.localDbUri : dbConfig.cloudDbUri;
+            await mongoose.connect(fallbackUri, {
+                serverSelectionTimeoutMS: 30000,
+                socketTimeoutMS: 45000,
+                connectTimeoutMS: 30000,
+                maxPoolSize: 10
+            });
+            console.log('[SWITCH DATABASE] Đã reconnect lại database cũ');
+        } catch (reconnectError) {
+            console.error('[SWITCH DATABASE] Lỗi reconnect:', reconnectError);
+        }
+        
+        res.status(500).json({ 
+            success: false, 
+            message: 'Lỗi chuyển đổi database: ' + error.message 
+        });
     }
 });
 
@@ -1082,6 +1505,9 @@ async function connectToMongoDB() {
             maxPoolSize: 10 // Maintain up to 10 socket connections
         });
         console.log('Kết nối MongoDB thành công');
+        
+        // Session store đã được setup với mongoUrl, sẽ tự động dùng URI từ config.MONGODB_URI
+        // Không cần cập nhật ở đây vì session store đã được tạo với config.MONGODB_URI ban đầu
         
         // Khởi tạo cache sau khi kết nối MongoDB thành công
         try {

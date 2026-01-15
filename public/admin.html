@@ -622,6 +622,11 @@
             cursor: not-allowed;
             transform: none;
         }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -847,6 +852,74 @@
                 </div>
             </div>
 
+            <!-- Database Management -->
+            <div class="admin-section">
+                <h2>Quản lý Database</h2>
+                
+
+                <!-- Database Status -->
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px solid #e9ecef;">
+                    <h4 style="color: #333; margin-bottom: 15px;">Trạng thái Database hiện tại</h4>
+                    <div id="dbStatusInfo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                            <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Database đang sử dụng</div>
+                            <div id="currentDbType" style="font-size: 18px; font-weight: bold; color: #667eea;">Đang tải...</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                            <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Lần backup gần nhất</div>
+                            <div id="lastBackupTime" style="font-size: 18px; font-weight: bold; color: #28a745;">Chưa có</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                            <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Trạng thái kết nối</div>
+                            <div id="dbConnectionStatus" style="font-size: 18px; font-weight: bold; color: #28a745;">Đang kiểm tra...</div>
+                        </div>
+                    </div>
+                    <button onclick="loadDatabaseStatus()" class="btn" style="margin-top: 15px; background: #17a2b8;">
+                        Làm mới trạng thái
+                    </button>
+                </div>
+
+                <!-- Backup Database -->
+                <div style="margin-bottom: 20px; padding: 20px; background: #e7f3ff; border-radius: 8px; border: 2px solid #b3d9ff;">
+                    <h4 style="color: #004085; margin-bottom: 15px;">Backup Database lên Cloud</h4>
+                    <p style="color: #004085; margin-bottom: 15px;">
+                        Backup chỉ thực hiện với dữ liệu mới hoặc chưa có từ lần backup gần nhất.
+                    </p>
+                    <button id="backupDbBtn" onclick="backupDatabase()" class="btn btn-success" style="font-size: 1.1rem; padding: 15px 30px;">
+                        Backup Database lên Cloud
+                    </button>
+                    <div id="backupProgress" style="display: none; margin-top: 15px; padding: 15px; background: white; border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span id="backupStatusText">Đang backup...</span>
+                        </div>
+                        <div id="backupDetails" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
+                    </div>
+                </div>
+
+                <!-- Switch Database -->
+                <div style="margin-bottom: 20px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
+                    <h4 style="color: #856404; margin-bottom: 15px;">Chuyển đổi Database</h4>
+                    <p style="color: #856404; margin-bottom: 15px;">
+                        Chuyển đổi giữa Local và Cloud database. Hệ thống sẽ tự động reconnect sau khi chuyển đổi.
+                    </p>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                        <button id="switchToLocalBtn" onclick="switchDatabase('local')" class="btn btn-warning" style="font-size: 1.1rem; padding: 15px 30px;">
+                            Chuyển sang Local
+                        </button>
+                        <button id="switchToCloudBtn" onclick="switchDatabase('cloud')" class="btn btn-warning" style="font-size: 1.1rem; padding: 15px 30px;">
+                            Chuyển sang Cloud
+                        </button>
+                    </div>
+                    <div id="switchProgress" style="display: none; margin-top: 15px; padding: 15px; background: white; border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #ffc107; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span id="switchStatusText">Đang chuyển đổi...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Order Management -->
             <div class="admin-section">
                 <h2>📦 Quản lý đơn hàng</h2>
@@ -969,7 +1042,8 @@
                     await Promise.all([
                         loadAccounts(),
                         loadRecentOrders(),
-                        refreshStats()
+                        refreshStats(),
+                        loadDatabaseStatus()
                     ]);
                     
                     // Load machines data separately (since this section is hidden)
@@ -2426,6 +2500,168 @@ ${machine.comPorts.map(port =>
                 closeSuccessModal();
             }
         });
+
+        // Database Management Functions
+        async function loadDatabaseStatus() {
+            try {
+                const response = await fetch('/api/admin/database-status', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const status = result.data;
+                    document.getElementById('currentDbType').textContent = status.currentDbType === 'local' ? 'Local' : 'Cloud';
+                    document.getElementById('currentDbType').style.color = status.currentDbType === 'local' ? '#667eea' : '#28a745';
+                    
+                    if (status.lastBackupTime) {
+                        const backupDate = new Date(status.lastBackupTime);
+                        document.getElementById('lastBackupTime').textContent = backupDate.toLocaleString('vi-VN');
+                    } else {
+                        document.getElementById('lastBackupTime').textContent = 'Chưa có';
+                    }
+                    
+                    document.getElementById('dbConnectionStatus').textContent = status.isConnected ? 'OK!! kết nối' : 'Nooo(( Chưa kết nối';
+                    document.getElementById('dbConnectionStatus').style.color = status.isConnected ? '#28a745' : '#dc3545';
+                } else {
+                    showError('Lỗi tải trạng thái database: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error loading database status:', error);
+                showError('Lỗi tải trạng thái database: ' + error.message);
+            }
+        }
+
+        async function backupDatabase() {
+            if (!confirm('Bạn có chắc chắn muốn backup database lên cloud?\nChỉ dữ liệu mới hoặc chưa có từ lần backup gần nhất sẽ được backup.')) {
+                return;
+            }
+
+            const backupBtn = document.getElementById('backupDbBtn');
+            const backupProgress = document.getElementById('backupProgress');
+            const backupStatusText = document.getElementById('backupStatusText');
+            const backupDetails = document.getElementById('backupDetails');
+
+            try {
+                backupBtn.disabled = true;
+                backupProgress.style.display = 'block';
+                backupStatusText.textContent = 'Đang backup...';
+                backupDetails.textContent = '';
+
+                const response = await fetch('/api/admin/backup-database', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    backupStatusText.textContent = '✅ Backup thành công!';
+                    backupStatusText.style.color = '#28a745';
+                    
+                    let detailsHtml = `<div style="margin-top: 10px;"><strong>Chi tiết:</strong></div>`;
+                    detailsHtml += `<div>- Collections đã backup: ${result.data.collectionsBackedUp || 0}</div>`;
+                    detailsHtml += `<div>- Documents đã backup: ${result.data.documentsBackedUp || 0}</div>`;
+                    detailsHtml += `<div>- Thời gian: ${result.data.duration || 'N/A'}</div>`;
+                    backupDetails.innerHTML = detailsHtml;
+
+                    showSuccess('Backup database thành công!');
+                    loadDatabaseStatus();
+                } else {
+                    backupStatusText.textContent = '❌ Backup thất bại: ' + result.message;
+                    backupStatusText.style.color = '#dc3545';
+                    showError('Backup database thất bại: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error backing up database:', error);
+                backupStatusText.textContent = '❌ Lỗi: ' + error.message;
+                backupStatusText.style.color = '#dc3545';
+                showError('Lỗi backup database: ' + error.message);
+            } finally {
+                backupBtn.disabled = false;
+                setTimeout(() => {
+                    backupProgress.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        async function switchDatabase(dbType) {
+            const confirmMsg = dbType === 'local' 
+                ? 'Bạn có chắc chắn muốn chuyển sang Local database?\nHệ thống sẽ tự động reconnect.'
+                : 'Bạn có chắc chắn muốn chuyển sang Cloud database?\nHệ thống sẽ tự động reconnect.';
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const switchProgress = document.getElementById('switchProgress');
+            const switchStatusText = document.getElementById('switchStatusText');
+            const switchToLocalBtn = document.getElementById('switchToLocalBtn');
+            const switchToCloudBtn = document.getElementById('switchToCloudBtn');
+
+            try {
+                switchToLocalBtn.disabled = true;
+                switchToCloudBtn.disabled = true;
+                switchProgress.style.display = 'block';
+                switchStatusText.textContent = `Đang chuyển sang ${dbType === 'local' ? 'Local' : 'Cloud'}...`;
+
+                const response = await fetch('/api/admin/switch-database', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ dbType })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    switchStatusText.textContent = '✅ Chuyển đổi thành công!';
+                    switchStatusText.style.color = '#28a745';
+                    
+                    // Hiển thị thông báo yêu cầu logout và login lại
+                    if (result.data && result.data.requiresReLogin) {
+                        const confirmMsg = `Đã chuyển sang ${dbType === 'local' ? 'Local' : 'Cloud'} database thành công!\n\n` +
+                                         `⚠️ QUAN TRỌNG: Session hiện tại có thể không hoạt động đúng.\n` +
+                                         `Vui lòng logout và login lại để session hoạt động đúng với database mới.\n\n` +
+                                         `Bạn có muốn logout ngay bây giờ không?`;
+                        
+                        if (confirm(confirmMsg)) {
+                            // Logout ngay
+                            window.location.href = '/login';
+                        } else {
+                            showSuccess(`Đã chuyển sang ${dbType === 'local' ? 'Local' : 'Cloud'} database thành công! Vui lòng logout và login lại.`);
+                        }
+                    } else {
+                        showSuccess(`Đã chuyển sang ${dbType === 'local' ? 'Local' : 'Cloud'} database thành công!`);
+                    }
+                    
+                    // Reload status after a delay
+                    setTimeout(() => {
+                        loadDatabaseStatus();
+                        switchProgress.style.display = 'none';
+                    }, 2000);
+                } else {
+                    switchStatusText.textContent = '❌ Chuyển đổi thất bại: ' + result.message;
+                    switchStatusText.style.color = '#dc3545';
+                    showError('Chuyển đổi database thất bại: ' + result.message);
+                    switchProgress.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error switching database:', error);
+                switchStatusText.textContent = '❌ Lỗi: ' + error.message;
+                switchStatusText.style.color = '#dc3545';
+                showError('Lỗi chuyển đổi database: ' + error.message);
+                switchProgress.style.display = 'none';
+            } finally {
+                switchToLocalBtn.disabled = false;
+                switchToCloudBtn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>
