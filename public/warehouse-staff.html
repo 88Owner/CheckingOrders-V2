@@ -156,6 +156,15 @@
             box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
         }
 
+        .btn-primary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
         .kich-thuoc-list {
             margin-top: 20px;
         }
@@ -202,6 +211,8 @@
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
+            position: relative;
+            flex-wrap: wrap;
         }
 
         .kich-thuoc-input-group input {
@@ -213,6 +224,18 @@
         .kich-thuoc-input-group input[type="number"] {
             width: 140px;
             flex: 0 0 140px;
+            position: relative;
+        }
+        
+        .input-error {
+            display: none;
+            color: #dc3545;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            padding: 5px 10px;
+            background: #fff5f5;
+            border: 1px solid #dc3545;
+            border-radius: 4px;
         }
 
         .kich-thuoc-input-group button {
@@ -258,6 +281,11 @@
             grid-template-columns: 2fr 2fr 1.5fr;
             gap: 15px;
             align-items: center;
+        }
+
+        /* Dropdown cho form cắt phôi - 4 cột */
+        #phoiKichThuocDropdown .kich-thuoc-dropdown-item {
+            grid-template-columns: 2fr 2fr 1fr 1fr;
         }
 
         .kich-thuoc-dropdown-item:hover:not(.kich-thuoc-dropdown-header),
@@ -614,7 +642,7 @@
 
         .kich-thuoc-item-enhanced {
             display: grid;
-            grid-template-columns: 2.5fr 1.2fr 1.5fr 1.5fr 1.8fr auto;
+            grid-template-columns: 2fr 2fr 1.2fr auto;
             gap: 15px;
             align-items: center;
             padding: 18px;
@@ -759,7 +787,7 @@
 
         <!-- Right Panel: Form nhập phôi -->
         <div class="right-panel">
-            <h2 class="panel-title">Nhập phôi mới</h2>
+            <h2 class="panel-title">Dự báo cắt vải</h2>
             
             <form id="nhapPhoiForm">
                 <div class="form-group">
@@ -780,7 +808,9 @@
                                    step="0.1" min="0" 
                                    placeholder="VD: 10.5"
                                    style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;"
-                                   oninput="calculateArea()">
+                                   oninput="validateSoMBanDau(this); calculateArea();"
+                                   onblur="validateSoMBanDau(this)">
+                            <div class="input-error" id="chieuDaiCayVaiError" style="display: none; color: #dc3545; font-size: 0.85rem; margin-top: 5px;"></div>
                         </div>
                     </div>
                 </div>
@@ -810,8 +840,14 @@
                                    autocomplete="off">
                             <div class="kich-thuoc-dropdown" id="kichThuocDropdown"></div>
                         </div>
-                        <input type="number" id="soLuongInput" min="0" step="1" 
-                               placeholder="SL">
+                        <div style="position: relative; flex: 0 0 140px;">
+                            <input type="number" id="soLuongInput" min="0" step="1" 
+                                   placeholder="SL"
+                                   oninput="validateSLPhoi(this)"
+                                   onblur="validateSLPhoi(this)"
+                                   style="width: 100%;">
+                            <div class="input-error" id="soLuongInputError"></div>
+                        </div>
                         <button type="button" class="btn btn-secondary" onclick="themKichThuoc()" title="Thêm kích thước">
                             ➕
                         </button>
@@ -828,16 +864,12 @@
                     <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: #28a745;">Thông tin tính toán</h3>
                     <div class="calc-grid">
                         <div class="calc-item">
-                            <div class="calc-label">Diện tích ban đầu:</div>
-                            <div class="calc-value" id="dienTichBanDau">0 m²</div>
+                            <div class="calc-label">Số m ban đầu:</div>
+                            <div class="calc-value" id="soMBanDau">0 m</div>
                         </div>
                         <div class="calc-item">
-                            <div class="calc-label">Diện tích đã cắt:</div>
-                            <div class="calc-value" id="dienTichDaCat">0 m²</div>
-                        </div>
-                        <div class="calc-item">
-                            <div class="calc-label">Diện tích còn lại:</div>
-                            <div class="calc-value" id="dienTichConLai">0 m²</div>
+                            <div class="calc-label">Số m đã cắt:</div>
+                            <div class="calc-value" id="soMDaCat">0 m</div>
                         </div>
                         <div class="calc-item">
                             <div class="calc-label">Số m còn lại:</div>
@@ -855,6 +887,23 @@
                             <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
                         </div>
                     </div>
+
+                    <!-- Ghi nhận phát sinh mẫu dư ra -->
+                    <div class="checkbox-item" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="phatSinhMauDuRaCheckbox" onchange="togglePhatSinhMauDuRa()">
+                            <span>Ghi nhận phát sinh mẫu dư ra</span>
+                        </label>
+                        <div class="checkbox-info" id="phatSinhMauDuRaInfo" style="display: none;">
+                            Số m dư ra: <strong id="phatSinhMauDuRaValue">0 m</strong> (sẽ được lưu khi thêm mẫu)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form xử lý phát sinh mẫu dư ra -->
+                <div class="phat-sinh-mau-form" id="phatSinhMauForm" style="display: none; margin-top: 20px; padding: 20px; background: #fff9e6; border-radius: 8px; border: 2px solid #ffc107;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: #ff9800;">Xử lý phát sinh mẫu dư ra</h3>
+                    <div id="phatSinhMauContent"></div>
                 </div>
 
                 <!-- Checkbox options -->
@@ -869,7 +918,9 @@
                         <div class="checkbox-input-group" id="vaiLoiInputGroup" style="display: none;">
                             <input type="number" id="vaiLoiInput" step="0.1" min="0" 
                                    placeholder="Chiều dài vải lỗi (m)" 
-                                   oninput="calculateVaiLoi()">
+                                   oninput="validateSoMLoi(this); calculateVaiLoi();"
+                                   onblur="validateSoMLoi(this)">
+                            <div class="input-error" id="vaiLoiInputError" style="display: none; color: #dc3545; font-size: 0.85rem; margin-top: 5px;"></div>
                             <div class="input-hint">Diện tích lỗi: <span id="dienTichLoi">0 m²</span></div>
                         </div>
                     </div>
@@ -895,11 +946,6 @@
                     </div>
                 </div>
 
-                <!-- Form liên kết Sương đêm - Trời xanh -->
-                <div class="linked-mau-form" id="linkedMauForm" style="display: none; margin-top: 20px; padding: 20px; background: #f0f8ff; border-radius: 8px; border: 2px solid #4a90e2;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: #4a90e2;">🔗 Thông tin mẫu liên kết</h3>
-                    <div id="linkedMauContent"></div>
-                </div>
 
                 <div class="quick-actions">
                     <button type="button" class="btn" id="themMauBtn" onclick="themMau()">
@@ -1124,7 +1170,25 @@
             // Hiển thị input chiều dài cây vải và input ID
             document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
             document.getElementById('catVaiIdGroup').style.display = 'block';
-            document.getElementById('chieuDaiCayVaiInput').value = '';
+            
+            // Reset Số m ban đầu và clear errors
+            const chieuDaiCayVaiInput = document.getElementById('chieuDaiCayVaiInput');
+            chieuDaiCayVaiInput.value = '';
+            chieuDaiCayVaiInput.style.borderColor = '#e0e0e0';
+            document.getElementById('chieuDaiCayVaiError').style.display = 'none';
+            
+            // Reset SL phôi và clear errors
+            const soLuongInput = document.getElementById('soLuongInput');
+            soLuongInput.value = '';
+            soLuongInput.style.borderColor = '#e0e0e0';
+            document.getElementById('soLuongInputError').style.display = 'none';
+            
+            // Reset Số m lỗi và clear errors
+            const vaiLoiInput = document.getElementById('vaiLoiInput');
+            vaiLoiInput.value = '';
+            vaiLoiInput.style.borderColor = '#e0e0e0';
+            document.getElementById('vaiLoiInputError').style.display = 'none';
+            
             document.getElementById('calculationInfo').style.display = 'none';
             document.getElementById('checkboxOptions').style.display = 'none';
             currentCatVaiId = null; // Reset ID khi chọn mẫu mới
@@ -1138,157 +1202,14 @@
             document.getElementById('vaiLoiCheckbox').checked = false;
             document.getElementById('vaiThieuCheckbox').checked = false;
             document.getElementById('nhapLaiKhoCheckbox').checked = false;
+            document.getElementById('phatSinhMauDuRaCheckbox').checked = false;
             document.getElementById('vaiLoiInputGroup').style.display = 'none';
             document.getElementById('vaiThieuInfo').style.display = 'none';
             document.getElementById('nhapLaiKhoInfo').style.display = 'none';
+            document.getElementById('phatSinhMauDuRaInfo').style.display = 'none';
             
             loadKichThuocForMau();
             renderKichThuocList();
-            
-            // Kiểm tra nếu là mẫu Sương đêm (2) hoặc Trời xanh (43) để hiển thị form liên kết
-            checkAndShowLinkedMauForm();
-        }
-        
-        // Kiểm tra và hiển thị form liên kết Sương đêm - Trời xanh
-        function checkAndShowLinkedMauForm() {
-            const linkedForm = document.getElementById('linkedMauForm');
-            const linkedContent = document.getElementById('linkedMauContent');
-            
-            if (!currentMauVai) {
-                linkedForm.style.display = 'none';
-                return;
-            }
-            
-            const maMau = currentMauVai.maMau;
-            const isSuongDem = (maMau === '2' || maMau === 2);
-            
-            // Chỉ hiển thị form khi chọn Sương đêm (2)
-            if (!isSuongDem) {
-                linkedForm.style.display = 'none';
-                return;
-            }
-            
-            // Hiển thị form liên kết
-            linkedForm.style.display = 'block';
-            
-            // Hiển thị form để nhập thông tin Trời xanh (43) - phát sinh khi cắt Sương đêm
-            linkedContent.innerHTML = `
-                <p style="margin-bottom: 15px; color: #333;">Khi nhập mẫu <strong>Sương đêm (2)</strong>, bạn có thể nhập thông tin phát sinh cho mẫu <strong>Trời xanh (43)</strong>:</p>
-                <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Chọn trường hợp:</label>
-                    <select id="linkedCaseSelect" onchange="updateLinkedFormContent()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">-- Chọn trường hợp --</option>
-                        <option value="th1">TH1: 1mx1m → 1mx1m2</option>
-                        <option value="th2">TH2: Ngang bất kỳ cao 1m1 → Ngang1x1m1 hoặc 1m1xCao2</option>
-                        <option value="th3">TH3: Cao 1m5 → 1 kích thước 70 + 2 biến tùy ý</option>
-                    </select>
-                </div>
-                <div id="linkedFormDetails"></div>
-            `;
-        }
-        
-        // Cập nhật nội dung form liên kết dựa trên trường hợp đã chọn
-        function updateLinkedFormContent() {
-            const caseSelect = document.getElementById('linkedCaseSelect');
-            const detailsDiv = document.getElementById('linkedFormDetails');
-            const selectedCase = caseSelect.value;
-            
-            if (!selectedCase) {
-                detailsDiv.innerHTML = '';
-                return;
-            }
-            
-            const isSuongDem = (currentMauVai.maMau === '2' || currentMauVai.maMau === 2);
-            
-                    if (selectedCase === 'th1') {
-                        detailsDiv.innerHTML = `
-                            <div style="background: white; padding: 15px; border-radius: 6px;">
-                                <p style="margin-bottom: 10px; color: #666;">Tự động tạo kích thước 1mx1m2 cho Trời xanh (43)</p>
-                                <p style="margin-bottom: 10px; color: #999; font-size: 0.9rem;">Số lượng sẽ tự động lấy từ SL của kích thước 1mx1m của Sương đêm</p>
-                            </div>
-                        `;
-                    } else if (selectedCase === 'th2') {
-                detailsDiv.innerHTML = `
-                    <div style="background: white; padding: 15px; border-radius: 6px;">
-                        <p style="margin-bottom: 10px; color: #666;">Nhập thông tin cho Trời xanh (43):</p>
-                        <div style="margin-bottom: 10px;">
-                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Chọn loại kích thước:</label>
-                            <select id="linkedTh2Type" onchange="updateTh2Form()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                <option value="">-- Chọn --</option>
-                                <option value="ngang1x1m1">Ngang1x1m1</option>
-                                <option value="1m1xcao2">1m1xCao2</option>
-                            </select>
-                        </div>
-                        <div id="th2FormFields"></div>
-                    </div>
-                `;
-            } else if (selectedCase === 'th3') {
-                detailsDiv.innerHTML = `
-                    <div style="background: white; padding: 15px; border-radius: 6px;">
-                        <p style="margin-bottom: 10px; color: #666;">Nhập thông tin cho Trời xanh (43):</p>
-                        <p style="margin-bottom: 10px; color: #999; font-size: 0.9rem;">1 kích thước 70 + 2 biến tùy ý</p>
-                        <div style="margin-bottom: 10px;">
-                            <label style="display: block; margin-bottom: 5px;">Kích thước 1 (ngang-70):</label>
-                            <input type="number" id="linkedTh3Ngang1" min="1" step="1" placeholder="Ngang (cm)" 
-                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <label style="display: block; margin-bottom: 5px;">Kích thước 2 (ngang2-cao2):</label>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="number" id="linkedTh3Ngang2" min="1" step="1" placeholder="Ngang (cm)" 
-                                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                <input type="number" id="linkedTh3Cao2" min="1" step="1" placeholder="Cao (cm)" 
-                                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <label style="display: block; margin-bottom: 5px;">Số lượng:</label>
-                            <input type="number" id="linkedTh3Qty" min="1" step="1" placeholder="SL" 
-                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Cập nhật form TH2
-        function updateTh2Form() {
-            const typeSelect = document.getElementById('linkedTh2Type');
-            const fieldsDiv = document.getElementById('th2FormFields');
-            const selectedType = typeSelect.value;
-            
-            if (!selectedType) {
-                fieldsDiv.innerHTML = '';
-                return;
-            }
-            
-            if (selectedType === 'ngang1x1m1') {
-                fieldsDiv.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; margin-bottom: 5px;">Ngang1 (cm):</label>
-                        <input type="number" id="linkedTh2Ngang1" min="1" step="1" placeholder="Ngang1" 
-                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; margin-bottom: 5px;">Số lượng:</label>
-                        <input type="number" id="linkedTh2Qty1" min="1" step="1" placeholder="SL" 
-                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                `;
-            } else if (selectedType === '1m1xcao2') {
-                fieldsDiv.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; margin-bottom: 5px;">Cao2 (cm):</label>
-                        <input type="number" id="linkedTh2Cao2" min="1" step="1" placeholder="Cao2" 
-                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; margin-bottom: 5px;">Số lượng:</label>
-                        <input type="number" id="linkedTh2Qty2" min="1" step="1" placeholder="SL" 
-                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                `;
-            }
         }
 
         // Load danh sách kích thước
@@ -1471,6 +1392,79 @@
             document.getElementById('soLuongInput').focus();
         }
 
+        // Định nghĩa các bộ kích thước đặc biệt
+        const SPECIAL_SIZE_SETS = [
+            {
+                name: 'Bộ 1mx1m - 1mx1m2',
+                items: [
+                    { szSku: '100-100' }, // 1mx1m
+                    { szSku: '100-120' }  // 1mx1m2
+                ]
+            },
+            {
+                name: 'Bộ 1m2x1m - 1m2x1m2',
+                items: [
+                    { szSku: '120-100' }, // 1m2x1m
+                    { szSku: '120-120' }  // 1m2x1m2
+                ]
+            },
+            {
+                name: 'Bộ 70-70-70 (cắt chia 3 chiều cao)',
+                items: [
+                    { 
+                        szSku: '70-70-70',
+                        specialCalculation: 'divide_3' // Cắt chia 3, diện tích = (ngang * cao) / 3
+                    }
+                ]
+            },
+            {
+                name: 'Bộ 110-110 (cắt chia đôi chiều cao)',
+                items: [
+                    { 
+                        szSku: '110-110',
+                        specialCalculation: 'divide_2' // Cắt chia đôi, diện tích = (ngang * cao) / 2
+                    }
+                ]
+            }
+        ];
+
+        // Kiểm tra xem kích thước có thuộc bộ đặc biệt không
+        function getSpecialSizeSet(szSku) {
+            for (const set of SPECIAL_SIZE_SETS) {
+                const found = set.items.find(item => item.szSku === szSku);
+                if (found) {
+                    return set;
+                }
+            }
+            return null;
+        }
+
+        // Tính diện tích đặc biệt cho các bộ cắt chia
+        function calculateSpecialArea(szSku, calculationType) {
+            const parts = szSku.split('-');
+            if (parts.length < 2) return 0;
+            
+            const ngang = parseInt(parts[0]) || 0; // cm
+            const cao = parseInt(parts[1]) || 0; // cm
+            
+            // Ngang thực tế = ngang + 5cm, Cao thực tế = cao + 5cm (đảm bảo khi cắt thực tế sẽ cộng thêm 5cm)
+            const ngangThucTe = ngang + 5;
+            const caoThucTe = cao + 5;
+            
+            // Diện tích gốc (cm²)
+            const dienTichGoc = (ngangThucTe * caoThucTe) / 10000; // Đổi sang m²
+            
+            if (calculationType === 'divide_2') {
+                // Cắt chia đôi: diện tích = diện tích gốc / 2
+                return dienTichGoc / 2;
+            } else if (calculationType === 'divide_3') {
+                // Cắt chia 3: diện tích = diện tích gốc / 3
+                return dienTichGoc / 3;
+            }
+            
+            return dienTichGoc;
+        }
+
         // Thêm kích thước vào danh sách
         function themKichThuoc() {
             if (!currentMauVai) {
@@ -1482,6 +1476,13 @@
             const soLuongInput = document.getElementById('soLuongInput');
             
             const inputValue = kichThuocInput.value.trim();
+            
+            // Validate SL phôi trước
+            if (!validateSLPhoi(soLuongInput)) {
+                soLuongInput.focus();
+                return;
+            }
+            
             const soLuong = parseInt(soLuongInput.value) || 0;
 
             if (!inputValue) {
@@ -1492,6 +1493,21 @@
             if (soLuong <= 0) {
                 showError('Vui lòng nhập số lượng lớn hơn 0');
                 return;
+            }
+            
+            // Kiểm tra tổng SL phôi sau khi thêm mới
+            const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            if (chieuDaiCayVai > 0) {
+                let totalSLPhoi = soLuong;
+                for (const szSku in currentKichThuocData) {
+                    totalSLPhoi += currentKichThuocData[szSku].soLuong || 0;
+                }
+                
+                if (totalSLPhoi >= chieuDaiCayVai) {
+                    showError(`Tổng SL phôi (${totalSLPhoi}) không được lớn hơn hoặc bằng Số m ban đầu (${chieuDaiCayVai})`);
+                    soLuongInput.focus();
+                    return;
+                }
             }
 
             // Lấy kích thước đã chọn từ data attributes
@@ -1539,13 +1555,80 @@
                 return;
             }
 
-            // Thêm vào currentKichThuocData
+            // Kiểm tra xem kích thước có thuộc bộ đặc biệt không
+            const specialSet = getSpecialSizeSet(selectedKichThuoc.szSku);
+            
+            if (specialSet) {
+                // Thêm tất cả các kích thước trong bộ
+                let addedCount = 0;
+                for (const item of specialSet.items) {
+                    // Tìm kích thước trong danh sách
+                    const kt = kichThuocList.find(k => k.szSku === item.szSku);
+                    if (kt) {
+                        // Tính diện tích đặc biệt nếu có
+                        let dienTich = kt.dienTich || 0;
+                        if (item.specialCalculation) {
+                            dienTich = calculateSpecialArea(item.szSku, item.specialCalculation);
+                        }
+                        
+                        // Thêm vào danh sách (nếu chưa có)
+                        if (!currentKichThuocData[item.szSku]) {
+                            currentKichThuocData[item.szSku] = {
+                                kichThuoc: kt.kichThuoc,
+                                szSku: item.szSku,
+                                soLuong: soLuong, // Dùng cùng số lượng
+                                dienTich: dienTich,
+                                isSpecialSet: true,
+                                specialSetName: specialSet.name
+                            };
+                            addedCount++;
+                        }
+                    } else {
+                        // Nếu không tìm thấy trong danh sách, tạo mới từ szSku
+                        const parts = item.szSku.split('-');
+                        if (parts.length >= 2) {
+                            const ngang = parseInt(parts[0]) || 0;
+                            const cao = parseInt(parts[1]) || 0;
+                            
+                            // Ngang thực tế = ngang + 5cm, Cao thực tế = cao + 5cm (đảm bảo khi cắt thực tế sẽ cộng thêm 5cm)
+                            const ngangThucTe = ngang + 5;
+                            const caoThucTe = cao + 5;
+                            
+                            // Tính diện tích
+                            let dienTich = (ngangThucTe * caoThucTe) / 10000; // m²
+                            if (item.specialCalculation) {
+                                dienTich = calculateSpecialArea(item.szSku, item.specialCalculation);
+                            }
+                            
+                            // Tạo tên kích thước
+                            const kichThuoc = `Ngang${ngang/100}mxCao${cao/100}m`;
+                            
+                            if (!currentKichThuocData[item.szSku]) {
+                                currentKichThuocData[item.szSku] = {
+                                    kichThuoc: kichThuoc,
+                                    szSku: item.szSku,
+                                    soLuong: soLuong,
+                                    dienTich: dienTich,
+                                    isSpecialSet: true,
+                                    specialSetName: specialSet.name
+                                };
+                                addedCount++;
+                            }
+                        }
+                    }
+                }
+                if (addedCount > 0) {
+                    showSuccess(`Đã thêm bộ kích thước "${specialSet.name}" với ${addedCount} kích thước`);
+                }
+            } else {
+                // Thêm kích thước bình thường
             currentKichThuocData[selectedKichThuoc.szSku] = {
                 kichThuoc: selectedKichThuoc.kichThuoc,
                 szSku: selectedKichThuoc.szSku,
                 soLuong: soLuong,
                 dienTich: selectedKichThuoc.dienTich || 0
             };
+            }
 
             // Render lại danh sách
             renderKichThuocList();
@@ -1584,31 +1667,31 @@
             headerDiv.style.border = 'none';
             headerDiv.style.boxShadow = '0 4px 8px rgba(40, 167, 69, 0.3)';
             headerDiv.style.cursor = 'default';
+            const tenMau = currentMauVai ? `${currentMauVai.maMau} - ${currentMauVai.tenMau}` : 'Chưa chọn mẫu';
             headerDiv.innerHTML = `
-                <div style="font-size: 1.1rem;">Kích thước</div>
+                <div style="font-size: 1.1rem;">Tên mẫu</div>
+                <div style="font-size: 1.1rem;">Tên kích thước</div>
                 <div style="text-align: center; font-size: 1.1rem;">Số lượng</div>
-                <div style="text-align: center; font-size: 1.1rem;">Diện tích (m²)</div>
-                <div style="text-align: center; font-size: 1.1rem;">Diện tích cắt (m²)</div>
-                <div style="text-align: center; font-size: 1.1rem;">Sz_SKU</div>
-                <div></div>
+                <div style="text-align: center; font-size: 1.1rem;">Thao tác</div>
             `;
             listDiv.appendChild(headerDiv);
             
             for (const szSku in currentKichThuocData) {
                 const data = currentKichThuocData[szSku];
-                const dienTichCat = (data.soLuong * data.dienTich).toFixed(2);
+                
+                // Lấy tên mẫu từ data nếu có (cho phát sinh), không thì dùng currentMauVai
+                const tenMauHienThi = (data.maMau && data.tenMau) ? 
+                    `${data.maMau} - ${data.tenMau}` : tenMau;
                 
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'kich-thuoc-item-enhanced';
                 
                 itemDiv.innerHTML = `
-                    <div class="kt-label" style="font-size: 1.05rem;">${data.kichThuoc}</div>
-                    <div class="kt-value" style="text-align: center; font-size: 1.05rem;"><strong>${data.soLuong}</strong></div>
-                    <div class="kt-value" style="text-align: center; font-size: 1rem;">${data.dienTich.toFixed(2)} m²</div>
-                    <div class="kt-value" style="text-align: center; font-size: 1.05rem;"><strong>${dienTichCat} m²</strong></div>
-                    <div class="kt-value" style="text-align: center; font-size: 0.95rem; color: #666;">${data.szSku}</div>
+                    <div class="kt-label" style="font-size: 1rem; color: #333; font-weight: 500;">${tenMauHienThi}</div>
+                    <div class="kt-label" style="font-size: 1.05rem; color: #28a745; font-weight: 600;">${data.kichThuoc}</div>
+                    <div class="kt-value" style="text-align: center; font-size: 1.1rem; font-weight: 700; color: #333;"><strong>${data.soLuong}</strong></div>
                     <div style="text-align: center;">
-                        <button type="button" class="btn-remove" onclick="deleteKichThuoc('${szSku}')" style="padding: 8px 14px; font-size: 0.9rem;">✕ Xóa</button>
+                        <button type="button" class="btn-remove" onclick="deleteKichThuoc('${szSku}')" style="padding: 8px 16px; font-size: 0.9rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;">✕ Xóa</button>
                     </div>
                 `;
                 
@@ -1642,33 +1725,152 @@
             const dienTichLoi = chieuDaiLoi * 2.3;
             const dienTichBanDauHuuDung = Math.max(0, dienTichBanDau - dienTichLoi);
 
-            // Tính diện tích đã cắt
+            // Tính diện tích đã cắt (KHÔNG tính phần vải xử lý phát sinh - isPhatSinh hoặc isLuuTru)
+            // QUAN TRỌNG: Tất cả vải xử lý phát sinh (isPhatSinh hoặc isLuuTru) đều KHÔNG tính vào diện tích cắt
+            // Chỉ cập nhật số lượng, không cập nhật số m và diện tích cắt
+            // Đặc biệt: Với các mẫu khác (ngoại trừ sương đêm, trời xanh, mùa đông, corgi):
+            // - Cao 110: số tấm tính vào processing cắt giảm 1/2 (số lượng / 2)
+            // - Cao 70: số tấm tính vào processing cắt giảm 1/3 (số lượng / 3)
             let dienTichDaCat = 0;
+            
+            // Kiểm tra mẫu đặc biệt
+            const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
+            const isMauDacBiet = maMau === '2' || maMau === '43' || maMau === '4' || maMau === '14';
+            
             for (const szSku in currentKichThuocData) {
                 const data = currentKichThuocData[szSku];
-                dienTichDaCat += data.soLuong * data.dienTich;
+                // Bỏ qua tất cả các kích thước phát sinh (xử lý phát sinh mẫu dư ra)
+                // Chỉ cập nhật số lượng, không tính vào diện tích cắt và số m cắt
+                if (data.isPhatSinh || data.isLuuTru) {
+                    continue;
+                }
+                
+                // Tính số lượng thực tế cho processing cắt
+                let soLuongThucTe = data.soLuong;
+                
+                // Với các mẫu khác (ngoại trừ sương đêm, trời xanh, mùa đông, corgi)
+                if (!isMauDacBiet) {
+                    const parts = szSku.split('-');
+                    let hasCao110 = false;
+                    let hasCao70 = false;
+                    
+                    // Kiểm tra cao 110 (cắt đôi) - giảm 1/2
+                    for (let i = 1; i < parts.length; i++) {
+                        const cao = parseInt(parts[i]) || 0;
+                        if (cao === 110) {
+                            hasCao110 = true;
+                            break;
+                        }
+                    }
+                    
+                    // Kiểm tra cao 70 (cắt 3 lần) - giảm 1/3
+                    if (!hasCao110) {
+                        for (let i = 1; i < parts.length; i++) {
+                            const cao = parseInt(parts[i]) || 0;
+                            if (cao === 70) {
+                                hasCao70 = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Áp dụng hệ số giảm cho số lượng tính vào processing cắt
+                    if (hasCao110) {
+                        soLuongThucTe = data.soLuong / 2; // Giảm 1/2
+                    } else if (hasCao70) {
+                        soLuongThucTe = data.soLuong / 3; // Giảm 1/3
+                    }
+                }
+                
+                dienTichDaCat += soLuongThucTe * data.dienTich;
             }
 
             // Diện tích còn lại (lấy diện tích hữu dụng làm gốc)
             const dienTichConLai = Math.max(0, dienTichBanDauHuuDung - dienTichDaCat);
 
+            // Số m ban đầu = chiều dài cây vải
+            const soMBanDau = chieuDaiCayVai;
+            
+            // Số m đã cắt = Σ (SL × (ngang + 5cm)) / 100 (đổi từ cm sang m)
+            // KHÔNG tính phần vải xử lý phát sinh (isPhatSinh hoặc isLuuTru)
+            // QUAN TRỌNG: Tất cả vải xử lý phát sinh (isPhatSinh hoặc isLuuTru) đều KHÔNG tính vào số m cắt
+            // Chỉ cập nhật số lượng, không cập nhật số m và diện tích cắt
+            // Đặc biệt: Với các mẫu khác (ngoại trừ sương đêm, trời xanh, mùa đông, corgi):
+            // - Cao 110: số tấm tính vào processing cắt giảm 1/2 (số lượng / 2)
+            // - Cao 70: số tấm tính vào processing cắt giảm 1/3 (số lượng / 3)
+            // Parse ngang từ szSku (format: ngang-cao1-cao2...)
+            let soMDaCat = 0;
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                // Bỏ qua tất cả các kích thước phát sinh (xử lý phát sinh mẫu dư ra)
+                // Chỉ cập nhật số lượng, không tính vào số m cắt
+                if (data.isPhatSinh || data.isLuuTru) {
+                    continue;
+                }
+                
+                const parts = szSku.split('-');
+                if (parts.length > 0) {
+                    // Tính số lượng thực tế cho processing cắt
+                    let soLuongThucTe = data.soLuong;
+                    
+                    // Với các mẫu khác (ngoại trừ sương đêm, trời xanh, mùa đông, corgi)
+                    if (!isMauDacBiet) {
+                        let hasCao110 = false;
+                        let hasCao70 = false;
+                        
+                        // Kiểm tra cao 110 (cắt đôi) - giảm 1/2
+                        for (let i = 1; i < parts.length; i++) {
+                            const cao = parseInt(parts[i]) || 0;
+                            if (cao === 110) {
+                                hasCao110 = true;
+                                break;
+                            }
+                        }
+                        
+                        // Kiểm tra cao 70 (cắt 3 lần) - giảm 1/3
+                        if (!hasCao110) {
+                            for (let i = 1; i < parts.length; i++) {
+                                const cao = parseInt(parts[i]) || 0;
+                                if (cao === 70) {
+                                    hasCao70 = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Áp dụng hệ số giảm cho số lượng tính vào processing cắt
+                        if (hasCao110) {
+                            soLuongThucTe = data.soLuong / 2; // Giảm 1/2
+                        } else if (hasCao70) {
+                            soLuongThucTe = data.soLuong / 3; // Giảm 1/3
+                        }
+                    }
+                    
+                    const ngang = parseInt(parts[0]) || 0;
+                    const ngangThucTe = ngang + 5; // ngang + 5cm
+                    // Số m = (SL thực tế × ngang thực tế) / 100 (đổi cm sang m)
+                    soMDaCat += (soLuongThucTe * ngangThucTe) / 100;
+                }
+            }
+            soMDaCat = Math.round(soMDaCat * 10) / 10; // Làm tròn 1 chữ số thập phân
+            
             // Số m còn lại = diện tích còn lại / 2.3 (làm tròn 1 chữ số thập phân)
             const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
-
+            
             // Tiến độ đã cắt % = (chiều dài - số m còn lại) / chiều dài * 100
             const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
 
-            // Cập nhật UI
-            document.getElementById('dienTichBanDau').textContent = dienTichBanDau.toFixed(2) + ' m²';
-            // Cập nhật hiển thị diện tích lỗi nếu có
-            if (document.getElementById('dienTichLoi')) {
-                document.getElementById('dienTichLoi').textContent = (dienTichLoi || 0).toFixed(2) + ' m²';
-            }
-            document.getElementById('dienTichDaCat').textContent = dienTichDaCat.toFixed(2) + ' m²';
-            document.getElementById('dienTichConLai').textContent = dienTichConLai.toFixed(2) + ' m²';
+            // Cập nhật UI - hiển thị số m thay vì diện tích
+            document.getElementById('soMBanDau').textContent = soMBanDau.toFixed(1) + ' m';
+            document.getElementById('soMDaCat').textContent = soMDaCat.toFixed(1) + ' m';
             document.getElementById('soMConLai').textContent = soMConLai.toFixed(1) + ' m';
             document.getElementById('tienDoPercent').textContent = tienDoPercent + '%';
             document.getElementById('progressBarFill').style.width = Math.min(100, Math.max(0, tienDoPercent)) + '%';
+            
+            // Cập nhật hiển thị diện tích lỗi nếu có (cho checkbox vải lỗi)
+            if (document.getElementById('dienTichLoi')) {
+                document.getElementById('dienTichLoi').textContent = (dienTichLoi || 0).toFixed(2) + ' m²';
+            }
 
             // Hiển thị calculation info và checkbox options nếu có kích thước
             if (Object.keys(currentKichThuocData).length > 0) {
@@ -1678,9 +1880,146 @@
                 // Cập nhật giá trị cho vải thiếu và nhập lại kho
                 document.getElementById('vaiThieuValue').textContent = soMConLai.toFixed(1) + ' m';
                 document.getElementById('nhapLaiKhoValue').textContent = soMConLai.toFixed(1) + ' m';
+                
+                // Cập nhật giá trị cho phát sinh mẫu dư ra (số m dư = số m còn lại)
+                document.getElementById('phatSinhMauDuRaValue').textContent = soMConLai.toFixed(1) + ' m';
             } else {
                 document.getElementById('checkboxOptions').style.display = 'none';
             }
+        }
+
+        // Validation functions
+        function validateNumberInput(input, errorElementId, fieldName) {
+            const value = input.value.trim();
+            const errorElement = document.getElementById(errorElementId);
+            
+            // Xóa khoảng trắng và kiểm tra rỗng
+            if (value === '') {
+                errorElement.style.display = 'none';
+                input.style.borderColor = '#e0e0e0';
+                return true;
+            }
+            
+            // Kiểm tra ký tự đặc biệt (chỉ cho phép số, dấu chấm và dấu phẩy)
+            const specialCharsRegex = /[^0-9.,]/;
+            if (specialCharsRegex.test(value)) {
+                errorElement.textContent = `${fieldName} không được chứa ký tự đặc biệt. Chỉ cho phép số.`;
+                errorElement.style.display = 'block';
+                input.style.borderColor = '#dc3545';
+                return false;
+            }
+            
+            // Chuyển dấu phẩy thành dấu chấm
+            const normalizedValue = value.replace(',', '.');
+            
+            // Kiểm tra số âm
+            const numValue = parseFloat(normalizedValue);
+            if (isNaN(numValue) || numValue < 0) {
+                errorElement.textContent = `${fieldName} phải là số tự nhiên (>= 0) và không được là số âm.`;
+                errorElement.style.display = 'block';
+                input.style.borderColor = '#dc3545';
+                return false;
+            }
+            
+            // Cập nhật giá trị nếu có dấu phẩy
+            if (value.includes(',')) {
+                input.value = normalizedValue;
+            }
+            
+            // Validation thành công
+            errorElement.style.display = 'none';
+            input.style.borderColor = '#e0e0e0';
+            return true;
+        }
+        
+        function validateSoMBanDau(input) {
+            const isValid = validateNumberInput(input, 'chieuDaiCayVaiError', 'Số m ban đầu');
+            if (isValid && input.value) {
+                // Kiểm tra lại SL phôi và Số m lỗi khi Số m ban đầu thay đổi
+                const soLuongInput = document.getElementById('soLuongInput');
+                if (soLuongInput && soLuongInput.value) {
+                    validateSLPhoi(soLuongInput);
+                }
+                const vaiLoiInput = document.getElementById('vaiLoiInput');
+                if (vaiLoiInput && vaiLoiInput.value) {
+                    validateSoMLoi(vaiLoiInput);
+                }
+            }
+            return isValid;
+        }
+        
+        function validateSLPhoi(input) {
+            const value = input.value.trim();
+            const errorElement = document.getElementById('soLuongInputError');
+            
+            // Kiểm tra cơ bản trước
+            const basicValid = validateNumberInput(input, 'soLuongInputError', 'SL phôi');
+            if (!basicValid) return false;
+            
+            // Kiểm tra rỗng
+            if (value === '') {
+                errorElement.style.display = 'none';
+                input.style.borderColor = '#e0e0e0';
+                return true;
+            }
+            
+            // Lấy Số m ban đầu để so sánh
+            const soMBanDau = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            const slPhoi = parseFloat(value.replace(',', '.')) || 0;
+            
+            // Kiểm tra SL phôi phải là số nguyên dương (không cho số thập phân)
+            if (!Number.isInteger(slPhoi) || slPhoi <= 0) {
+                errorElement.textContent = 'SL phôi phải là số nguyên dương (số tự nhiên > 0).';
+                errorElement.style.display = 'block';
+                input.style.borderColor = '#dc3545';
+                return false;
+            }
+            
+            // Kiểm tra SL phôi phải nhỏ hơn Số m ban đầu (nếu Số m ban đầu đã nhập)
+            if (soMBanDau > 0 && slPhoi >= soMBanDau) {
+                errorElement.textContent = `SL phôi (${slPhoi}) phải nhỏ hơn Số m ban đầu (${soMBanDau}).`;
+                errorElement.style.display = 'block';
+                input.style.borderColor = '#dc3545';
+                return false;
+            }
+            
+            // Validation thành công
+            errorElement.style.display = 'none';
+            input.style.borderColor = '#e0e0e0';
+            return true;
+        }
+        
+        function validateSoMLoi(input) {
+            const value = input.value.trim();
+            const errorElement = document.getElementById('vaiLoiInputError');
+            
+            // Kiểm tra cơ bản trước
+            const basicValid = validateNumberInput(input, 'vaiLoiInputError', 'Số m lỗi');
+            if (!basicValid) return false;
+            
+            // Kiểm tra rỗng
+            if (value === '') {
+                errorElement.style.display = 'none';
+                input.style.borderColor = '#e0e0e0';
+                return true;
+            }
+            
+            // Lấy Số m ban đầu để so sánh
+            const soMBanDau = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            const soMLoi = parseFloat(value.replace(',', '.')) || 0;
+            
+            // Kiểm tra Số m lỗi phải nhỏ hơn Số m ban đầu (nếu Số m ban đầu đã nhập)
+            if (soMBanDau > 0 && soMLoi >= soMBanDau) {
+                errorElement.textContent = `Số m lỗi (${soMLoi}) phải nhỏ hơn Số m ban đầu (${soMBanDau}).`;
+                errorElement.style.display = 'block';
+                input.style.borderColor = '#dc3545';
+                return false;
+            }
+            
+            // Validation thành công
+            errorElement.style.display = 'none';
+            input.style.borderColor = '#e0e0e0';
+            return true;
         }
 
         // Toggle vải lỗi
@@ -1695,6 +2034,11 @@
                 inputGroup.style.display = 'none';
                 document.getElementById('vaiLoiInput').value = '';
                 document.getElementById('dienTichLoi').textContent = '0 m²';
+                // Xóa error message khi ẩn input
+                const errorElement = document.getElementById('vaiLoiInputError');
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                }
             }
             // Recalculate progress when toggling vải lỗi
             calculateArea();
@@ -1761,6 +2105,948 @@
             }
         }
 
+        // Toggle phát sinh mẫu dư ra
+        function togglePhatSinhMauDuRa() {
+            const checkbox = document.getElementById('phatSinhMauDuRaCheckbox');
+            const info = document.getElementById('phatSinhMauDuRaInfo');
+            const form = document.getElementById('phatSinhMauForm');
+            
+            if (checkbox.checked) {
+                info.style.display = 'block';
+                renderPhatSinhMauForm();
+            } else {
+                info.style.display = 'none';
+                if (form) form.style.display = 'none';
+            }
+        }
+
+        // Tính chiều cao đã cắt từ items (từ szSku)
+        function tinhChieuCaoDaCat() {
+            let maxCao = 0;
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                // Parse szSku để lấy chiều cao (ví dụ: 100-180 → cao = 180, 100-110-70 → cao = 110+70=180)
+                const parts = szSku.split('-');
+                if (parts.length >= 2) {
+                    // Chiều cao là tổng các phần từ phần thứ 2 trở đi (phần đầu là ngang)
+                    let cao = 0;
+                    for (let i = 1; i < parts.length; i++) {
+                        cao += parseInt(parts[i]) || 0;
+                    }
+                    if (cao > maxCao) maxCao = cao;
+                }
+            }
+            return maxCao; // Trả về cm
+        }
+
+        // Tính các bộ chiều cao có thể xử lý
+        function tinhCacBoChieuCao(chieuCaoDaCat) {
+            // Các bộ: (225), (150+70), (110+110), (180+50), (110+70+50)
+            const cacBo = [
+                { label: '225', value: 225, parts: [225] },
+                { label: '150+70', value: 220, parts: [150, 70] },
+                { label: '110+110', value: 220, parts: [110, 110] },
+                { label: '180+50', value: 230, parts: [180, 50] },
+                { label: '110+70+50', value: 230, parts: [110, 70, 50] }
+            ];
+            
+            // Chiều cao còn lại = 230 - chiều cao đã cắt
+            const chieuCaoConLai = 230 - chieuCaoDaCat;
+            
+            // Tìm các bộ có thể dùng (tổng <= chiều cao còn lại)
+            return cacBo.filter(bo => bo.value <= chieuCaoConLai);
+        }
+
+        // Render form xử lý phát sinh mẫu dư ra
+        function renderPhatSinhMauForm() {
+            // Ẩn gợi ý cắt phôi khi render form
+            hidePhoiSuggestions();
+            const form = document.getElementById('phatSinhMauForm');
+            const content = document.getElementById('phatSinhMauContent');
+            
+            if (!form || !content || !currentMauVai) {
+                return;
+            }
+
+            form.style.display = 'block';
+
+            // Xác định mẫu phát sinh
+            const maMau = currentMauVai.maMau;
+            const isSuongDem = (maMau === '2' || maMau === 2);
+            let mauPhatSinh = null;
+            
+            if (isSuongDem) {
+                // Sương đêm → Trời xanh
+                mauPhatSinh = mauVaiList.find(m => m.maMau === '43' || m.maMau === 43);
+            } else {
+                // Các mẫu khác → phát sinh chính nó
+                mauPhatSinh = currentMauVai;
+            }
+
+            if (!mauPhatSinh) {
+                content.innerHTML = '<p style="color: #dc3545;">Không tìm thấy mẫu phát sinh</p>';
+                return;
+            }
+
+            // Tính chiều cao đã cắt
+            const chieuCaoDaCat = tinhChieuCaoDaCat();
+            const chieuCaoConLai = 230 - chieuCaoDaCat;
+            const cacBoCoTheDung = tinhCacBoChieuCao(chieuCaoDaCat);
+
+            content.innerHTML = `
+                <div style="margin-bottom: 15px;">
+                    <div style="font-weight: 600; color: #333; margin-bottom: 10px;">
+                        Mẫu phát sinh: <span style="color: #28a745;">${mauPhatSinh.maMau} - ${mauPhatSinh.tenMau}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">
+                        Chiều cao đã cắt: <strong>${chieuCaoDaCat}cm</strong> | Chiều cao còn lại: <strong>${chieuCaoConLai}cm</strong>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                    <button type="button" class="btn btn-secondary" id="catPhoiBtn" onclick="chonCheDoXuLy('phoi')" style="flex: 1; padding: 12px;">
+                        Cắt phôi
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="catLuuTruBtn" onclick="chonCheDoXuLy('luutru')" style="flex: 1; padding: 12px;">
+                        Lưu trữ 
+                    </button>
+                </div>
+
+                <!-- Form Cắt phôi -->
+                <div id="catPhoiForm" style="display: none; padding: 15px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                    <h4 style="font-size: 1rem; margin-bottom: 15px; color: #28a745;">Cắt phôi</h4>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Chọn kích thước (filter theo chiều cao có thể cắt):</label>
+                        <div class="kich-thuoc-autocomplete" style="position: relative;">
+                            <input type="text" id="phoiKichThuocInput" 
+                                   placeholder="Tìm kiếm kích thước (VD: 3m, 30cm)..." 
+                                   autocomplete="off"
+                                   style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;">
+                            <div class="kich-thuoc-dropdown" id="phoiKichThuocDropdown" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;"></div>
+                    </div>
+                    </div>
+                    <div id="phoiNgangGroup" style="margin-bottom: 15px; display: none;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Ngang (cm):</label>
+                        <input type="number" id="phoiNgangInput" min="1" step="1" placeholder="Nhập ngang (cm)" 
+                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;"
+                               oninput="validatePhoiNgang(this); updatePhoiForm();">
+                        <div class="input-error" id="phoiNgangError" style="display: none;"></div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Số lượng:</label>
+                        <input type="number" id="phoiSoLuongInput" min="1" step="1" placeholder="Nhập số lượng" 
+                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;"
+                               oninput="updatePhoiForm();">
+                    </div>
+                    
+                    <!-- Gợi ý tối ưu - Đã ẩn theo yêu cầu -->
+                    <div id="phoiSuggestions" style="display: none !important;"></div>
+                    
+                    <button type="button" class="btn" onclick="themPhoiPhatSinh()" style="width: 100%; padding: 12px; margin-top: 15px;">
+                        ➕ Thêm vào bảng phôi
+                    </button>
+                </div>
+
+                <!-- Form Cắt lưu trữ -->
+                <div id="catLuuTruForm" style="display: none; padding: 15px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                    <h4 style="font-size: 1rem; margin-bottom: 15px; color: #ff9800;">Cắt lưu trữ</h4>
+                    <div style="margin-bottom: 10px; padding: 10px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+                        <div style="font-size: 0.9rem; color: #856404;">
+                            Vải thừa chưa cắt, chỉ cần nhập ngang và số lượng. Chiều cao sẽ tự động lấy từ phần còn lại.
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Ngang (cm):</label>
+                        <input type="number" id="luutruNgangInput" min="1" step="1" placeholder="Nhập ngang (cm)" 
+                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;"
+                               oninput="validateLuuTruNgang(this)">
+                        <div class="input-error" id="luutruNgangError" style="display: none;"></div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Số lượng:</label>
+                        <input type="number" id="luutruSoLuongInput" min="1" step="1" placeholder="Nhập số lượng" 
+                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    <button type="button" class="btn" onclick="themLuuTruPhatSinh()" style="width: 100%; padding: 12px;">
+                        ➕ Lưu vào bảng kích thước
+                    </button>
+                </div>
+            `;
+        }
+
+        // Chọn chế độ xử lý
+        function chonCheDoXuLy(mode) {
+            // Ẩn gợi ý cắt phôi khi chọn chế độ xử lý
+            hidePhoiSuggestions();
+            const phoiBtn = document.getElementById('catPhoiBtn');
+            const luutruBtn = document.getElementById('catLuuTruBtn');
+            const phoiForm = document.getElementById('catPhoiForm');
+            const luutruForm = document.getElementById('catLuuTruForm');
+
+            if (mode === 'phoi') {
+                phoiBtn.classList.add('btn-primary');
+                phoiBtn.classList.remove('btn-secondary');
+                luutruBtn.classList.remove('btn-primary');
+                luutruBtn.classList.add('btn-secondary');
+                phoiForm.style.display = 'block';
+                luutruForm.style.display = 'none';
+                // Setup autocomplete khi hiển thị form
+                setTimeout(() => {
+                    setupPhoiKichThuocAutocomplete();
+                }, 100);
+            } else {
+                luutruBtn.classList.add('btn-primary');
+                luutruBtn.classList.remove('btn-secondary');
+                phoiBtn.classList.remove('btn-primary');
+                phoiBtn.classList.add('btn-secondary');
+                luutruForm.style.display = 'block';
+                phoiForm.style.display = 'none';
+            }
+        }
+
+        // Validate ngang cho cắt phôi
+        function validatePhoiNgang(input) {
+            const value = parseInt(input.value) || 0;
+            const errorElement = document.getElementById('phoiNgangError');
+            
+            if (value <= 0) {
+                errorElement.textContent = 'Ngang phải lớn hơn 0';
+                errorElement.style.display = 'block';
+                input.style.borderColor = '#dc3545';
+                return false;
+            }
+            
+            errorElement.style.display = 'none';
+            input.style.borderColor = '#e0e0e0';
+            return true;
+        }
+
+        // Validate ngang cho cắt lưu trữ
+        function validateLuuTruNgang(input) {
+            return validatePhoiNgang(input);
+        }
+
+        // Thuật toán tối ưu cắt phôi từ khổ ban đầu (ngang bất kỳ, cao 230cm)
+        // Logic: Đề xuất các phương án tối ưu để cắt phôi phát sinh với chiều cao đã chọn
+        // và có thể tìm thêm phôi phát sinh khác từ phần còn lại để tối ưu
+        function suggestCutOptimized(widthIn, heightIn, qty, fabricHeight = 230) {
+            const HEIGHT_SET = [50, 70, 100, 120, 150, 180, 225];
+            const PRIORITY_HEIGHT = {
+                70: 1,
+                50: 2,
+                100: 3,
+                120: 4,
+                150: 5,
+                180: 6,
+                225: 7
+            };
+
+            const results = [];
+
+            // Validate
+            if (heightIn > fabricHeight) {
+                return [];
+            }
+
+            const remainHeight = fabricHeight - heightIn;
+
+            // Nếu không còn phần nào để cắt thêm, chỉ đề xuất phương án cho phôi chính
+            if (remainHeight <= 0) {
+                // Chỉ đề xuất phương án giữ nguyên ngang
+                results.push({
+                    width: widthIn,
+                    height: 0, // Không có phôi phát sinh thêm
+                    qty: qty,
+                    type: "KEEP_WIDTH",
+                    wasteHeight: 0,
+                    wasteScore: 0,
+                    priorityHeight: 0,
+                    pieceCount: qty
+                });
+                return results;
+            }
+
+            // Các chiều cao có thể dùng cho phôi phát sinh thêm (từ phần còn lại)
+            const validHeights = HEIGHT_SET.filter(h => h <= remainHeight);
+
+            // Nếu không có chiều cao nào phù hợp, chỉ đề xuất phương án cho phôi chính
+            if (validHeights.length === 0) {
+                // Đề xuất các phương án tối ưu cho phôi chính
+                // ====== PHƯƠNG ÁN 1: Giữ nguyên ngang ======
+                results.push({
+                    width: widthIn,
+                    height: 0,
+                    qty: qty,
+                    type: "KEEP_WIDTH",
+                    wasteHeight: remainHeight,
+                    wasteScore: remainHeight,
+                    priorityHeight: 0,
+                    pieceCount: qty
+                });
+
+                // ====== PHƯƠNG ÁN 2: Gộp ngang ======
+                for (const k of [2, 3]) {
+                    if (qty % k === 0) {
+                        results.push({
+                            width: widthIn * k,
+                            height: 0,
+                            qty: qty / k,
+                            type: `MERGE_${k}`,
+                            wasteHeight: remainHeight,
+                            wasteScore: remainHeight,
+                            priorityHeight: 0,
+                            pieceCount: qty / k
+                        });
+                    }
+                }
+
+                // ====== PHƯƠNG ÁN 3: Chia nhỏ ngang ======
+                for (const k of [2, 3]) {
+                    results.push({
+                        width: widthIn / k,
+                        height: 0,
+                        qty: qty * k,
+                        type: `SPLIT_${k}`,
+                        wasteHeight: remainHeight,
+                        wasteScore: remainHeight,
+                        priorityHeight: 0,
+                        pieceCount: qty * k
+                    });
+                }
+
+                // Sắp xếp và trả về
+                results.sort((a, b) => {
+                    if (a.wasteScore !== b.wasteScore) {
+                        return a.wasteScore - b.wasteScore;
+                    }
+                    return a.pieceCount - b.pieceCount;
+                });
+
+                return results;
+            }
+
+            // Có thể cắt thêm phôi phát sinh từ phần còn lại
+            for (const h of validHeights) {
+                const usedHeight = heightIn + h;
+                const wasteHeight = fabricHeight - usedHeight;
+                const wasteScore = wasteHeight;
+
+                // ====== PHƯƠNG ÁN 1: Giữ nguyên ngang ======
+                results.push({
+                    width: widthIn,
+                    height: h, // Chiều cao phôi phát sinh thêm
+                    qty: qty,
+                    type: "KEEP_WIDTH",
+                    wasteHeight: wasteHeight,
+                    wasteScore: wasteScore,
+                    priorityHeight: PRIORITY_HEIGHT[h] || 99,
+                    pieceCount: qty
+                });
+
+                // ====== PHƯƠNG ÁN 2: Gộp ngang ======
+                for (const k of [2, 3]) {
+                    if (qty % k === 0) {
+                        results.push({
+                            width: widthIn * k,
+                            height: h,
+                            qty: qty / k,
+                            type: `MERGE_${k}`,
+                            wasteHeight: wasteHeight,
+                            wasteScore: wasteScore,
+                            priorityHeight: PRIORITY_HEIGHT[h] || 99,
+                            pieceCount: qty / k
+                        });
+                    }
+                }
+
+                // ====== PHƯƠNG ÁN 3: Chia nhỏ ngang ======
+                for (const k of [2, 3]) {
+                    results.push({
+                        width: widthIn / k,
+                        height: h,
+                        qty: qty * k,
+                        type: `SPLIT_${k}`,
+                        wasteHeight: wasteHeight,
+                        wasteScore: wasteScore,
+                        priorityHeight: PRIORITY_HEIGHT[h] || 99,
+                        pieceCount: qty * k
+                    });
+                }
+            }
+
+            // ====== SẮP XẾP TỐI ƯU ======
+            results.sort((a, b) => {
+                if (a.wasteScore !== b.wasteScore) {
+                    return a.wasteScore - b.wasteScore; // ít dư nhất
+                }
+                if (a.priorityHeight !== b.priorityHeight) {
+                    return a.priorityHeight - b.priorityHeight; // ưu tiên 70 > 50
+                }
+                return a.pieceCount - b.pieceCount; // ít mảnh hơn
+            });
+
+            return results;
+        }
+
+        // Filter và ràng buộc chiều ngang
+        function filterWidthConstraints(suggestions, minWidth = 0, maxWidth = Infinity, allowedWidths = null) {
+            return suggestions.filter(s => {
+                // Ràng buộc min/max
+                if (s.width < minWidth || s.width > maxWidth) {
+                    return false;
+                }
+                
+                // Filter theo danh sách chiều ngang cho phép (nếu có)
+                if (allowedWidths && allowedWidths.length > 0) {
+                    return allowedWidths.includes(s.width);
+                }
+                
+                return true;
+            });
+        }
+
+        // Filter kích thước theo chiều cao có thể cắt
+        function filterKichThuocByHeight(kichThuocList, chieuCaoConLai) {
+            return kichThuocList.filter(kt => {
+                // Parse szSku để lấy chiều cao (ví dụ: 100-180 → cao = 180, 100-110-70 → cao = 110+70=180)
+                const parts = kt.szSku.split('-');
+                if (parts.length >= 2) {
+                    // Chiều cao là tổng các phần từ phần thứ 2 trở đi (phần đầu là ngang)
+                    let cao = 0;
+                    for (let i = 1; i < parts.length; i++) {
+                        cao += parseInt(parts[i]) || 0;
+                    }
+                    // Chỉ lấy các kích thước có chiều cao <= phần còn lại
+                    return cao <= chieuCaoConLai;
+                }
+                return false;
+            });
+        }
+
+        // Setup autocomplete cho form cắt phôi
+        function setupPhoiKichThuocAutocomplete() {
+            const input = document.getElementById('phoiKichThuocInput');
+            const dropdown = document.getElementById('phoiKichThuocDropdown');
+            
+            if (!input || !dropdown) return;
+
+            // Tính chiều cao còn lại
+            const chieuCaoDaCat = tinhChieuCaoDaCat();
+            const chieuCaoConLai = 230 - chieuCaoDaCat;
+            
+            // Filter kích thước theo chiều cao có thể cắt
+            const filteredList = filterKichThuocByHeight(kichThuocList, chieuCaoConLai);
+
+            // Remove previous event listeners
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+            const phoiKichThuocInput = document.getElementById('phoiKichThuocInput');
+
+            // Filter và hiển thị dropdown khi user nhập
+            phoiKichThuocInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                filterAndDisplayPhoiKichThuoc(searchTerm, filteredList, chieuCaoConLai);
+            });
+
+            // Focus vào input -> hiển thị dropdown
+            phoiKichThuocInput.addEventListener('focus', function() {
+                if (this.value.trim() === '') {
+                    filterAndDisplayPhoiKichThuoc('', filteredList, chieuCaoConLai);
+                } else {
+                    filterAndDisplayPhoiKichThuoc(this.value.toLowerCase().trim(), filteredList, chieuCaoConLai);
+                }
+            });
+
+            // Click outside -> đóng dropdown
+            let clickOutsideHandler = function(e) {
+                if (!phoiKichThuocInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', clickOutsideHandler);
+            }, 100);
+
+            // Keyboard navigation
+            let selectedIndex = -1;
+            phoiKichThuocInput.addEventListener('keydown', function(e) {
+                if (!dropdown.classList.contains('show')) return;
+
+                const items = dropdown.querySelectorAll('.kich-thuoc-dropdown-item:not(.kich-thuoc-dropdown-header)');
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    updatePhoiHighlight(items, selectedIndex);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    updatePhoiHighlight(items, selectedIndex);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && selectedIndex < items.length) {
+                        items[selectedIndex].click();
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.remove('show');
+                    selectedIndex = -1;
+                }
+            });
+
+            // Khởi tạo với danh sách đã filter
+            filterAndDisplayPhoiKichThuoc('', filteredList, chieuCaoConLai);
+        }
+
+        // Filter và hiển thị kích thước cho form cắt phôi
+        function filterAndDisplayPhoiKichThuoc(searchTerm, filteredList, chieuCaoConLai) {
+            const dropdown = document.getElementById('phoiKichThuocDropdown');
+            dropdown.innerHTML = '';
+
+            // Filter kích thước theo search term
+            let displayList = filteredList;
+            if (searchTerm !== '') {
+                displayList = filteredList.filter(kt => {
+                    const kichThuocLower = kt.kichThuoc.toLowerCase();
+                    const szSkuLower = kt.szSku.toLowerCase();
+                    return kichThuocLower.includes(searchTerm) || szSkuLower.includes(searchTerm);
+                });
+            }
+
+            // Hiển thị kết quả
+            if (displayList.length === 0) {
+                dropdown.innerHTML = `
+                    <div class="kich-thuoc-dropdown-empty">
+                        ${searchTerm ? 'Không tìm thấy kích thước phù hợp' : `Không có kích thước nào có chiều cao ≤ ${chieuCaoConLai}cm`}
+                    </div>
+                `;
+            } else {
+                // Thêm header
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'kich-thuoc-dropdown-item kich-thuoc-dropdown-header';
+                headerDiv.innerHTML = `
+                    <div style="font-size: 1rem; font-weight: 700;">Kích thước</div>
+                    <div style="font-size: 1rem; font-weight: 700;">Sz_SKU</div>
+                    <div style="font-size: 1rem; font-weight: 700; text-align: right;">Chiều cao</div>
+                    <div style="font-size: 1rem; font-weight: 700; text-align: right;">Diện tích (m²)</div>
+                `;
+                dropdown.appendChild(headerDiv);
+
+                displayList.forEach((kt) => {
+                    // Parse chiều cao từ szSku
+                    const parts = kt.szSku.split('-');
+                    let cao = 0;
+                    if (parts.length >= 2) {
+                        for (let i = 1; i < parts.length; i++) {
+                            cao += parseInt(parts[i]) || 0;
+                        }
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = 'kich-thuoc-dropdown-item';
+                    item.innerHTML = `
+                        <div class="kich-thuoc-name">${kt.kichThuoc}</div>
+                        <div class="kich-thuoc-sku" style="font-size: 0.95rem; color: #666;">${kt.szSku}</div>
+                        <div style="font-size: 0.95rem; color: #28a745; font-weight: 600; text-align: right;">${cao}cm</div>
+                        <div style="font-size: 0.95rem; color: #666; text-align: right;">${(kt.dienTich || 0).toFixed(2)}</div>
+                    `;
+                    item.addEventListener('click', function() {
+                        selectPhoiKichThuoc(kt);
+                    });
+                    dropdown.appendChild(item);
+                });
+            }
+
+            dropdown.classList.add('show');
+        }
+
+        // Update highlight cho keyboard navigation
+        function updatePhoiHighlight(items, selectedIndex) {
+            items.forEach((item, index) => {
+                if (index === selectedIndex) {
+                    item.classList.add('highlighted');
+                    item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                } else {
+                    item.classList.remove('highlighted');
+                }
+            });
+        }
+
+        // Chọn kích thước cho form cắt phôi
+        function selectPhoiKichThuoc(kt) {
+            const input = document.getElementById('phoiKichThuocInput');
+            const dropdown = document.getElementById('phoiKichThuocDropdown');
+            const ngangGroup = document.getElementById('phoiNgangGroup');
+            const ngangInput = document.getElementById('phoiNgangInput');
+            
+            input.value = `${kt.kichThuoc} (${kt.szSku})`;
+            input.setAttribute('data-selected-szsku', kt.szSku);
+            input.setAttribute('data-selected-kichthuoc', kt.kichThuoc);
+            input.setAttribute('data-selected-dientich', kt.dienTich || 0);
+            
+            // Parse ngang và chiều cao từ szSku
+            const parts = kt.szSku.split('-');
+            const ngang = parts.length > 0 ? parseInt(parts[0]) || 0 : 0;
+            let cao = 0;
+            let caoParts = [];
+            if (parts.length >= 2) {
+                for (let i = 1; i < parts.length; i++) {
+                    const part = parseInt(parts[i]) || 0;
+                    cao += part;
+                    caoParts.push(part);
+                }
+            }
+            input.setAttribute('data-selected-ngang', ngang);
+            input.setAttribute('data-selected-cao', cao);
+            input.setAttribute('data-selected-caoparts', JSON.stringify(caoParts));
+            
+            // Tự động điền ngang và ẩn input ngang
+            if (ngangInput) {
+                ngangInput.value = ngang;
+            }
+            if (ngangGroup) {
+                ngangGroup.style.display = 'none';
+            }
+            
+            dropdown.classList.remove('show');
+            
+            // Trigger update form
+            updatePhoiForm();
+            
+            // Focus vào input số lượng
+            document.getElementById('phoiSoLuongInput').focus();
+        }
+
+        // Update form phôi khi chọn kích thước hoặc nhập số lượng
+        function updatePhoiForm() {
+            const kichThuocInput = document.getElementById('phoiKichThuocInput');
+            const ngangInput = document.getElementById('phoiNgangInput');
+            const soLuongInput = document.getElementById('phoiSoLuongInput');
+            const suggestionsDiv = document.getElementById('phoiSuggestions');
+            
+            // Ẩn gợi ý cắt mẫu phát sinh theo yêu cầu
+            if (suggestionsDiv) {
+                suggestionsDiv.style.display = 'none';
+                suggestionsDiv.innerHTML = '';
+            }
+            
+            if (!suggestionsDiv) return;
+
+            // Lấy thông tin từ kích thước đã chọn
+            const cao = parseInt(kichThuocInput?.getAttribute('data-selected-cao')) || 0;
+            const ngang = parseInt(kichThuocInput?.getAttribute('data-selected-ngang')) || parseInt(ngangInput?.value) || 0;
+            const qty = parseInt(soLuongInput.value) || 0;
+
+            // Tính chiều cao đã cắt từ các kích thước hiện tại
+            const chieuCaoDaCat = tinhChieuCaoDaCat();
+            // Chiều cao còn lại để cắt phôi phát sinh
+            const chieuCaoConLai = 230 - chieuCaoDaCat;
+
+            // Ẩn gợi ý cắt mẫu phát sinh - không hiển thị gợi ý tối ưu
+            // (Đã ẩn theo yêu cầu)
+            // Không hiển thị gợi ý, chỉ ẩn div
+            suggestionsDiv.style.display = 'none';
+            suggestionsDiv.innerHTML = '';
+            return;
+            
+            // Code gợi ý đã bị vô hiệu hóa (không chạy)
+            if (false && cao > 0 && ngang > 0 && qty > 0) {
+                // Lọc bỏ các ngang không phải số nguyên (từ SPLIT) hoặc quá nhỏ
+                suggestions = suggestions.filter(s => {
+                    return Number.isInteger(s.width) && s.width >= 50 && s.width <= 500;
+                });
+                
+                // Lọc bỏ các phương án có chiều cao phát sinh (h) vượt quá phần còn lại
+                // (đã được xử lý trong suggestCutOptimized, nhưng kiểm tra lại để chắc chắn)
+                suggestions = suggestions.filter(s => {
+                    const totalHeight = heightIn + s.height;
+                    return totalHeight <= chieuCaoConLai;
+                });
+                
+                // Hiển thị top 5 gợi ý tốt nhất
+                const topSuggestions = suggestions.slice(0, 5);
+                
+                if (topSuggestions.length > 0) {
+                    suggestionsDiv.innerHTML = `
+                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                ${topSuggestions.map((s, idx) => {
+                                    const typeLabel = {
+                                        'KEEP_WIDTH': 'Giữ nguyên ngang',
+                                        'MERGE_2': 'Gộp 2 ngang',
+                                        'MERGE_3': 'Gộp 3 ngang',
+                                        'SPLIT_2': 'Chia 2 ngang',
+                                        'SPLIT_3': 'Chia 3 ngang'
+                                    }[s.type] || s.type;
+                                    
+                                    // Tính tổng chiều cao sử dụng
+                                    const totalHeightUsed = heightIn + (s.height || 0);
+                                    const hasAdditionalPiece = s.height > 0;
+                                    
+                                    return `
+                                        <div style="padding: 10px; background: white; border-radius: 4px; border: 1px solid #dee2e6; cursor: pointer; transition: all 0.2s;" 
+                                             onmouseover="this.style.borderColor='#28a745'; this.style.boxShadow='0 2px 4px rgba(40,167,69,0.2)'"
+                                             onmouseout="this.style.borderColor='#dee2e6'; this.style.boxShadow='none'"
+                                             onclick="applyPhoiSuggestion(${s.width}, ${s.qty}, '${s.type}')">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <div>
+                                                    <strong>${idx + 1}. ${typeLabel}</strong>
+                                                    <div style="font-size: 0.9rem; color: #666; margin-top: 4px;">
+                                                        Ngang: <strong>${s.width}cm</strong> | SL: <strong>${s.qty}</strong>
+                                                        ${hasAdditionalPiece ? ` | Phôi thêm: <strong>${s.height}cm</strong>` : ''}
+                                                    </div>
+                                                    <div style="font-size: 0.8rem; color: #999; margin-top: 2px;">
+                                                        ${hasAdditionalPiece ? 
+                                                            `Tổng cao: ${totalHeightUsed}cm (Phôi chính ${heightIn}cm + Phôi thêm ${s.height}cm)` : 
+                                                            `Chỉ phôi chính: ${heightIn}cm, còn dư ${s.wasteHeight}cm`}
+                                                    </div>
+                                                </div>
+                                                <div style="text-align: right;">
+                                                    <div style="font-size: 0.85rem; color: ${s.wasteHeight === 0 ? '#28a745' : s.wasteHeight <= 10 ? '#ffc107' : '#dc3545'};">
+                                                        Dư: ${s.wasteHeight}cm
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: #999;">${s.pieceCount} mảnh</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                    suggestionsDiv.style.display = 'block';
+                } else {
+                    suggestionsDiv.innerHTML = `
+                        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffc107;">
+                            <div style="color: #856404; font-size: 0.9rem;">
+                                Không có gợi ý tối ưu phù hợp với điều kiện hiện tại.<br>
+                                Phần còn lại: ${chieuCaoConLai}cm | Phôi chính: ${heightIn}cm
+                            </div>
+                        </div>
+                    `;
+                    suggestionsDiv.style.display = 'block';
+                }
+            } else {
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+        
+        // Ẩn gợi ý cắt phôi khi đang xử lý phát sinh mẫu dư ra
+        function hidePhoiSuggestions() {
+            const suggestionsDiv = document.getElementById('phoiSuggestions');
+            if (suggestionsDiv) {
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+
+        // Áp dụng gợi ý tối ưu vào form
+        function applyPhoiSuggestion(width, qty, type) {
+            const ngangInput = document.getElementById('phoiNgangInput');
+            const soLuongInput = document.getElementById('phoiSoLuongInput');
+            
+            if (ngangInput) ngangInput.value = width;
+            if (soLuongInput) soLuongInput.value = qty;
+            
+            // Trigger update để hiển thị lại gợi ý với giá trị mới
+            updatePhoiForm();
+            
+            showSuccess(`Đã áp dụng: Ngang ${width}cm, Số lượng ${qty}`);
+        }
+
+        // Update form lưu trữ (không cần logic phức tạp vì chỉ cần ngang)
+        function updateLuuTruForm() {
+            // Form lưu trữ đơn giản, không cần gợi ý tối ưu
+        }
+
+        // Thêm phôi phát sinh vào bảng phôi
+        function themPhoiPhatSinh() {
+            const kichThuocInput = document.getElementById('phoiKichThuocInput');
+            const soLuongInput = document.getElementById('phoiSoLuongInput');
+
+            if (!kichThuocInput || !kichThuocInput.getAttribute('data-selected-szsku')) {
+                showError('Vui lòng chọn kích thước');
+                return;
+            }
+
+            const soLuong = parseInt(soLuongInput.value) || 0;
+            if (soLuong <= 0) {
+                showError('Vui lòng nhập số lượng lớn hơn 0');
+                soLuongInput.focus();
+                return;
+            }
+
+            // Lấy thông tin từ kích thước đã chọn
+            const selectedSzSku = kichThuocInput.getAttribute('data-selected-szsku');
+            const selectedKichThuoc = kichThuocInput.getAttribute('data-selected-kichthuoc');
+            const cao = parseInt(kichThuocInput.getAttribute('data-selected-cao')) || 0;
+            const caoParts = JSON.parse(kichThuocInput.getAttribute('data-selected-caoparts') || '[]');
+            // Lấy ngang từ kích thước đã chọn (tự động)
+            const ngang = parseInt(kichThuocInput.getAttribute('data-selected-ngang')) || 0;
+            
+            if (ngang <= 0) {
+                showError('Không thể lấy chiều ngang từ kích thước đã chọn');
+                return;
+            }
+
+            // Thêm vào currentKichThuocData
+            const maMau = currentMauVai.maMau;
+            const isSuongDem = (maMau === '2' || maMau === 2);
+            const mauPhatSinh = isSuongDem ? 
+                mauVaiList.find(m => m.maMau === '43' || m.maMau === 43) : 
+                currentMauVai;
+
+            if (!mauPhatSinh) {
+                showError('Không tìm thấy mẫu phát sinh');
+                return;
+            }
+
+            // Tạo szSku: ngang-cao1-cao2... (tất cả phần chiều cao)
+            const szSkuParts = [ngang, ...caoParts];
+            const szSku = szSkuParts.join('-');
+            
+            // Tạo tên kích thước
+            const caoLabel = caoParts.length === 1 ? `${caoParts[0]}` : caoParts.join('+');
+            const kichThuoc = `Ngang${ngang/100}mxCao${caoLabel}cm`;
+
+            // Tính diện tích: ngang thực tế = ngang + 5cm, cao thực tế = cao + 5cm (đảm bảo khi cắt thực tế sẽ cộng thêm 5cm)
+            // Ví dụ: ngang 1m (100cm) → thực tế cắt 105cm, cao 1m (100cm) → thực tế cắt 105cm
+            const ngangThucTe = ngang + 5;
+            const caoThucTe = cao + 5;
+            const dienTich = (ngangThucTe * caoThucTe) / 10000;
+
+            // Thêm vào currentKichThuocData với mẫu phát sinh
+            if (!currentKichThuocData[szSku]) {
+                currentKichThuocData[szSku] = {
+                    kichThuoc: kichThuoc,
+                    szSku: szSku,
+                    soLuong: soLuong,
+                    dienTich: dienTich,
+                    maMau: mauPhatSinh.maMau,
+                    tenMau: mauPhatSinh.tenMau,
+                    isPhatSinh: true
+                };
+            } else {
+                currentKichThuocData[szSku].soLuong += soLuong;
+            }
+
+            // Render lại danh sách
+            renderKichThuocList();
+            calculateArea();
+            
+            // Render lại form phát sinh để cập nhật chiều cao đã cắt
+            if (document.getElementById('phatSinhMauDuRaCheckbox').checked) {
+                renderPhatSinhMauForm();
+            }
+
+            // Reset form
+            kichThuocInput.value = '';
+            kichThuocInput.removeAttribute('data-selected-szsku');
+            kichThuocInput.removeAttribute('data-selected-kichthuoc');
+            kichThuocInput.removeAttribute('data-selected-cao');
+            kichThuocInput.removeAttribute('data-selected-caoparts');
+            kichThuocInput.removeAttribute('data-selected-ngang');
+            const ngangGroup = document.getElementById('phoiNgangGroup');
+            if (ngangGroup) ngangGroup.style.display = 'none';
+            const ngangInput = document.getElementById('phoiNgangInput');
+            if (ngangInput) ngangInput.value = '';
+            soLuongInput.value = '';
+            
+            // Ẩn suggestions
+            const suggestionsDiv = document.getElementById('phoiSuggestions');
+            if (suggestionsDiv) suggestionsDiv.style.display = 'none';
+            
+            // Setup lại autocomplete với chiều cao còn lại mới
+            setupPhoiKichThuocAutocomplete();
+            
+            showSuccess(`Đã thêm ${soLuong} phôi ${kichThuoc} vào bảng phôi`);
+        }
+
+        // Thêm lưu trữ phát sinh vào bảng kích thước (đơn giản hóa - chỉ cần ngang và số lượng)
+        function themLuuTruPhatSinh() {
+            const ngangInput = document.getElementById('luutruNgangInput');
+            const soLuongInput = document.getElementById('luutruSoLuongInput');
+
+            if (!validateLuuTruNgang(ngangInput)) {
+                ngangInput.focus();
+                return;
+            }
+
+            const soLuong = parseInt(soLuongInput.value) || 0;
+            if (soLuong <= 0) {
+                showError('Vui lòng nhập số lượng lớn hơn 0');
+                soLuongInput.focus();
+                return;
+            }
+
+            const ngang = parseInt(ngangInput.value);
+            
+            // Kiểm tra nếu là Ngân Hà với ngang 200cm → chuẩn hóa về 200-80
+            const tenMau = currentMauVai ? String(currentMauVai.tenMau).toLowerCase() : '';
+            const isNganHa = tenMau.includes('ngân hà') || tenMau.includes('ngan ha');
+            let chieuCaoConLai;
+            
+            if (isNganHa && ngang === 200) {
+                // Ngân Hà với ngang 200cm → chuẩn hóa về cao 80cm
+                chieuCaoConLai = 80;
+            } else {
+                // Tính chiều cao còn lại (tự động lấy từ phần còn lại của khổ vải)
+                const chieuCaoDaCat = tinhChieuCaoDaCat();
+                chieuCaoConLai = 230 - chieuCaoDaCat;
+            }
+
+            // Tạo SKU cho lưu trữ: ngang-chiều cao còn lại (chuẩn hóa cho Ngân Hà)
+            const szSku = `${ngang}-${chieuCaoConLai}`;
+
+            // Tạo tên kích thước (vải thừa chưa cắt)
+            const kichThuoc = `Ngang${ngang}cm x Cao${chieuCaoConLai}cm (Vải thừa)`;
+
+            // Tính diện tích: ngang thực tế = ngang + 5cm, cao thực tế = chiều cao còn lại + 5cm (đảm bảo khi cắt thực tế sẽ cộng thêm 5cm)
+            // Ví dụ: ngang 1m (100cm) → thực tế cắt 105cm, cao còn lại 50cm → thực tế cắt 55cm
+            const ngangThucTe = ngang + 5;
+            const caoThucTe = chieuCaoConLai + 5;
+            const dienTich = (ngangThucTe * caoThucTe) / 10000;
+
+            // Thêm vào currentKichThuocData với mẫu hiện tại (hoặc mẫu phát sinh nếu là Sương đêm)
+            const maMau = currentMauVai.maMau;
+            const isSuongDem = (maMau === '2' || maMau === 2);
+            const mauPhatSinh = isSuongDem ? 
+                mauVaiList.find(m => m.maMau === '43' || m.maMau === 43) : 
+                currentMauVai;
+
+            if (!mauPhatSinh) {
+                showError('Không tìm thấy mẫu phát sinh');
+                return;
+            }
+
+            if (!currentKichThuocData[szSku]) {
+                currentKichThuocData[szSku] = {
+                    kichThuoc: kichThuoc,
+                    szSku: szSku,
+                    soLuong: soLuong,
+                    dienTich: dienTich,
+                    maMau: mauPhatSinh.maMau,
+                    tenMau: mauPhatSinh.tenMau,
+                    isLuuTru: true
+                };
+            } else {
+                currentKichThuocData[szSku].soLuong += soLuong;
+            }
+
+            // Render lại danh sách
+            renderKichThuocList();
+            calculateArea();
+            
+            // Render lại form phát sinh để cập nhật chiều cao đã cắt
+            if (document.getElementById('phatSinhMauDuRaCheckbox').checked) {
+                renderPhatSinhMauForm();
+            }
+
+            // Reset form
+            ngangInput.value = '';
+            soLuongInput.value = '';
+            showSuccess(`Đã lưu ${soLuong} kích thước ${kichThuoc} vào bảng kích thước`);
+        }
+
         // Thêm mẫu vào danh sách
         async function themMau() {
             if (!currentMauVai) {
@@ -1768,9 +3054,51 @@
                 return;
             }
 
-            const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            // Validate Số m ban đầu
+            const chieuDaiCayVaiInput = document.getElementById('chieuDaiCayVaiInput');
+            if (!validateSoMBanDau(chieuDaiCayVaiInput)) {
+                showError('Vui lòng kiểm tra lại thông tin Số m ban đầu');
+                chieuDaiCayVaiInput.focus();
+                return;
+            }
+
+            const chieuDaiCayVai = parseFloat(chieuDaiCayVaiInput.value) || 0;
             if (chieuDaiCayVai <= 0) {
-                showError('Vui lòng nhập chiều dài cây vải');
+                showError('Vui lòng nhập chiều dài cây vải (Số m ban đầu phải lớn hơn 0)');
+                chieuDaiCayVaiInput.focus();
+                return;
+            }
+
+            // Validate Số m lỗi nếu có
+            const vaiLoiCheckbox = document.getElementById('vaiLoiCheckbox');
+            if (vaiLoiCheckbox && vaiLoiCheckbox.checked) {
+                const vaiLoiInput = document.getElementById('vaiLoiInput');
+                if (!validateSoMLoi(vaiLoiInput)) {
+                    showError('Vui lòng kiểm tra lại thông tin Số m lỗi');
+                    vaiLoiInput.focus();
+                    return;
+                }
+                const soMLoi = parseFloat(vaiLoiInput.value.replace(',', '.')) || 0;
+                if (soMLoi >= chieuDaiCayVai) {
+                    showError(`Số m lỗi (${soMLoi}) phải nhỏ hơn Số m ban đầu (${chieuDaiCayVai})`);
+                    vaiLoiInput.focus();
+                    return;
+                }
+            }
+
+            // Validate SL phôi (tổng số lượng đã thêm)
+            // Kiểm tra từng kích thước đã thêm
+            let totalSLPhoi = 0;
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                if (data.soLuong > 0) {
+                    totalSLPhoi += data.soLuong;
+                }
+            }
+            
+            // Kiểm tra tổng SL phôi (nếu có)
+            if (totalSLPhoi > 0 && totalSLPhoi >= chieuDaiCayVai) {
+                showError(`Tổng SL phôi (${totalSLPhoi}) phải nhỏ hơn Số m ban đầu (${chieuDaiCayVai})`);
                 return;
             }
 
@@ -1778,12 +3106,15 @@
             for (const szSku in currentKichThuocData) {
                 const data = currentKichThuocData[szSku];
                 if (data.soLuong > 0) {
+                    // Nếu là phát sinh, dùng maMau và tenMau từ data, không thì dùng currentMauVai
                     items.push({
-                        maMau: currentMauVai.maMau,
-                        tenMau: currentMauVai.tenMau,
+                        maMau: (data.maMau && data.isPhatSinh) ? data.maMau : currentMauVai.maMau,
+                        tenMau: (data.tenMau && data.isPhatSinh) ? data.tenMau : currentMauVai.tenMau,
                         kichThuoc: data.kichThuoc,
                         szSku: data.szSku,
-                        soLuong: data.soLuong
+                        soLuong: data.soLuong,
+                        isPhatSinh: data.isPhatSinh || false,
+                        isLuuTru: data.isLuuTru || false
                     });
                 }
             }
@@ -1793,127 +3124,62 @@
                 return;
             }
 
-            // Thu thập thông tin liên kết Trời xanh (43) nếu có (chỉ khi nhập Sương đêm 2)
-            const linkedItems = [];
-            const isSuongDem = (currentMauVai.maMau === '2' || currentMauVai.maMau === 2);
-            
-            if (isSuongDem) {
-                const caseSelect = document.getElementById('linkedCaseSelect');
-                if (caseSelect && caseSelect.value) {
-                    const selectedCase = caseSelect.value;
-                    
-                    if (selectedCase === 'th1') {
-                        // TH1: 1mx1m → 1mx1m2
-                        // Tìm kích thước 1mx1m (100-100) trong items của Sương đêm để lấy SL
-                        const item1mx1m = items.find(it => {
-                            const szSku = (it.szSku || '').toString();
-                            return szSku === '100-100' || szSku.includes('100-100');
-                        });
-                        
-                        const qty = item1mx1m ? parseInt(item1mx1m.soLuong || 0, 10) : 0;
-                        
-                        if (qty > 0) {
-                            const ngang = 100; // 1m = 100cm
-                            const cao = 120; // 1m2 = 120cm
-                            const sku = `43-25-${ngang}-${cao}`;
-                            const kichThuoc = `Ngang1mxCao1m2`;
-                            linkedItems.push({
-                                maMau: '43',
-                                tenMau: 'Trời xanh',
-                                kichThuoc: kichThuoc,
-                                szSku: sku,
-                                soLuong: qty,
-                                isLinked: true, // Đánh dấu là item phát sinh
-                                linkedFrom: '2' // Từ mẫu Sương đêm
-                            });
-                        }
-                    } else if (selectedCase === 'th2') {
-                        // TH2: Ngang bất kỳ cao 1m1 → Ngang1x1m1 hoặc 1m1xCao2
-                        const typeSelect = document.getElementById('linkedTh2Type');
-                        if (typeSelect && typeSelect.value) {
-                            const selectedType = typeSelect.value;
-                            
-                            if (selectedType === 'ngang1x1m1') {
-                                const ngang1 = parseInt(document.getElementById('linkedTh2Ngang1')?.value || 0, 10);
-                                const qty = parseInt(document.getElementById('linkedTh2Qty1')?.value || 0, 10);
-                                if (ngang1 > 0 && qty > 0) {
-                                    const cao = 110; // 1m1 = 110cm
-                                    const sku = `43-25-${ngang1}-${cao}`;
-                                    const kichThuoc = `Ngang${ngang1/100}mxCao1m1`;
-                                    linkedItems.push({
-                                        maMau: '43',
-                                        tenMau: 'Trời xanh',
-                                        kichThuoc: kichThuoc,
-                                        szSku: sku,
-                                        soLuong: qty,
-                                        isLinked: true,
-                                        linkedFrom: '2'
-                                    });
-                                }
-                            } else if (selectedType === '1m1xcao2') {
-                                const cao2 = parseInt(document.getElementById('linkedTh2Cao2')?.value || 0, 10);
-                                const qty = parseInt(document.getElementById('linkedTh2Qty2')?.value || 0, 10);
-                                if (cao2 > 0 && qty > 0) {
-                                    const ngang = 110; // 1m1 = 110cm
-                                    const sku = `43-25-${ngang}-${cao2}`;
-                                    const kichThuoc = `Ngang1m1xCao${cao2/100}m`;
-                                    linkedItems.push({
-                                        maMau: '43',
-                                        tenMau: 'Trời xanh',
-                                        kichThuoc: kichThuoc,
-                                        szSku: sku,
-                                        soLuong: qty,
-                                        isLinked: true,
-                                        linkedFrom: '2'
-                                    });
-                                }
-                            }
-                        }
-                    } else if (selectedCase === 'th3') {
-                        // TH3: Cao 1m5 → 1 kích thước 70 + 2 biến tùy ý
-                        const ngang1 = parseInt(document.getElementById('linkedTh3Ngang1')?.value || 0, 10);
-                        const ngang2 = parseInt(document.getElementById('linkedTh3Ngang2')?.value || 0, 10);
-                        const cao2 = parseInt(document.getElementById('linkedTh3Cao2')?.value || 0, 10);
-                        const qty = parseInt(document.getElementById('linkedTh3Qty')?.value || 0, 10);
-                        
-                        if (ngang1 > 0 && qty > 0) {
-                            const cao1 = 70; // 70cm
-                            const sku1 = `43-25-${ngang1}-${cao1}`;
-                            const kichThuoc1 = `Ngang${ngang1/100}mxCao70`;
-                            linkedItems.push({
-                                maMau: '43',
-                                tenMau: 'Trời xanh',
-                                kichThuoc: kichThuoc1,
-                                szSku: sku1,
-                                soLuong: qty,
-                                isLinked: true,
-                                linkedFrom: '2'
-                            });
-                        }
-                        
-                        if (ngang2 > 0 && cao2 > 0 && qty > 0) {
-                            const sku2 = `43-25-${ngang2}-${cao2}`;
-                            const kichThuoc2 = `Ngang${ngang2/100}mxCao${cao2/100}m`;
-                            linkedItems.push({
-                                maMau: '43',
-                                tenMau: 'Trời xanh',
-                                kichThuoc: kichThuoc2,
-                                szSku: sku2,
-                                soLuong: qty,
-                                isLinked: true,
-                                linkedFrom: '2'
-                            });
-                        }
-                    }
-                }
-            }
 
             // Tính toán lại để lấy số m còn lại
             const dienTichBanDau = chieuDaiCayVai * 2.3;
             let dienTichDaCat = 0;
+            
+            // Kiểm tra mẫu đặc biệt
+            const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
+            const isMauDacBiet = maMau === '2' || maMau === '43' || maMau === '4' || maMau === '14';
+            
             for (const szSku in currentKichThuocData) {
                 const data = currentKichThuocData[szSku];
-                dienTichDaCat += data.soLuong * data.dienTich;
+                // Bỏ qua tất cả các kích thước phát sinh (xử lý phát sinh mẫu dư ra)
+                // QUAN TRỌNG: Tất cả vải xử lý phát sinh (isPhatSinh hoặc isLuuTru) đều KHÔNG tính vào diện tích cắt
+                // Chỉ cập nhật số lượng, không cập nhật số m và diện tích cắt
+                if (data.isPhatSinh || data.isLuuTru) {
+                    continue;
+                }
+                
+                // Tính số lượng thực tế cho processing cắt
+                let soLuongThucTe = data.soLuong;
+                
+                // Với các mẫu khác (ngoại trừ sương đêm, trời xanh, mùa đông, corgi)
+                if (!isMauDacBiet) {
+                    const parts = szSku.split('-');
+                    let hasCao110 = false;
+                    let hasCao70 = false;
+                    
+                    // Kiểm tra cao 110 (cắt đôi) - giảm 1/2
+                    for (let i = 1; i < parts.length; i++) {
+                        const cao = parseInt(parts[i]) || 0;
+                        if (cao === 110) {
+                            hasCao110 = true;
+                            break;
+                        }
+                    }
+                    
+                    // Kiểm tra cao 70 (cắt 3 lần) - giảm 1/3
+                    if (!hasCao110) {
+                        for (let i = 1; i < parts.length; i++) {
+                            const cao = parseInt(parts[i]) || 0;
+                            if (cao === 70) {
+                                hasCao70 = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Áp dụng hệ số giảm cho số lượng tính vào processing cắt
+                    if (hasCao110) {
+                        soLuongThucTe = data.soLuong / 2; // Giảm 1/2
+                    } else if (hasCao70) {
+                        soLuongThucTe = data.soLuong / 3; // Giảm 1/3
+                    }
+                }
+                
+                dienTichDaCat += soLuongThucTe * data.dienTich;
             }
 
             // Lấy thông tin lỗi trước khi tính diện tích còn lại
@@ -1932,6 +3198,10 @@
             // Nhập lại kho: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
             const nhapLaiKhoChecked = document.getElementById('nhapLaiKhoCheckbox').checked;
             const nhapLaiKhoSoM = nhapLaiKhoChecked ? soMConLai : 0;
+
+            // Phát sinh mẫu dư ra: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
+            const phatSinhMauDuRaChecked = document.getElementById('phatSinhMauDuRaCheckbox').checked;
+            const phatSinhMauDuRaSoM = phatSinhMauDuRaChecked ? soMConLai : 0;
 
             // Tính thông tin mayAoGoi từ items
             // Trường hợp 1: Kích thước có chiều cao 180 (ví dụ: 100-180) → (ngang + 5) * SL
@@ -2037,14 +3307,12 @@
                     nhapLaiKho: {
                         soM: nhapLaiKhoSoM
                     },
+                    phatSinhMauDuRa: {
+                        soM: phatSinhMauDuRaSoM
+                    },
                     mayAoGoi: mayAoGoi,
                     catVaiId: currentCatVaiId || null // Gửi ID nếu có
                 };
-                
-                // Thêm linkedItems nếu có (items phát sinh cho Trời xanh 43)
-                if (linkedItems.length > 0) {
-                    requestBody.linkedItems = linkedItems;
-                }
                 
                 const response = await fetch('/api/nhap-phoi', {
                     method: 'POST',
@@ -2067,9 +3335,107 @@
                         showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
                     }
                     
+                    // Khai báo biến phatSinhItems ở scope ngoài để sử dụng sau
+                    let phatSinhItems = [];
+                    
                     // Thêm dữ liệu mới vào danh sách local (không load lại từ database)
                     if (result.data && result.data.cayVai) {
                         const cayVaiData = result.data.cayVai;
+                        const currentMaMau = String(cayVaiData.maMau);
+                        
+                        // QUAN TRỌNG: LUÔN lấy items từ currentKichThuocData (nguồn dữ liệu chính xác nhất)
+                        // Đảm bảo tất cả items từ bảng kích thước được lưu đúng
+                        // Tách items phát sinh (maMau '43') ra khỏi items của mẫu hiện tại
+                        let currentMauItems = [];
+                        phatSinhItems = []; // Reset lại mảng
+                        
+                        // LUÔN lấy items từ currentKichThuocData để đảm bảo đầy đủ
+                        if (currentMauVai && Object.keys(currentKichThuocData).length > 0) {
+                            for (const szSku in currentKichThuocData) {
+                                const data = currentKichThuocData[szSku];
+                                if (data.soLuong > 0) {
+                                    // Xác định maMau của item
+                                    // Ưu tiên data.maMau nếu có (đặc biệt quan trọng cho item lưu trữ và phát sinh)
+                                    // Với item lưu trữ, data.maMau đã được set đúng từ themLuuTruPhatSinh()
+                                    const itemMaMau = data.maMau || currentMauVai.maMau;
+                                    const itemTenMau = data.tenMau || currentMauVai.tenMau;
+                                    
+                                    // Tính dienTich nếu chưa có
+                                    let itemDienTich = data.dienTich || 0;
+                                    if (!itemDienTich && data.szSku) {
+                                        const kt = kichThuocList.find(k => k.szSku === data.szSku);
+                                        itemDienTich = kt ? (kt.dienTich || 0) : 0;
+                                    }
+                                    
+                                    const item = {
+                                        maMau: itemMaMau,
+                                        tenMau: itemTenMau,
+                                        kichThuoc: data.kichThuoc,
+                                        szSku: data.szSku,
+                                        soLuong: data.soLuong,
+                                        dienTich: itemDienTich,
+                                        isPhatSinh: data.isPhatSinh || false,
+                                        isLuuTru: data.isLuuTru || false
+                                    };
+                                    
+                                    // Tách items phát sinh và items của mẫu hiện tại
+                                    if (data.isPhatSinh) {
+                                        // Items phát sinh
+                                        // Nếu mẫu phát sinh CÙNG mẫu hiện tại → gộp vào currentMauItems
+                                        // Nếu mẫu phát sinh KHÁC mẫu hiện tại → tách riêng vào phatSinhItems
+                                        if (String(itemMaMau) === currentMaMau) {
+                                            // Mẫu phát sinh cùng mẫu → gộp vào mẫu hiện tại
+                                            currentMauItems.push(item);
+                                        } else {
+                                            // Mẫu phát sinh khác mẫu → tách riêng (ví dụ: Sương đêm → Trời xanh)
+                                            phatSinhItems.push(item);
+                                        }
+                                    } else if (String(itemMaMau) === currentMaMau) {
+                                        // Items của mẫu hiện tại (bao gồm cả lưu trữ như Ngân Hà 200-80)
+                                        // Lưu trữ vẫn được thêm vào danh sách vì là một phần của mẫu vải
+                                        currentMauItems.push(item);
+                                    }
+                                }
+                            }
+                            console.log('✅ Lấy items từ currentKichThuocData:', {
+                                currentMauItems: currentMauItems.length,
+                                phatSinhItems: phatSinhItems.length,
+                                currentMaMau: currentMaMau
+                            });
+                        }
+                        
+                        // Lấy allItems từ server response để debug (nếu có)
+                        const allItemsFromServer = Array.isArray(cayVaiData.items) ? cayVaiData.items : [];
+                        
+                        // Nếu không có items từ currentKichThuocData, thử lấy từ server response (fallback)
+                        if (currentMauItems.length === 0) {
+                            currentMauItems = allItemsFromServer.filter(item => {
+                                if (!item || !item.maMau) return false;
+                                return String(item.maMau) === currentMaMau && !item.isPhatSinh;
+                            });
+                            console.warn('⚠️ Không có items từ currentKichThuocData, dùng items từ server:', currentMauItems.length);
+                        }
+                        
+                        // Debug: Kiểm tra items từ server
+                        console.log('📦 Items từ server:', {
+                            allItemsFromServer: allItemsFromServer.length,
+                            currentMauItems: currentMauItems.length,
+                            phatSinhItems: phatSinhItems.length,
+                            currentMaMau: currentMaMau
+                        });
+                        
+                        // Tính lại diện tích đã cắt cho mẫu hiện tại (chỉ tính items của mẫu hiện tại)
+                        let dienTichDaCatCurrent = 0;
+                        currentMauItems.forEach(item => {
+                            // Tính diện tích: nếu có dienTich trong item thì dùng, không thì tính từ kichThuocList
+                            let itemDienTich = item.dienTich || 0;
+                            if (!itemDienTich && item.szSku) {
+                                const kt = kichThuocList.find(k => k.szSku === item.szSku);
+                                itemDienTich = kt ? (kt.dienTich || 0) : 0;
+                            }
+                            dienTichDaCatCurrent += itemDienTich * (item.soLuong || 0);
+                        });
+                        
                         // Chuyển đổi sang format giống như loadSavedItems
                         const cayVaiToAdd = {
                             _id: cayVaiData._id,
@@ -2077,14 +3443,24 @@
                             tenMau: cayVaiData.tenMau,
                             chieuDaiCayVai: cayVaiData.chieuDaiCayVai,
                             dienTichBanDau: cayVaiData.dienTichBanDau,
-                            dienTichDaCat: cayVaiData.dienTichDaCat,
-                            dienTichConLai: cayVaiData.dienTichConLai,
-                            soMConLai: cayVaiData.soMConLai,
-                            tienDoPercent: cayVaiData.tienDoPercent,
+                            dienTichDaCat: dienTichDaCatCurrent, // Chỉ tính items của mẫu hiện tại
+                            dienTichConLai: Math.max(0, cayVaiData.dienTichBanDau - dienTichDaCatCurrent),
+                            soMConLai: Math.round((Math.max(0, cayVaiData.dienTichBanDau - dienTichDaCatCurrent) / 2.3) * 10) / 10,
+                            tienDoPercent: cayVaiData.chieuDaiCayVai > 0 ? 
+                                Math.round(((cayVaiData.chieuDaiCayVai - Math.round((Math.max(0, cayVaiData.dienTichBanDau - dienTichDaCatCurrent) / 2.3) * 10) / 10) / cayVaiData.chieuDaiCayVai) * 100) : 0,
                             vaiLoi: cayVaiData.vaiLoi,
                             vaiThieu: cayVaiData.vaiThieu,
                             nhapLaiKho: cayVaiData.nhapLaiKho,
-                            items: cayVaiData.items,
+                            phatSinhMauDuRa: cayVaiData.phatSinhMauDuRa || { soM: 0 },
+                            items: currentMauItems.map(item => ({
+                                ...item,
+                                // Đảm bảo có đầy đủ thông tin
+                                kichThuoc: item.kichThuoc || '',
+                                szSku: item.szSku || '',
+                                soLuong: item.soLuong || 0,
+                                maMau: item.maMau || cayVaiData.maMau,
+                                tenMau: item.tenMau || cayVaiData.tenMau
+                            })), // CHỈ giữ lại items của mẫu hiện tại
                             createdBy: cayVaiData.createdBy,
                             importDate: cayVaiData.importDate || new Date(),
                             catVaiId: result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null
@@ -2098,15 +3474,39 @@
                         }
                         
                         // Kiểm tra xem mẫu này đã có trong danh sách chưa (nếu có thì cập nhật, không thì thêm mới)
-                        const existingIndex = savedCayVaiList.findIndex(cv => 
-                            cv.maMau === cayVaiData.maMau && 
-                            cv.catVaiId === (result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null)
-                        );
+                        // QUAN TRỌNG: Normalize maMau để so sánh chính xác và đảm bảo tách riêng Sương đêm (2) và Trời xanh (43)
+                        // CHỈ merge nếu maMau VÀ catVaiId đều giống nhau
+                        const maMauToFind = String(cayVaiData.maMau);
+                        const catVaiIdToFind = result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null;
+                        const existingIndex = savedCayVaiList.findIndex(cv => {
+                            const cvMaMau = String(cv.maMau);
+                            return cvMaMau === maMauToFind && cv.catVaiId === catVaiIdToFind;
+                        });
                         
                         if (existingIndex >= 0) {
                             // Cập nhật cây vải đã có (cộng dồn items)
                             const existing = savedCayVaiList[existingIndex];
-                            existing.items.push(...cayVaiToAdd.items);
+                            // Đảm bảo existing.items là array
+                            if (!Array.isArray(existing.items)) {
+                                existing.items = [];
+                            }
+                            // Đảm bảo cayVaiToAdd.items là array và có dữ liệu
+                            if (Array.isArray(cayVaiToAdd.items) && cayVaiToAdd.items.length > 0) {
+                                // Merge items: tránh trùng lặp theo szSku, nếu trùng thì cộng dồn số lượng
+                                cayVaiToAdd.items.forEach(newItem => {
+                                    const existingItemIndex = existing.items.findIndex(existingItem => 
+                                        existingItem.szSku === newItem.szSku && 
+                                        String(existingItem.maMau) === String(newItem.maMau)
+                                    );
+                                    if (existingItemIndex >= 0) {
+                                        // Cộng dồn số lượng nếu trùng
+                                        existing.items[existingItemIndex].soLuong += (newItem.soLuong || 0);
+                                    } else {
+                                        // Thêm mới nếu chưa có
+                                        existing.items.push(newItem);
+                                    }
+                                });
+                            }
                             // Merge mayAoGoi
                             if (cayVaiToAdd.mayAoGoi && cayVaiToAdd.mayAoGoi.length) {
                                 existing.mayAoGoi = (existing.mayAoGoi || []).concat(cayVaiToAdd.mayAoGoi);
@@ -2124,26 +3524,187 @@
                             }
                             existing.vaiThieu.soM = Math.max(existing.vaiThieu.soM || 0, cayVaiToAdd.vaiThieu.soM || 0);
                             existing.nhapLaiKho.soM = Math.max(existing.nhapLaiKho.soM || 0, cayVaiToAdd.nhapLaiKho.soM || 0);
+                            existing.phatSinhMauDuRa = existing.phatSinhMauDuRa || { soM: 0 };
+                            existing.phatSinhMauDuRa.soM = Math.max(existing.phatSinhMauDuRa.soM || 0, (cayVaiToAdd.phatSinhMauDuRa && cayVaiToAdd.phatSinhMauDuRa.soM) || 0);
                         } else {
                             // Thêm mới vào danh sách
+                            // Đảm bảo items là array
+                            if (!Array.isArray(cayVaiToAdd.items)) {
+                                console.warn('⚠️ cayVaiToAdd.items không phải array, khởi tạo lại:', cayVaiToAdd.items);
+                                cayVaiToAdd.items = [];
+                            }
+                            // Đảm bảo có items trước khi thêm
+                            if (cayVaiToAdd.items.length === 0) {
+                                console.warn('⚠️ Không có items để thêm vào cây vải:', {
+                                    maMau: cayVaiToAdd.maMau,
+                                    tenMau: cayVaiToAdd.tenMau,
+                                    currentKichThuocData: Object.keys(currentKichThuocData).length
+                                });
+                            }
+                            console.log('✅ Thêm mới cây vải:', {
+                                maMau: cayVaiToAdd.maMau,
+                                tenMau: cayVaiToAdd.tenMau,
+                                itemsCount: cayVaiToAdd.items.length,
+                                items: cayVaiToAdd.items.map(item => ({
+                                    kichThuoc: item.kichThuoc,
+                                    szSku: item.szSku,
+                                    soLuong: item.soLuong
+                                }))
+                            });
                             savedCayVaiList.push(cayVaiToAdd);
                         }
                         
                         // Render lại danh sách
                         renderSavedList();
+                        
+                        // QUAN TRỌNG: Xử lý items phát sinh (Trời xanh 43) đã được tách ở trên
+                        // Tách riêng và tạo mục riêng cho Trời xanh - KHÔNG tạo đối tượng cắt (catVaiId = null)
+                        // Sử dụng phatSinhItems đã được tách từ currentKichThuocData ở trên
+                        
+                        // Nếu có items phát sinh, tạo mục riêng
+                        if (phatSinhItems.length > 0) {
+                            console.log('✅ Phát hiện items phát sinh:', {
+                                count: phatSinhItems.length,
+                                items: phatSinhItems.map(item => ({
+                                    maMau: item.maMau,
+                                    tenMau: item.tenMau,
+                                    kichThuoc: item.kichThuoc,
+                                    szSku: item.szSku,
+                                    soLuong: item.soLuong
+                                }))
+                            });
+                            
+                            // Tính diện tích đã cắt cho Trời xanh
+                            let dienTichDaCatPhatSinh = 0;
+                            phatSinhItems.forEach(item => {
+                                // Tính diện tích: nếu có dienTich trong item thì dùng, không thì tính từ kichThuocList
+                                let itemDienTich = item.dienTich || 0;
+                                if (!itemDienTich && item.szSku) {
+                                    const kt = kichThuocList.find(k => k.szSku === item.szSku);
+                                    itemDienTich = kt ? (kt.dienTich || 0) : 0;
+                                }
+                                dienTichDaCatPhatSinh += itemDienTich * (item.soLuong || 0);
+                            });
+                            
+                            // Tìm mẫu phát sinh (thường là Trời xanh maMau '43')
+                            // Lấy maMau từ items phát sinh đầu tiên
+                            const phatSinhMaMau = String(phatSinhItems[0].maMau);
+                            const phatSinhMau = mauVaiList.find(m => String(m.maMau) === phatSinhMaMau);
+                            
+                            if (phatSinhMau) {
+                                // QUAN TRỌNG: KHÔNG tạo đối tượng cắt cho mẫu phát sinh (catVaiId = null)
+                                const troiXanhCatVaiId = null;
+                                
+                                // Tính các thông số cho Trời xanh
+                                // Lấy chiều dài cây vải từ items phát sinh (tính từ diện tích)
+                                const chieuDaiCayVaiPhatSinh = dienTichDaCatPhatSinh / 2.3;
+                                const dienTichBanDauPhatSinh = chieuDaiCayVaiPhatSinh * 2.3;
+                                const dienTichConLaiPhatSinh = Math.max(0, dienTichBanDauPhatSinh - dienTichDaCatPhatSinh);
+                                const soMConLaiPhatSinh = Math.round((dienTichConLaiPhatSinh / 2.3) * 10) / 10;
+                                const tienDoPercentPhatSinh = chieuDaiCayVaiPhatSinh > 0 ? 
+                                    Math.round(((chieuDaiCayVaiPhatSinh - soMConLaiPhatSinh) / chieuDaiCayVaiPhatSinh) * 100) : 0;
+                                
+                                const phatSinhCayVaiToAdd = {
+                                    _id: `phatsinh_${Date.now()}`, // ID tạm thời
+                                    maMau: phatSinhMaMau,
+                                    tenMau: phatSinhMau.tenMau,
+                                    chieuDaiCayVai: chieuDaiCayVaiPhatSinh,
+                                    dienTichBanDau: dienTichBanDauPhatSinh,
+                                    dienTichDaCat: dienTichDaCatPhatSinh,
+                                    dienTichConLai: dienTichConLaiPhatSinh,
+                                    soMConLai: soMConLaiPhatSinh,
+                                    tienDoPercent: tienDoPercentPhatSinh,
+                                    vaiLoi: { chieuDai: 0, dienTich: 0, soM: 0 },
+                                    vaiThieu: { soM: 0 },
+                                    nhapLaiKho: { soM: 0 },
+                                    phatSinhMauDuRa: { soM: 0 },
+                                    items: phatSinhItems.map(item => ({
+                                        ...item,
+                                        // Đảm bảo có đầy đủ thông tin
+                                        kichThuoc: item.kichThuoc || '',
+                                        szSku: item.szSku || '',
+                                        soLuong: item.soLuong || 0,
+                                        maMau: item.maMau || phatSinhMaMau,
+                                        tenMau: item.tenMau || phatSinhMau.tenMau,
+                                        dienTich: item.dienTich || 0
+                                    })), // Items phát sinh từ currentKichThuocData
+                                    createdBy: cayVaiData.createdBy,
+                                    importDate: cayVaiData.importDate || new Date(),
+                                    catVaiId: null, // QUAN TRỌNG: Không tạo đối tượng cắt cho mẫu phát sinh
+                                    mayAoGoi: [] // Có thể tính sau nếu cần
+                                };
+                                
+                                // Kiểm tra xem mẫu phát sinh này đã có trong danh sách chưa
+                                // Tìm mẫu phát sinh không có catVaiId (mẫu phát sinh)
+                                const existingPhatSinhIndex = savedCayVaiList.findIndex(cv => {
+                                    const cvMaMau = String(cv.maMau);
+                                    return cvMaMau === phatSinhMaMau && cv.catVaiId === null;
+                                });
+                                
+                                if (existingPhatSinhIndex >= 0) {
+                                    // Cập nhật cây vải đã có (cộng dồn items)
+                                    const existing = savedCayVaiList[existingPhatSinhIndex];
+                                    // Đảm bảo existing.items là array
+                                    if (!Array.isArray(existing.items)) {
+                                        existing.items = [];
+                                    }
+                                    // Đảm bảo phatSinhCayVaiToAdd.items là array và có dữ liệu
+                                    if (Array.isArray(phatSinhCayVaiToAdd.items) && phatSinhCayVaiToAdd.items.length > 0) {
+                                        existing.items.push(...phatSinhCayVaiToAdd.items);
+                                    }
+                                    existing.dienTichDaCat += phatSinhCayVaiToAdd.dienTichDaCat;
+                                    existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
+                                    existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 10) / 10;
+                                    existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
+                                        Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
+                                } else {
+                                    // Thêm mới vào danh sách - đảm bảo tách riêng với mẫu hiện tại
+                                    console.log('✅ Thêm mới mẫu phát sinh vào danh sách:', {
+                                        maMau: phatSinhCayVaiToAdd.maMau,
+                                        tenMau: phatSinhCayVaiToAdd.tenMau,
+                                        itemsCount: phatSinhCayVaiToAdd.items.length,
+                                        items: phatSinhCayVaiToAdd.items.map(item => ({
+                                            kichThuoc: item.kichThuoc,
+                                            szSku: item.szSku,
+                                            soLuong: item.soLuong
+                                        }))
+                                    });
+                                    savedCayVaiList.push(phatSinhCayVaiToAdd);
+                                }
+                                
+                                // Render lại danh sách sau khi thêm items phát sinh
+                                renderSavedList();
+                            } else {
+                                console.warn('⚠️ Không tìm thấy mẫu phát sinh trong mauVaiList:', phatSinhMaMau);
+                            }
+                        } else {
+                            console.log('ℹ️ Không có items phát sinh để thêm vào danh sách');
+                        }
                     }
                     
-                    // Xử lý linkedItems (Trời xanh 43) nếu có - thêm vào danh sách bên trái
-                    if (result.data && result.data.linkedCayVai && result.data.linkedCayVai.length > 0) {
+                    // LƯU Ý: Xử lý linkedCayVai từ server (nếu có)
+                    // Tuy nhiên, mẫu phát sinh từ currentKichThuocData (catVaiId = null) được ưu tiên
+                    // vì không cần tạo đối tượng cắt cho mẫu phát sinh
+                    // Chỉ xử lý linkedCayVai nếu chưa có mẫu phát sinh từ currentKichThuocData
+                    const hasPhatSinhFromCurrentData = phatSinhItems.length > 0;
+                    if (!hasPhatSinhFromCurrentData && result.data && result.data.linkedCayVai && result.data.linkedCayVai.length > 0) {
                         result.data.linkedCayVai.forEach(linkedData => {
                             const linkedDoiTuong = linkedData.doiTuongCatVai;
                             const linkedCayVai = linkedData.cayVai;
                             
                             if (!linkedDoiTuong || !linkedCayVai) return;
                             
+                            // Đảm bảo maMau là string để so sánh chính xác
+                            const linkedMaMau = String(linkedCayVai.maMau);
+                            
+                            // Kiểm tra: Trời xanh phải có maMau '43', không được merge với Sương đêm '2'
+                            if (linkedMaMau !== '43') {
+                                console.warn('Linked item không phải Trời xanh (43):', linkedMaMau);
+                            }
+                            
                             const linkedCayVaiToAdd = {
                                 _id: linkedCayVai._id,
-                                maMau: linkedCayVai.maMau,
+                                maMau: linkedMaMau, // Đảm bảo là string
                                 tenMau: linkedCayVai.tenMau,
                                 chieuDaiCayVai: linkedCayVai.chieuDaiCayVai || 0,
                                 dienTichBanDau: linkedCayVai.dienTichBanDau || 0,
@@ -2158,20 +3719,20 @@
                                 createdBy: linkedCayVai.createdBy,
                                 importDate: linkedCayVai.importDate || new Date(),
                                 catVaiId: linkedDoiTuong.catVaiId,
-                                mayAoGoi: linkedCayVai.mayAoGoi || [],
-                                isLinked: true, // Đánh dấu là item liên kết
-                                linkedFrom: '2' // Từ mẫu Sương đêm
+                                mayAoGoi: linkedCayVai.mayAoGoi || []
                             };
                             
                             // Kiểm tra xem mẫu này đã có trong danh sách chưa
-                            const existingLinkedIndex = savedCayVaiList.findIndex(cv => 
-                                cv.maMau === linkedCayVai.maMau && 
-                                cv.catVaiId === linkedDoiTuong.catVaiId &&
-                                cv.isLinked === true
-                            );
+                            // CHỈ merge nếu maMau VÀ catVaiId đều giống nhau
+                            // Điều này đảm bảo Sương đêm (2) và Trời xanh (43) luôn tách riêng
+                            const linkedCatVaiIdToFind = linkedDoiTuong.catVaiId;
+                            const existingLinkedIndex = savedCayVaiList.findIndex(cv => {
+                                const cvMaMau = String(cv.maMau);
+                                return cvMaMau === linkedMaMau && cv.catVaiId === linkedCatVaiIdToFind;
+                            });
                             
                             if (existingLinkedIndex >= 0) {
-                                // Cập nhật cây vải đã có (cộng dồn items)
+                                // Cập nhật cây vải đã có (cộng dồn items) - chỉ khi maMau và catVaiId đều giống nhau
                                 const existing = savedCayVaiList[existingLinkedIndex];
                                 existing.items.push(...linkedCayVaiToAdd.items);
                                 if (linkedCayVaiToAdd.mayAoGoi && linkedCayVaiToAdd.mayAoGoi.length) {
@@ -2183,31 +3744,209 @@
                                 existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
                                     Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
                             } else {
-                                // Thêm mới vào danh sách
+                                // Thêm mới vào danh sách - đảm bảo tách riêng với Sương đêm
                                 savedCayVaiList.push(linkedCayVaiToAdd);
                             }
                         });
                         
                         // Render lại danh sách sau khi thêm linked items
                         renderSavedList();
+                    } else {
+                        // Kiểm tra: Nếu là mẫu Sương đêm và có items phát sinh (maMau '43') trong currentKichThuocData
+                        // nhưng server không trả về linkedCayVai, cần kiểm tra xem có trong cayVai.items không
+                        const isSuongDem = String(currentMauVai.maMau) === '2';
+                        if (isSuongDem) {
+                            // Kiểm tra xem có items với maMau '43' trong currentKichThuocData không
+                            const phatSinhItems = Object.values(currentKichThuocData).filter(data => 
+                                data.isPhatSinh && String(data.maMau) === '43' && data.soLuong > 0
+                            );
+                            
+                            if (phatSinhItems.length > 0) {
+                                // Kiểm tra xem items phát sinh có trong cayVai.items không
+                                const cayVaiItems = result.data && result.data.cayVai ? (result.data.cayVai.items || []) : [];
+                                const phatSinhInCayVai = cayVaiItems.filter(item => String(item.maMau) === '43');
+                                
+                                if (phatSinhInCayVai.length === 0) {
+                                    // Có items phát sinh nhưng không có trong cayVai.items và không có linkedCayVai
+                                    console.warn('⚠️ Phát hiện items phát sinh (Trời xanh) trong bảng kích thước nhưng server không trả về linkedCayVai');
+                                    console.warn('Items phát sinh:', phatSinhItems);
+                                } else {
+                                    // Items phát sinh có trong cayVai.items - có thể server đang trả về đúng nhưng cần tách riêng
+                                    console.info('ℹ️ Items phát sinh được trả về trong cayVai.items thay vì linkedCayVai:', phatSinhInCayVai);
+                                }
+                            }
+                        }
                     }
                     
-                    // Reset form (giữ lại ID và mẫu vải nếu muốn tiếp tục cắt)
+                    // Kiểm tra: So sánh items trả về với items đã gửi để đảm bảo khớp nhau
+                    if (result.data && result.data.cayVai && result.data.cayVai.items) {
+                        const returnedItems = result.data.cayVai.items || [];
+                        const sentItems = items.filter(item => {
+                            // Chỉ so sánh items không phải phát sinh (vì phát sinh sẽ ở linkedCayVai hoặc trong cayVai.items)
+                            return !item.isPhatSinh && !item.isLuuTru;
+                        });
+                        
+                        // Tách items phát sinh ra khỏi returnedItems để so sánh chính xác
+                        const returnedNonPhatSinhItems = returnedItems.filter(item => 
+                            String(item.maMau) !== '43' || !item.isPhatSinh
+                        );
+                        
+                        // Kiểm tra số lượng items (chỉ so sánh items không phát sinh)
+                        if (returnedNonPhatSinhItems.length !== sentItems.length) {
+                            console.warn('⚠️ Số lượng items trả về không khớp với số lượng items đã gửi');
+                            console.warn('Items đã gửi (không phát sinh):', sentItems.length, sentItems);
+                            console.warn('Items trả về (không phát sinh):', returnedNonPhatSinhItems.length, returnedNonPhatSinhItems);
+                            console.warn('Tất cả items trả về:', returnedItems.length, returnedItems);
+                        }
+                        
+                        // Kiểm tra từng item
+                        sentItems.forEach(sentItem => {
+                            const found = returnedNonPhatSinhItems.find(retItem => 
+                                retItem.szSku === sentItem.szSku && 
+                                retItem.soLuong === sentItem.soLuong
+                            );
+                            if (!found) {
+                                console.warn('⚠️ Item không tìm thấy trong dữ liệu trả về:', sentItem);
+                            }
+                        });
+                    }
+                    
+                    // Kiểm tra: So sánh linkedCayVai items với items phát sinh đã gửi
+                    const sentPhatSinhItems = items.filter(item => item.isPhatSinh && String(item.maMau) === '43');
+                    if (sentPhatSinhItems.length > 0) {
+                        if (result.data && result.data.linkedCayVai && result.data.linkedCayVai.length > 0) {
+                            // Có items phát sinh và có linkedCayVai trả về - kiểm tra khớp nhau
+                            const linkedItems = result.data.linkedCayVai.flatMap(linkedData => 
+                                linkedData.cayVai ? (linkedData.cayVai.items || []) : []
+                            );
+                            
+                            if (linkedItems.length !== sentPhatSinhItems.length) {
+                                console.warn('⚠️ Số lượng items phát sinh trả về không khớp với số lượng items đã gửi');
+                                console.warn('Items phát sinh đã gửi:', sentPhatSinhItems.length, sentPhatSinhItems);
+                                console.warn('Items phát sinh trả về:', linkedItems.length, linkedItems);
+                            }
+                            
+                            // Kiểm tra từng item phát sinh
+                            sentPhatSinhItems.forEach(sentItem => {
+                                const found = linkedItems.find(retItem => 
+                                    retItem.szSku === sentItem.szSku && 
+                                    retItem.soLuong === sentItem.soLuong
+                                );
+                                if (!found) {
+                                    console.warn('⚠️ Item phát sinh không tìm thấy trong linkedCayVai:', sentItem);
+                                }
+                            });
+                        } else {
+                            // Có items phát sinh nhưng không có linkedCayVai trả về - đã được xử lý ở trên
+                            console.warn('⚠️ Có items phát sinh nhưng server không trả về linkedCayVai');
+                        }
+                    }
+                    
+                    // Reset form nhập phôi - Clear tất cả để nhập phôi mới
+                    // Clear các input chính
                     document.getElementById('chieuDaiCayVaiInput').value = '';
-                    document.getElementById('calculationInfo').style.display = 'none';
-                    document.getElementById('checkboxOptions').style.display = 'none';
                     document.getElementById('kichThuocInput').value = '';
                     document.getElementById('soLuongInput').value = '';
+                    
+                    // Clear các attributes của kichThuocInput
+                    const kichThuocInput = document.getElementById('kichThuocInput');
+                    kichThuocInput.removeAttribute('data-selected-szsku');
+                    kichThuocInput.removeAttribute('data-selected-kichthuoc');
+                    kichThuocInput.removeAttribute('data-selected-cao');
+                    kichThuocInput.removeAttribute('data-selected-caoparts');
+                    kichThuocInput.removeAttribute('data-selected-ngang');
+                    
+                    // Clear input vải lỗi
+                    const vaiLoiInput = document.getElementById('vaiLoiInput');
+                    if (vaiLoiInput) {
+                        vaiLoiInput.value = '';
+                        vaiLoiInput.style.borderColor = '#e0e0e0';
+                        const vaiLoiInputError = document.getElementById('vaiLoiInputError');
+                        if (vaiLoiInputError) vaiLoiInputError.style.display = 'none';
+                        document.getElementById('dienTichLoi').textContent = '0 m²';
+                    }
+                    
+                    // Clear form phát sinh mẫu dư ra (phôi)
+                    const phoiKichThuocInput = document.getElementById('phoiKichThuocInput');
+                    if (phoiKichThuocInput) {
+                        phoiKichThuocInput.value = '';
+                        phoiKichThuocInput.removeAttribute('data-selected-szsku');
+                        phoiKichThuocInput.removeAttribute('data-selected-kichthuoc');
+                        phoiKichThuocInput.removeAttribute('data-selected-cao');
+                        phoiKichThuocInput.removeAttribute('data-selected-caoparts');
+                        phoiKichThuocInput.removeAttribute('data-selected-ngang');
+                    }
+                    
+                    const phoiNgangInput = document.getElementById('phoiNgangInput');
+                    if (phoiNgangInput) {
+                        phoiNgangInput.value = '';
+                    }
+                    
+                    const phoiSoLuongInput = document.getElementById('phoiSoLuongInput');
+                    if (phoiSoLuongInput) {
+                        phoiSoLuongInput.value = '';
+                    }
+                    
+                    const phoiNgangGroup = document.getElementById('phoiNgangGroup');
+                    if (phoiNgangGroup) phoiNgangGroup.style.display = 'none';
+                    
+                    // Ẩn các form phát sinh
+                    const catPhoiForm = document.getElementById('catPhoiForm');
+                    if (catPhoiForm) catPhoiForm.style.display = 'none';
+                    
+                    const catLuuTruForm = document.getElementById('catLuuTruForm');
+                    if (catLuuTruForm) catLuuTruForm.style.display = 'none';
+                    
+                    const phatSinhMauForm = document.getElementById('phatSinhMauForm');
+                    if (phatSinhMauForm) phatSinhMauForm.style.display = 'none';
+                    
+                    // Ẩn dropdown gợi ý kích thước phôi
+                    const phoiKichThuocDropdown = document.getElementById('phoiKichThuocDropdown');
+                    if (phoiKichThuocDropdown) {
+                        phoiKichThuocDropdown.classList.remove('show');
+                        phoiKichThuocDropdown.innerHTML = '';
+                    }
+                    
+                    // Reset các checkbox
                     document.getElementById('vaiLoiCheckbox').checked = false;
                     document.getElementById('vaiThieuCheckbox').checked = false;
                     document.getElementById('nhapLaiKhoCheckbox').checked = false;
+                    document.getElementById('phatSinhMauDuRaCheckbox').checked = false;
+                    
+                    // Ẩn các group và info
+                    document.getElementById('calculationInfo').style.display = 'none';
+                    document.getElementById('checkboxOptions').style.display = 'none';
                     document.getElementById('vaiLoiInputGroup').style.display = 'none';
                     document.getElementById('vaiThieuInfo').style.display = 'none';
                     document.getElementById('nhapLaiKhoInfo').style.display = 'none';
+                    document.getElementById('phatSinhMauDuRaInfo').style.display = 'none';
+                    
+                    // Clear dữ liệu kích thước
                     currentKichThuocData = {};
                     renderKichThuocList();
+                    calculateArea();
                     
-                    // Focus vào input kích thước để tiếp tục nhập
+                    // Reset và refresh form UI nhập phôi
+                    // Reset chiều cao đã cắt (nếu có hàm này)
+                    if (typeof tinhChieuCaoDaCat === 'function') {
+                        // Chiều cao đã cắt sẽ được tính lại khi có dữ liệu mới
+                    }
+                    
+                    // Reset form phát sinh mẫu dư ra (nếu đang mở)
+                    const phatSinhMauDuRaCheckbox = document.getElementById('phatSinhMauDuRaCheckbox');
+                    if (phatSinhMauDuRaCheckbox && phatSinhMauDuRaCheckbox.checked) {
+                        // Uncheck để reset form
+                        phatSinhMauDuRaCheckbox.checked = false;
+                        togglePhatSinhMauDuRa();
+                    }
+                    
+                    // Reset các button chế độ xử lý (nếu có)
+                    const catPhoiBtn = document.getElementById('catPhoiBtn');
+                    const catLuuTruBtn = document.getElementById('catLuuTruBtn');
+                    if (catPhoiBtn) catPhoiBtn.classList.remove('active');
+                    if (catLuuTruBtn) catLuuTruBtn.classList.remove('active');
+                    
+                    // Focus vào input kích thước để tiếp tục nhập phôi mới
                     if (currentMauVai) {
                         document.getElementById('kichThuocInput').disabled = false;
                         document.getElementById('soLuongInput').disabled = false;
@@ -2280,7 +4019,10 @@
                         currentMauVai = mau;
                         
                         // Set chiều dài cây vải = Số m còn lại (để tiếp tục cắt)
-                        document.getElementById('chieuDaiCayVaiInput').value = doiTuong.soMConLai.toFixed(1);
+                        const chieuDaiCayVaiInput = document.getElementById('chieuDaiCayVaiInput');
+                        chieuDaiCayVaiInput.value = doiTuong.soMConLai.toFixed(1);
+                        chieuDaiCayVaiInput.style.borderColor = '#e0e0e0';
+                        document.getElementById('chieuDaiCayVaiError').style.display = 'none';
                         document.getElementById('chieuDaiCayVaiGroup').style.display = 'block';
                         document.getElementById('catVaiIdGroup').style.display = 'block';
                         
@@ -2309,35 +4051,75 @@
                 document.getElementById('mauVaiInput').value = '';
                 document.getElementById('mauVaiSelect').value = '';
                 document.getElementById('catVaiIdInput').value = '';
-                document.getElementById('chieuDaiCayVaiInput').value = '';
+                
+                // Clear and reset Số m ban đầu
+                const chieuDaiCayVaiInput = document.getElementById('chieuDaiCayVaiInput');
+                chieuDaiCayVaiInput.value = '';
+                chieuDaiCayVaiInput.style.borderColor = '#e0e0e0';
+                document.getElementById('chieuDaiCayVaiError').style.display = 'none';
                 document.getElementById('chieuDaiCayVaiGroup').style.display = 'none';
+                
                 document.getElementById('catVaiIdGroup').style.display = 'none';
+                
+                // Clear and reset SL phôi
+                const soLuongInput = document.getElementById('soLuongInput');
+                soLuongInput.value = '';
+                soLuongInput.style.borderColor = '#e0e0e0';
+                document.getElementById('soLuongInputError').style.display = 'none';
+                
+                // Clear and reset Số m lỗi
+                const vaiLoiInput = document.getElementById('vaiLoiInput');
+                vaiLoiInput.value = '';
+                vaiLoiInput.style.borderColor = '#e0e0e0';
+                document.getElementById('vaiLoiInputError').style.display = 'none';
+                
                 document.getElementById('kichThuocInput').value = '';
-                document.getElementById('soLuongInput').value = '';
                 document.getElementById('kichThuocInput').disabled = true;
                 document.getElementById('soLuongInput').disabled = true;
+                
+                // Reset checkboxes
+                document.getElementById('vaiLoiCheckbox').checked = false;
+                document.getElementById('vaiLoiInputGroup').style.display = 'none';
+                document.getElementById('vaiThieuCheckbox').checked = false;
+                document.getElementById('vaiThieuInfo').style.display = 'none';
+                document.getElementById('nhapLaiKhoCheckbox').checked = false;
+                document.getElementById('nhapLaiKhoInfo').style.display = 'none';
+                document.getElementById('phatSinhMauDuRaCheckbox').checked = false;
+                document.getElementById('phatSinhMauDuRaInfo').style.display = 'none';
+                
                 currentMauVai = null;
                 currentKichThuocData = {};
                 currentCatVaiId = null;
                 renderKichThuocList();
+                calculateArea();
                 document.getElementById('mauVaiInput').focus();
             }
         }
 
         // Render danh sách đã nhập
         function renderSavedList() {
+            try {
             const list = document.getElementById('savedList');
             const exportBtn = document.getElementById('exportBtn');
+                
+                if (!list) {
+                    console.error('Không tìm thấy element savedList');
+                    return;
+                }
             
             // Nếu có danh sách cây vải, ưu tiên hiển thị cây vải
-            if (savedCayVaiList.length > 0) {
+                if (savedCayVaiList && savedCayVaiList.length > 0) {
                 list.innerHTML = '';
-                exportBtn.disabled = false;
+                    if (exportBtn) exportBtn.disabled = false;
                 
                 // Hiển thị danh sách cây vải (theo thứ tự mới nhất)
-                savedCayVaiList.forEach(cayVai => {
+                    savedCayVaiList.forEach((cayVai, index) => {
+                        try {
                 const li = document.createElement('li');
                 li.className = 'saved-item';
+                
+                // Sử dụng _id nếu có, nếu không thì dùng catVaiId hoặc index làm ID tạm thời
+                const cayVaiId = cayVai._id || cayVai.catVaiId || `temp_${index}_${Date.now()}`;
                 
                 const dateStr = new Date(cayVai.importDate).toLocaleDateString('vi-VN');
                 const hasVaiLoi = cayVai.vaiLoi && cayVai.vaiLoi.soM > 0;
@@ -2438,41 +4220,77 @@
                     }
                 }
                 
+                            // Đảm bảo các giá trị số là hợp lệ
+                            const chieuDaiCayVai = parseFloat(cayVai.chieuDaiCayVai) || 0;
+                            const tienDoPercent = parseFloat(cayVai.tienDoPercent) || 0;
+                            const soMConLai = parseFloat(cayVai.soMConLai) || 0;
+                            const dienTichBanDau = parseFloat(cayVai.dienTichBanDau) || 0;
+                            const dienTichDaCat = parseFloat(cayVai.dienTichDaCat) || 0;
+                            const dienTichConLai = parseFloat(cayVai.dienTichConLai) || 0;
+                            
+                            // Đảm bảo items là array
+                            const itemsList = Array.isArray(cayVai.items) ? cayVai.items : [];
+                            
+                            // Kiểm tra xem có phải mẫu Trời xanh (phát sinh) không
+                            // Mẫu Trời xanh: maMau '43' và catVaiId === null
+                            const isTroiXanh = (String(cayVai.maMau) === '43' && cayVai.catVaiId === null);
+                            
+                            // Tính số m đã cắt từ items
+                            let soMDaCat = 0;
+                            itemsList.forEach(item => {
+                                // Parse szSku để lấy ngang và cao
+                                const parts = (item.szSku || '').split('-');
+                                if (parts.length >= 2) {
+                                    const ngang = parseInt(parts[0]) || 0;
+                                    const soLuong = parseInt(item.soLuong) || 0;
+                                    // Số m đã cắt = (ngang + 5) * số lượng / 100 (đổi từ cm sang m)
+                                    soMDaCat += ((ngang + 5) * soLuong) / 100;
+                                }
+                            });
+                            soMDaCat = Math.round(soMDaCat * 10) / 10; // Làm tròn 1 chữ số thập phân
+                            
+                            // Số m ban đầu = chiều dài cây vải
+                            const soMBanDau = chieuDaiCayVai;
+                            
+                            // Số m lỗi
+                            const soMLoi = cayVai.vaiLoi ? (parseFloat(cayVai.vaiLoi.chieuDai) || 0) : 0;
+                            
+                            // Số m thiếu vải
+                            const soMThieu = cayVai.vaiThieu ? (parseFloat(cayVai.vaiThieu.soM) || 0) : 0;
+                            
+                            // Số m nhập vào kho
+                            const soMNhapKho = cayVai.nhapLaiKho ? (parseFloat(cayVai.nhapLaiKho.soM) || 0) : 0;
+                
                 li.innerHTML = `
                     <div class="saved-item-header">
-                        <div class="saved-item-title">${cayVai.maMau} - ${cayVai.tenMau}</div>
+                                    <div class="saved-item-title">${cayVai.maMau || ''} - ${cayVai.tenMau || ''}</div>
                         <div style="display:flex; gap:8px; align-items:center;">
                             <div style="font-size: 0.85rem; color: #666; margin-right:8px;">${dateStr}</div>
                             <div class="saved-item-actions">
-                                <button class="btn btn-small btn-secondary" onclick="editSavedCayVai('${cayVai._id}')">Sửa</button>
-                                <button class="btn btn-small btn-secondary" onclick="duplicateSavedCayVai('${cayVai._id}')">Sao chép</button>
-                                <button class="btn btn-small btn-danger" onclick="deleteSavedCayVai('${cayVai._id}')">Xóa</button>
+                                            <button class="btn btn-small btn-secondary" onclick="editSavedCayVai('${cayVaiId}')">Sửa</button>
+                                            <button class="btn btn-small btn-secondary" onclick="duplicateSavedCayVai('${cayVaiId}')">Sao chép</button>
+                                            <button class="btn btn-small btn-danger" onclick="deleteSavedCayVai('${cayVaiId}')">Xóa</button>
                             </div>
                         </div>
                     </div>
                     <div class="saved-item-details">
-                        <div style="margin-bottom: 10px;">
-                            <strong>Chiều dài cây vải:</strong> ${cayVai.chieuDaiCayVai.toFixed(1)} m | 
-                            <strong>Tiến độ:</strong> ${cayVai.tienDoPercent}% | 
-                            <strong>Số m còn lại:</strong> ${cayVai.soMConLai.toFixed(1)} m
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <strong>Diện tích:</strong> Ban đầu: ${cayVai.dienTichBanDau.toFixed(2)} m² | 
-                            Đã cắt: ${cayVai.dienTichDaCat.toFixed(2)} m² | 
-                            Còn lại: ${cayVai.dienTichConLai.toFixed(2)} m²
-                        </div>
-                        ${hasVaiLoi || hasVaiThieu || hasNhapLaiKho ? `
-                            <div style="margin-bottom: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
-                                ${hasVaiLoi ? `<div><strong>⚠️ Vải lỗi:</strong> ${cayVai.vaiLoi.chieuDai.toFixed(1)} m (${cayVai.vaiLoi.dienTich.toFixed(2)} m²)</div>` : ''}
-                                ${hasVaiThieu ? `<div><strong>⚠️ Vải thiếu:</strong> ${cayVai.vaiThieu.soM.toFixed(1)} m</div>` : ''}
-                                ${hasNhapLaiKho ? `<div><strong>📦 Nhập lại kho:</strong> ${cayVai.nhapLaiKho.soM.toFixed(1)} m</div>` : ''}
+                        ${!isTroiXanh ? `
+                            <!-- Hiển thị thông tin số m cho các mẫu bình thường (trừ Trời xanh) -->
+                            <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #007bff;">
+                                <div style="margin-bottom: 5px;"><strong>Số m ban đầu:</strong> ${soMBanDau.toFixed(1)} m</div>
+                                <div style="margin-bottom: 5px;"><strong>Số m đã cắt:</strong> ${soMDaCat.toFixed(1)} m</div>
+                                <div style="margin-bottom: 5px;"><strong>Số m còn lại:</strong> ${soMConLai.toFixed(1)} m</div>
+                                ${soMLoi > 0 ? `<div style="margin-bottom: 5px; color: #dc3545;"><strong>Số m lỗi:</strong> ${soMLoi.toFixed(1)} m</div>` : ''}
+                                ${soMThieu > 0 ? `<div style="margin-bottom: 5px; color: #ffc107;"><strong>Số m thiếu vải:</strong> ${soMThieu.toFixed(1)} m</div>` : ''}
+                                ${soMNhapKho > 0 ? `<div style="margin-bottom: 5px; color: #28a745;"><strong>Số m nhập vào kho:</strong> ${soMNhapKho.toFixed(1)} m</div>` : ''}
                             </div>
                         ` : ''}
-                        ${cayVai.mayAoGoi && cayVai.mayAoGoi.length ? `
+                        <!-- Phần hiển thị vải lỗi, vải thiếu, nhập lại kho đã được gộp vào phần trên -->
+                                    ${cayVai.mayAoGoi && Array.isArray(cayVai.mayAoGoi) && cayVai.mayAoGoi.length ? `
                             <div style="margin-bottom:10px; padding:10px; background:#e9f7ef; border-radius:6px; border-left:4px solid #20c997;">
                                 <strong>May áo gối:</strong>
                                 <span style="margin-left:8px; font-size:0.95rem; color:#333;">
-                                    ${cayVai.mayAoGoi.reduce((sum, m) => sum + (m.value || 0), 0)} cm
+                                                ${cayVai.mayAoGoi.reduce((sum, m) => sum + (parseFloat(m.value) || 0), 0)} cm
                                 </span>
                             </div>
                         ` : ''}
@@ -2486,12 +4304,12 @@
                                             </tr>
                                 </thead>
                                 <tbody>
-                                    ${cayVai.items.map(item => `
+                                                ${itemsList.length > 0 ? itemsList.map(item => `
                                         <tr>
-                                            <td style="padding: 6px; border: 1px solid #ddd;">${item.kichThuoc} (${item.szSku})</td>
-                                            <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.soLuong}</td>
+                                                        <td style="padding: 6px; border: 1px solid #ddd;">${item.kichThuoc || ''} (${item.szSku || ''})</td>
+                                                        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.soLuong || 0}</td>
                                         </tr>
-                                    `).join('')}
+                                                `).join('') : '<tr><td colspan="2" style="padding: 6px; text-align: center; border: 1px solid #ddd;">Không có kích thước</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -2499,13 +4317,16 @@
                 `;
                 
                 list.appendChild(li);
+                        } catch (itemError) {
+                            console.error('Lỗi khi render item:', itemError, cayVai);
+                        }
                 });
                 
                 return;
             }
             
             // Nếu không có cây vải, hiển thị danh sách nhập phôi cũ
-            if (savedItems.length === 0) {
+                if (!savedItems || savedItems.length === 0) {
                 list.innerHTML = `
                     <li class="empty-state">
                         <div class="empty-state-icon">📦</div>
@@ -2562,7 +4383,18 @@
                 
                 list.appendChild(li);
             });
-            exportBtn.disabled = false;
+                if (exportBtn) exportBtn.disabled = false;
+            } catch (error) {
+                console.error('Lỗi khi render danh sách:', error);
+                if (list) {
+                    list.innerHTML = `
+                        <li class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <p>Lỗi hiển thị danh sách: ${error.message}</p>
+                        </li>
+                    `;
+                }
+            }
         }
 
         // Cập nhật mẫu (fill lại form)
@@ -2765,14 +4597,37 @@
 
             // Gộp tất cả items từ tất cả cây vải đã lưu, kèm theo maMau
             // Lưu ý: không include bất kỳ field metadata nào (ví dụ mayAoGoi)
+            // Ưu tiên dùng item.maMau nếu có (đặc biệt quan trọng cho item lưu trữ)
             const allItemsWithMau = savedCayVaiList.flatMap(cayVai => 
-                (cayVai.items || []).map(item => ({
-                    maMau: cayVai.maMau,
-                    szSku: item.szSku,
-                    kichThuoc: item.kichThuoc,
-                    soLuong: item.soLuong,
-                    dienTich: item.dienTich || 0
-                }))
+                (cayVai.items || []).map(item => {
+                    const maMau = item.maMau || cayVai.maMau; // Ưu tiên item.maMau, fallback về cayVai.maMau
+                    let szSku = item.szSku;
+                    
+                    // Nếu szSku chỉ có format ngang-cao (2 phần) hoặc kichThuoc chứa "Vải thừa",
+                    // format lại thành maMau-loai-ngang-cao để server có thể parse được
+                    // Ví dụ: 200-80 → 1-25-200-80 (với maMau=1, loai=25)
+                    if (szSku) {
+                        const parts = szSku.split('-');
+                        const isLuuTruFormat = parts.length === 2 && 
+                            /^\d+$/.test(parts[0]) && 
+                            /^\d+$/.test(parts[1]) &&
+                            (item.kichThuoc && item.kichThuoc.includes('Vải thừa'));
+                        
+                        // Nếu là format lưu trữ (ngang-cao), format lại
+                        if (isLuuTruFormat || parts.length === 2) {
+                            const loai = '25'; // Loại mặc định là 25
+                            szSku = `${maMau}-${loai}-${szSku}`; // Format: maMau-loai-ngang-cao
+                        }
+                    }
+                    
+                    return {
+                        maMau: maMau,
+                        szSku: szSku,
+                        kichThuoc: item.kichThuoc,
+                        soLuong: item.soLuong,
+                        dienTich: item.dienTich || 0
+                    };
+                })
             );
 
             if (allItemsWithMau.length === 0) {

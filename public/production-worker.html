@@ -633,6 +633,113 @@
             font-size: 1.1rem;
             font-weight: 500;
         }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-refresh:hover {
+            background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+        }
+
+        .btn-refresh:active {
+            transform: translateY(0);
+        }
+
+        .btn-refresh svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .products-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .product-item {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .product-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+            border-left-color: #ff9800;
+        }
+
+        .product-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .product-item-name {
+            font-weight: 600;
+            color: #856404;
+            font-size: 1rem;
+            flex: 1;
+        }
+
+        .product-item-wo {
+            font-size: 0.85rem;
+            color: #856404;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .product-item-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #856404;
+            margin-top: 8px;
+        }
+
+        .product-item-details span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -645,6 +752,26 @@
     <div class="container">
         <!-- Alert Messages -->
         <div id="alertContainer"></div>
+
+        <!-- High Priority Products Section -->
+        <div class="card" id="highPriorityCard">
+            <h2 class="card-title">Đơn hàng ưu tiên cao (High Priority)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <p style="color: #666; margin: 0;">Danh sách sản phẩm từ các Work Order có độ ưu tiên cao</p>
+                <button class="btn-refresh" onclick="loadHighPriorityProducts()" title="Làm mới danh sách">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 4V9H4.58152M19.9381 11C19.446 7.05369 16.0796 4 12 4C8.64262 4 5.76829 6.06817 4.58152 9M4.58152 9H9M20 20V15H19.4185M19.4185 15C18.2317 17.9318 15.3574 20 12 20C7.92038 20 4.55399 16.9463 4.06189 13M19.4185 15H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Làm mới
+                </button>
+            </div>
+            <div id="highPriorityProductsList" style="min-height: 50px;">
+                <div class="loading" style="padding: 20px;">
+                    <div class="spinner" style="width: 30px; height: 30px; border-width: 3px;"></div>
+                    <div class="loading-text" style="font-size: 0.9rem;">Đang tải danh sách...</div>
+                </div>
+            </div>
+        </div>
 
         <!-- Scan Section -->
         <div class="card">
@@ -776,9 +903,25 @@
 
                 <div class="form-group">
                     <label>Lý do lỗi <span id="scrapReasonRequired" style="color: red; display: none;">*</span></label>
-                    <textarea id="scrapReason" 
-                              rows="3" 
-                              placeholder="Nhập lý do lỗi nếu có số lượng lỗi"></textarea>
+                    <div class="scrap-reason-options" id="scrapReasonOptions" style="display: none;">
+                        <button type="button" class="scrap-reason-btn" data-reason="Lỗi vải" onclick="selectScrapReason('Lỗi vải')">
+                            Lỗi vải
+                        </button>
+                        <button type="button" class="scrap-reason-btn" data-reason="Cắt lệch" onclick="selectScrapReason('Cắt lệch')">
+                            Cắt lệch
+                        </button>
+                        <button type="button" class="scrap-reason-btn" data-reason="Lỗi ép bông" onclick="selectScrapReason('Lỗi ép bông')">
+                            Lỗi ép bông
+                        </button>
+                        <button type="button" class="scrap-reason-btn" data-reason="Lỗi đóng khoen" onclick="selectScrapReason('Lỗi đóng khoen')">
+                            Lỗi đóng khoen
+                        </button>
+                    </div>
+                    <input type="hidden" id="scrapReason" value="">
+                    <div id="selectedScrapReason" style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 6px; display: none;">
+                        <strong>Đã chọn:</strong> <span id="selectedScrapReasonText"></span>
+                        <button type="button" onclick="clearScrapReason()" style="margin-left: 10px; padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Xóa</button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -820,6 +963,7 @@
             
             await checkAuth();
             await loadEmployees();
+            await loadHighPriorityProducts(); // Load danh sách sản phẩm ưu tiên cao
             setupEventListeners();
             
             // Đảm bảo scanner vẫn bị ẩn sau khi setup
@@ -1004,12 +1148,14 @@
             document.getElementById('scrapQty').addEventListener('input', (e) => {
                 const scrapQty = parseFloat(e.target.value) || 0;
                 const requiredLabel = document.getElementById('scrapReasonRequired');
+                const optionsDiv = document.getElementById('scrapReasonOptions');
                 if (scrapQty > 0) {
                     requiredLabel.style.display = 'inline';
-                    document.getElementById('scrapReason').required = true;
+                    optionsDiv.style.display = 'grid';
                 } else {
                     requiredLabel.style.display = 'none';
-                    document.getElementById('scrapReason').required = false;
+                    optionsDiv.style.display = 'none';
+                    clearScrapReason();
                 }
             });
         }
@@ -1116,8 +1262,12 @@
             // Reset form values
             document.getElementById('completedQty').value = '';
             document.getElementById('scrapQty').value = '';
-            document.getElementById('scrapReason').value = '';
+            clearScrapReason();
             document.getElementById('notes').value = '';
+
+            // Hide scrap reason options
+            document.getElementById('scrapReasonOptions').style.display = 'none';
+            document.getElementById('scrapReasonRequired').style.display = 'none';
 
             // Uncheck all support employees
             document.querySelectorAll('#supportEmployeesContainer input[type="checkbox"]').forEach(cb => {
@@ -1174,7 +1324,7 @@
             const notes = document.getElementById('notes').value.trim();
 
             if (scrapQty > 0 && !scrapReason) {
-                showAlert('Vui lòng nhập lý do lỗi khi có số lượng lỗi', 'error');
+                showAlert('Vui lòng chọn lý do lỗi khi có số lượng lỗi', 'error');
                 return;
             }
 
@@ -1412,6 +1562,100 @@
                     alertDiv.remove();
                 }
             }, 5000);
+        }
+
+        // Load High Priority Products
+        async function loadHighPriorityProducts() {
+            const container = document.getElementById('highPriorityProductsList');
+            if (!container) return;
+
+            try {
+                const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+                const res = await fetch('/api/erpnext/work-orders-high-priority', {
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                const result = await res.json();
+
+                if (result.success && result.products && result.products.length > 0) {
+                    // Hiển thị danh sách sản phẩm
+                    container.innerHTML = `
+                        <div class="products-list">
+                            ${result.products.map(product => `
+                                <div class="product-item" onclick="document.getElementById('scanInput').value='${product.workOrder}'; document.getElementById('scanInput').focus();">
+                                    <div class="product-item-header">
+                                        <div class="product-item-name" title="${product.itemName}">${product.itemName || 'N/A'}</div>
+                                        <div class="product-item-wo">${product.workOrder}</div>
+                                    </div>
+                                    <div class="product-item-details">
+                                        <span>
+                                            <strong>Số lượng:</strong> ${product.qty || 0}
+                                        </span>
+                                        <span>
+                                            <strong>Trạng thái:</strong> ${product.status || 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    // Hiển thị trạng thái rỗng
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <p>Hiện tại không có Work Order nào có độ ưu tiên cao</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Load high priority products error:', error);
+                container.innerHTML = `
+                    <div class="alert alert-error">
+                        Lỗi khi tải danh sách sản phẩm ưu tiên cao: ${error.message || 'Lỗi không xác định'}
+                    </div>
+                `;
+            }
+        }
+
+        // Select scrap reason
+        function selectScrapReason(reason) {
+            // Remove selected class from all buttons
+            document.querySelectorAll('.scrap-reason-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked button
+            const clickedBtn = document.querySelector(`[data-reason="${reason}"]`);
+            if (clickedBtn) {
+                clickedBtn.classList.add('selected');
+            }
+            
+            // Set value
+            document.getElementById('scrapReason').value = reason;
+            
+            // Show selected reason display
+            document.getElementById('selectedScrapReasonText').textContent = reason;
+            document.getElementById('selectedScrapReason').style.display = 'block';
+        }
+
+        // Clear scrap reason
+        function clearScrapReason() {
+            // Remove selected class from all buttons
+            document.querySelectorAll('.scrap-reason-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Clear value
+            document.getElementById('scrapReason').value = '';
+            
+            // Hide selected reason display
+            document.getElementById('selectedScrapReason').style.display = 'none';
         }
 
         // Logout

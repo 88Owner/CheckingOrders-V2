@@ -5906,7 +5906,7 @@ function erpnextAPI(method, endpoint, data = null, username = null, password = n
                             // Lỗi 500 thường do validation hoặc custom fields không tồn tại
                             const excMessage = result.exc || result.message || '';
                             if (excMessage.includes('custom_')) {
-                                errorMessage = `Lỗi 500: Custom field không tồn tại trong ERPNext. Vui lòng tạo các custom fields sau trong Job Card doctype:\n- custom_scrap_reason (Data)\n- custom_notes (Small Text)\n- custom_support_employees (Data)\n\nChi tiết: ${excMessage}`;
+                                errorMessage = `Lỗi 500: Custom field không tồn tại trong ERPNext. Vui lòng tạo các custom fields sau trong Job Card doctype:\n- custom_lý_do_lỗi (Data)\n- custom_notes (Small Text)\n- custom_support_employees (Data)\n\nChi tiết: ${excMessage}`;
                             } else if (excMessage.includes('employee') || excMessage.includes('Employee')) {
                                 errorMessage = `Lỗi 500: Employee không hợp lệ. Vui lòng kiểm tra Employee ID: ${data?.employee || 'N/A'}\n\nChi tiết: ${excMessage}`;
                             } else {
@@ -6514,27 +6514,28 @@ app.post('/api/erpnext/update-job-card', requireLogin, async (req, res) => {
         // IMPORTANT: Do NOT send custom fields via API if they might be child tables
         // ERPNext will try to process them as child tables and fail with TypeError
         // We'll only update standard fields: total_completed_qty, total_scrap_qty, employee
-        // Custom fields (scrap_reason, notes, support_employees) will need to be configured
+        // Custom fields (custom_lý_do_lỗi, notes, support_employees) will need to be configured
         // properly in ERPNext as Data/Small Text fields (NOT child tables)
         
-        // For now, we skip custom fields entirely to avoid errors
-        // The custom data (scrap reason, notes, support employees) will be logged
-        // and can be added manually in ERPNext or configured properly later
-        console.log('[INFO] Custom data (not sent to avoid child table errors):', {
-            scrapReason: scrapReason,
+        // Save custom fields if they exist
+        if (scrapReason && scrapReason.trim()) {
+            updateData.custom_lý_do_lỗi = scrapReason.trim();
+            console.log('[INFO] Setting custom_lý_do_lỗi:', scrapReason.trim());
+        }
+        
+        // Log other custom data for reference
+        console.log('[INFO] Custom data:', {
+            custom_lý_do_lỗi: scrapReason,
             notes: notes,
             supportEmployees: supportEmployees
         });
         
-        // Note: To save custom data, ensure custom fields are created in ERPNext as:
-        // - custom_scrap_reason: Data type (NOT child table)
+        // Note: To save other custom data, ensure custom fields are created in ERPNext as:
+        // - custom_lý_do_lỗi: Data type (NOT child table) - Đã được thêm
         // - custom_notes: Small Text type (NOT child table)  
         // - custom_support_employees: Data type (NOT child table)
         // Then uncomment the code below:
         /*
-        if (scrapReason && scrapReason.trim()) {
-            updateData.custom_scrap_reason = scrapReason.trim();
-        }
         if (notes && notes.trim()) {
             updateData.custom_notes = notes.trim();
         }
@@ -6597,7 +6598,7 @@ app.post('/api/erpnext/update-job-card', requireLogin, async (req, res) => {
             errorMessage += '\n\nVui lòng tạo các Custom Fields sau trong ERPNext:\n' +
                 '1. Vào Job Card doctype\n' +
                 '2. Thêm Custom Fields:\n' +
-                '   - custom_scrap_reason (Data type)\n' +
+                '   - custom_lý_do_lỗi (Data type)\n' +
                 '   - custom_notes (Small Text type)\n' +
                 '   - custom_support_employees (Data type)';
         }
@@ -6693,6 +6694,126 @@ app.get('/api/erpnext/employees', requireLogin, async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi khi lấy danh sách nhân viên'
+        });
+    }
+});
+
+// Get Work Orders with High Priority
+app.get('/api/erpnext/work-orders-high-priority', requireLogin, async (req, res) => {
+    try {
+        // Chỉ cho phép production_worker truy cập
+        if (req.session.user.role !== 'production_worker') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ nhân viên sản xuất mới có quyền truy cập'
+            });
+        }
+
+        const username = req.session.user?.erpnext_username || null;
+        const password = req.session.user?.erpnext_password || null;
+
+        // Search for Work Orders with custom_priority = "High"
+        const baseUrl = new URL(config.ERPNEXT_URL);
+        const isHttps = baseUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        
+        // Lấy Work Orders có custom_priority = "High"
+        const filters = JSON.stringify([["custom_priority","=","High"]]);
+        const fields = JSON.stringify(["name", "production_item", "item_name", "qty", "status", "custom_priority"]);
+        const doctypeName = encodeURIComponent('Work Order');
+        const path = `/api/resource/${doctypeName}?filters=${encodeURIComponent(filters)}&fields=${encodeURIComponent(fields)}&limit_page_length=1000`;
+        
+        console.log(`[High Priority WO] Filtering Work Orders with custom_priority = "High"`);
+        console.log(`[High Priority WO] Filter: ${filters}`);
+        console.log(`[High Priority WO] Path: ${path}`);
+        
+        let authHeader = '';
+        if (config.ERPNEXT_API_KEY && config.ERPNEXT_API_SECRET && 
+            config.ERPNEXT_API_KEY.trim() !== '' && config.ERPNEXT_API_SECRET.trim() !== '') {
+            authHeader = `token ${config.ERPNEXT_API_KEY}:${config.ERPNEXT_API_SECRET}`;
+        } else if (username && password) {
+            authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+        } else {
+            throw new Error('ERPNext authentication credentials not configured. Please set ERPNEXT_API_KEY and ERPNEXT_API_SECRET in .env file.');
+        }
+
+        const result = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: baseUrl.hostname,
+                port: baseUrl.port || (isHttps ? 443 : 80),
+                path: path,
+                method: 'GET',
+                headers: {
+                    'Authorization': authHeader,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            const req = httpModule.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => { responseData += chunk; });
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(responseData));
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error(`Kết nối đến ERPNext timeout sau 10 giây tại ${config.ERPNEXT_URL}`));
+            });
+
+            req.end();
+        });
+
+        if (result.data && Array.isArray(result.data)) {
+            console.log(`[High Priority WO] Found ${result.data.length} Work Orders with custom_priority = "High"`);
+            
+            // Lấy danh sách tên sản phẩm (item_name) từ các Work Orders
+            // Lọc thêm để đảm bảo custom_priority thực sự là "High" (phòng trường hợp filter không hoạt động đúng)
+            const products = result.data
+                .filter(wo => {
+                    // Đảm bảo có item_name và custom_priority = "High"
+                    const hasItemName = wo.item_name;
+                    const hasHighPriority = wo.custom_priority === "High" || wo.custom_priority === "high";
+                    return hasItemName && hasHighPriority;
+                })
+                .map(wo => ({
+                    workOrder: wo.name,
+                    itemName: wo.item_name,
+                    productionItem: wo.production_item,
+                    qty: wo.qty || 0,
+                    status: wo.status || 'Unknown',
+                    customPriority: wo.custom_priority || 'N/A'
+                }));
+
+            console.log(`[High Priority WO] Returning ${products.length} products after filtering`);
+
+            res.json({
+                success: true,
+                products: products,
+                count: products.length
+            });
+        } else {
+            res.json({
+                success: true,
+                products: [],
+                count: 0
+            });
+        }
+    } catch (error) {
+        console.error('Get High Priority Work Orders error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi lấy danh sách Work Orders có độ ưu tiên cao'
         });
     }
 });

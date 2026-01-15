@@ -184,6 +184,32 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
                 continue;
             }
             
+            // NGOẠI LỆ: Vải thừa (lưu trữ) - dùng szSku trực tiếp làm SKU, không cần query MasterDataVai
+            const isVaiThua = item.kichThuoc && (
+                item.kichThuoc.includes('Vải thừa') || 
+                item.kichThuoc.includes('vải thừa') ||
+                item.kichThuoc.includes('Vải phát sinh') ||
+                item.kichThuoc.includes('vải phát sinh')
+            );
+            
+            // Kiểm tra format szSku: nếu có format maMau-loai-ngang-cao (4 phần), có thể là vải thừa
+            const szSkuParts = item.szSku ? item.szSku.split('-') : [];
+            const isVaiThuaFormat = szSkuParts.length === 4 && 
+                /^\d+$/.test(szSkuParts[0]) && 
+                /^\d+$/.test(szSkuParts[1]) &&
+                /^\d+$/.test(szSkuParts[2]) && 
+                /^\d+$/.test(szSkuParts[3]);
+            
+            if (isVaiThua || isVaiThuaFormat) {
+                // Vải thừa: dùng szSku trực tiếp làm SKU
+                console.log(`✅ Vải thừa - dùng szSku trực tiếp: ${item.szSku}`);
+                exportRows.push({
+                    sku: item.szSku,
+                    soLuong: item.soLuong || 0
+                });
+                continue; // Bỏ qua các bước query MasterDataVai
+            }
+            
             // Bước 0: Lấy tenMau từ MauVai dựa trên maMau
             // Trong MasterDataVai, trường "mau" lưu tenMau chứ không phải maMau
             const mauVaiData = await MauVai.findOne({ maMau: maMau });
