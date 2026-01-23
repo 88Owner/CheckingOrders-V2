@@ -2922,6 +2922,57 @@ function calculateMayAoGoi(items, maMau) {
     return mayAoGoi;
 }
 
+// Tính tổng số mét đã cắt dựa trên (ngang + 5) * SL / 100
+// Bỏ qua phôi phát sinh/lưu trữ và áp dụng hệ số cho cao 110 (1/2) và 70 (1/3) cho mẫu không đặc biệt
+// QUAN TRỌNG: Với bộ kích thước đặc biệt (isSpecialSet), chỉ tính 1 lần cho kích thước đầu tiên
+function calculateSoMDaCat(items, maMau) {
+    const maMauStr = String(maMau || '');
+    const isMauDacBiet = maMauStr === '2' || maMauStr === '43' || maMauStr === '4' || maMauStr === '14';
+    let totalMeters = 0;
+    
+    // Theo dõi các bộ kích thước đặc biệt đã tính để tránh tính trùng
+    const processedSpecialSets = new Set();
+
+    (items || []).forEach(item => {
+        if (!item || item.isPhatSinh || item.isLuuTru) return;
+
+        // Xử lý bộ kích thước đặc biệt: chỉ tính 1 lần cho kích thước đầu tiên trong bộ
+        if (item.isSpecialSet && item.specialSetName) {
+            // Nếu đã tính cho bộ này rồi, bỏ qua các kích thước còn lại trong bộ
+            if (processedSpecialSets.has(item.specialSetName)) {
+                return;
+            }
+            // Đánh dấu đã tính cho bộ này
+            processedSpecialSets.add(item.specialSetName);
+        }
+
+        const szSku = (item.szSku || '').toString();
+        const parts = szSku.split('-');
+        const ngang = parseFloat(parts[0]) || 0;
+        if (!ngang) return;
+
+        let soLuongThucTe = parseFloat(item.soLuong || 0) || 0;
+
+        if (!isMauDacBiet) {
+            const hasCao110 = parts.slice(1).some(p => parseInt(p) === 110);
+            const hasCao70 = !hasCao110 && parts.slice(1).some(p => parseInt(p) === 70);
+
+            if (hasCao110) {
+                soLuongThucTe = soLuongThucTe / 2;
+            } else if (hasCao70) {
+                // Với cao 70: làm tròn lên đến bội của 3 gần nhất, rồi chia 3
+                // Ví dụ: 16 → làm tròn lên 18 → 18/3 = 6
+                soLuongThucTe = Math.ceil(soLuongThucTe / 3);
+            }
+        }
+
+        const ngangThucTe = ngang + 5;
+        totalMeters += (soLuongThucTe * ngangThucTe) / 100; // đổi cm sang m
+    });
+
+    return Math.round(totalMeters * 10) / 10;
+}
+
 // API lưu/cập nhật nhập phôi
 app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
@@ -2992,14 +3043,24 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             );
         }
 
-        const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
-        const soMConLai = Math.round((dienTichConLai / 2.3) * 10) / 10;
-        const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
-
         // Chuẩn hóa dữ liệu vải lỗi, thiếu, nhập lại kho - luôn có giá trị, mặc định 0
         const vaiLoiData = vaiLoi && vaiLoi.chieuDai > 0 ? vaiLoi : { chieuDai: 0, dienTich: 0, soM: 0 };
         const vaiThieuData = vaiThieu && vaiThieu.soM !== undefined ? vaiThieu : { soM: 0 };
         const nhapLaiKhoData = nhapLaiKho && nhapLaiKho.soM !== undefined ? nhapLaiKho : { soM: 0 };
+
+        const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
+        const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - (vaiLoiData.chieuDai || 0));
+        const soMDaCat = calculateSoMDaCat(items, firstItem.maMau);
+
+        if (soMDaCat > chieuDaiHuuDung) {
+            return res.status(400).json({
+                success: false,
+                message: `Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(1)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`
+            });
+        }
+
+        const soMConLai = Math.max(0, Math.round((chieuDaiHuuDung - soMDaCat) * 10) / 10);
+        const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
 
         // Tính toán may áo gối từ items có chiều cao 180
         const mayAoGoiData = calculateMayAoGoi(items, firstItem.maMau);
@@ -3047,9 +3108,6 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                 // Cập nhật thông tin
                 doiTuongCatVai.dienTichDaCat += dienTichDaCat;
                 doiTuongCatVai.dienTichConLai = Math.max(0, doiTuongCatVai.dienTichBanDau - doiTuongCatVai.dienTichDaCat);
-                doiTuongCatVai.soMConLai = Math.round((doiTuongCatVai.dienTichConLai / 2.3) * 10) / 10;
-                doiTuongCatVai.tienDoPercent = doiTuongCatVai.chieuDaiCayVai > 0 ? 
-                    Math.round(((doiTuongCatVai.chieuDaiCayVai - doiTuongCatVai.soMConLai) / doiTuongCatVai.chieuDaiCayVai) * 100) : 0;
                 
                 // Thêm items vào danh sách
                 doiTuongCatVai.items.push(...itemsWithDienTich);
@@ -3078,6 +3136,19 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                     }
                     doiTuongCatVai.mayAoGoi.push(...mayAoGoiData);
                 }
+
+                // Tính lại số m còn lại theo chiều dài hữu dụng sau khi cộng dồn
+                const totalSoMDaCat = calculateSoMDaCat(doiTuongCatVai.items, doiTuongCatVai.maMau);
+                const chieuDaiHuuDungUpdate = Math.max(0, doiTuongCatVai.chieuDaiCayVai - (doiTuongCatVai.vaiLoi?.chieuDai || 0));
+                if (totalSoMDaCat > chieuDaiHuuDungUpdate) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Tổng (ngang + 5) * SL tích lũy = ${totalSoMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDungUpdate.toFixed(1)}m. Vui lòng giảm số lượng phôi.`
+                    });
+                }
+                doiTuongCatVai.soMConLai = Math.max(0, Math.round((chieuDaiHuuDungUpdate - totalSoMDaCat) * 10) / 10);
+                doiTuongCatVai.tienDoPercent = doiTuongCatVai.chieuDaiCayVai > 0 ? 
+                    Math.round(((doiTuongCatVai.chieuDaiCayVai - doiTuongCatVai.soMConLai) / doiTuongCatVai.chieuDaiCayVai) * 100) : 0;
                 
                 await doiTuongCatVai.save();
             } else {
