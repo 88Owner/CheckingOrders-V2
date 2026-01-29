@@ -6,6 +6,7 @@ const fs = require('fs');
 const MasterDataVai = require('../models/MasterDataVai');
 const KichThuoc = require('../models/KichThuoc');
 const MauVai = require('../models/MauVai');
+const Template = require('../models/Template');
 
 // Middleware để kiểm tra authentication
 // Kiểm tra xem request có phải là API call không (có header Accept: application/json hoặc path bắt đầu bằng /api)
@@ -154,20 +155,36 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
     }
 
     try {
-        const templatePath = path.join(__dirname, '..', 'uploads', 'template', 'nhap_phoi_template.xlsx');
+        // Lấy template active hoặc template đầu tiên
+        let template = await Template.findOne({ isActive: true });
+        if (!template) {
+            template = await Template.findOne().sort({ createdAt: -1 });
+        }
         
-        // Check if template file exists
-        if (!fs.existsSync(templatePath)) {
-            console.error('Template file not found at:', templatePath);
-            return res.status(500).json({ success: false, message: 'Template file not found.' });
+        if (!template) {
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Không tìm thấy template. Vui lòng upload template trước.' 
+            });
         }
 
-        const workbook = XLSX.readFile(templatePath);
+        // Kiểm tra file template có tồn tại không
+        if (!fs.existsSync(template.filePath)) {
+            console.error('Template file not found at:', template.filePath);
+            return res.status(500).json({ 
+                success: false, 
+                message: `Template file không tồn tại: ${template.filename}` 
+            });
+        }
+
+        const workbook = XLSX.readFile(template.filePath);
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
-        // Start writing from row 2 (index 1), assuming row 1 is headers
-        const startRow = 1;
+        // Sử dụng mapping cột từ template
+        const skuColumn = template.skuColumn || 'C';
+        const slColumn = template.slColumn || 'D';
+        const startRow = template.startRow || 1; // startRow trong model là 0-indexed, nhưng XLSX dùng 1-indexed
         const exportRows = [];
 
         // Xử lý từng item để lấy SKU từ MasterDataVai
@@ -369,11 +386,17 @@ router.post('/', requireLogin, requireWarehouseAccess, async (req, res) => {
             }
         }
 
-        // Ghi vào Excel
+        // Ghi vào Excel sử dụng mapping cột từ template
         exportRows.forEach((row, index) => {
             const rowIndex = startRow + index;
-            // Column C for SKU, Column D for Quantity
-            XLSX.utils.sheet_add_aoa(worksheet, [[row.sku, row.soLuong]], { origin: `C${rowIndex + 1}` });
+            // Ghi SKU vào cột SKU
+            XLSX.utils.sheet_add_aoa(worksheet, [[row.sku]], { 
+                origin: `${skuColumn}${rowIndex + 1}` 
+            });
+            // Ghi số lượng vào cột SL
+            XLSX.utils.sheet_add_aoa(worksheet, [[row.soLuong]], { 
+                origin: `${slColumn}${rowIndex + 1}` 
+            });
         });
 
         const outputBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });

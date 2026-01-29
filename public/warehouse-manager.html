@@ -625,23 +625,61 @@
                         <h3 style="color: #856404; margin-bottom: 12px;">⚠️ Lưu ý về Template</h3>
                         <ul style="color: #856404; line-height: 1.8; margin-left: 20px;">
                             <li>Template phải là file Excel (.xlsx)</li>
-                            <li>Template sẽ được lưu tại: <code>uploads/template/nhap_phoi_template.xlsx</code></li>
-                            <li>Khi xuất file, hệ thống sẽ sử dụng template này và ghi dữ liệu vào cột C (SKU) và cột D (SL)</li>
-                            <li>Template hiện tại sẽ bị thay thế nếu upload template mới</li>
+                            <li>Bạn có thể upload nhiều template với tên khác nhau</li>
+                            <li>Khi upload, bạn có thể cấu hình mapping cột SKU và cột SL</li>
+                            <li>Template được đánh dấu "Active" sẽ được sử dụng khi xuất file</li>
                         </ul>
                     </div>
-                    
-                    <div class="upload-area" onclick="document.getElementById('templateFile').click()">
-                        <div class="upload-icon"></div>
-                        <div class="upload-text">Click để chọn file Template Excel</div>
-                        <div class="upload-subtext">Hỗ trợ file .xlsx</div>
-                    </div>
-                    <input type="file" id="templateFile" class="file-input" accept=".xlsx" />
-                    
-                    <div style="text-align: center;">
-                        <button class="btn" onclick="uploadTemplate()" disabled id="uploadTemplateBtn">
-                            Upload Template
-                        </button>
+
+                    <!-- Upload Template Form -->
+                    <div style="background: white; padding: 24px; border-radius: 12px; border: 2px solid #e0e0e0; margin-bottom: 24px;">
+                        <h3 style="color: var(--primary); margin-bottom: 16px;">📤 Upload Template mới</h3>
+                        
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Tên Template *</label>
+                            <input type="text" id="templateNameInput" placeholder="VD: Template xuất file 2025" 
+                                   style="padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; font-size: 14px;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mô tả (tùy chọn)</label>
+                            <input type="text" id="templateDescriptionInput" placeholder="Mô tả về template này" 
+                                   style="padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; font-size: 14px;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mapping cột</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Cột SKU</label>
+                                    <input type="text" id="templateSkuColumn" placeholder="C" value="C" maxlength="2"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; text-transform: uppercase;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Cột SL</label>
+                                    <input type="text" id="templateSlColumn" placeholder="D" value="D" maxlength="2"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; text-transform: uppercase;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Hàng bắt đầu</label>
+                                    <input type="number" id="templateStartRow" placeholder="1" value="1" min="1"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="upload-area" onclick="document.getElementById('templateFile').click()" style="margin-bottom: 16px;">
+                            <div class="upload-icon"></div>
+                            <div class="upload-text">Click để chọn file Template Excel</div>
+                            <div class="upload-subtext">Hỗ trợ file .xlsx</div>
+                        </div>
+                        <input type="file" id="templateFile" class="file-input" accept=".xlsx" />
+                        
+                        <div style="text-align: center;">
+                            <button class="btn" onclick="uploadTemplate()" disabled id="uploadTemplateBtn">
+                                Upload Template
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="progress-container" id="templateProgressContainer">
@@ -654,10 +692,59 @@
                     <div class="alert alert-success" id="templateSuccessAlert"></div>
                     <div class="alert alert-error" id="templateErrorAlert"></div>
                     
+                    <!-- Danh sách Templates -->
                     <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px;">
-                        <h3 style="color: var(--primary); margin-bottom: 16px;">Thông tin Template hiện tại</h3>
-                        <div id="templateInfo">
-                            <p style="color: #666;">Đang tải thông tin...</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h3 style="color: var(--primary); margin: 0;">📋 Danh sách Templates</h3>
+                            <button class="btn btn-secondary" onclick="loadTemplates()" style="padding: 8px 16px; font-size: 14px;">
+                                🔄 Làm mới
+                            </button>
+                        </div>
+                        <div id="templatesList">
+                            <p style="color: #666; text-align: center; padding: 20px;">Đang tải danh sách templates...</p>
+                        </div>
+                    </div>
+
+                    <!-- Modal để chỉnh sửa mapping -->
+                    <div id="templateMappingModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+                        <div style="background: white; padding: 24px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                            <h3 style="color: var(--primary); margin-bottom: 16px;">⚙️ Cấu hình Mapping Template</h3>
+                            <div id="templateMappingForm">
+                                <div style="margin-bottom: 16px;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Tên Template</label>
+                                    <input type="text" id="editTemplateName" 
+                                           style="padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                <div style="margin-bottom: 16px;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mô tả</label>
+                                    <input type="text" id="editTemplateDescription" 
+                                           style="padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                <div style="margin-bottom: 16px;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mapping cột</label>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                        <div>
+                                            <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Cột SKU</label>
+                                            <input type="text" id="editTemplateSkuColumn" maxlength="2"
+                                                   style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; text-transform: uppercase;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Cột SL</label>
+                                            <input type="text" id="editTemplateSlColumn" maxlength="2"
+                                                   style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; text-transform: uppercase;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Hàng bắt đầu</label>
+                                            <input type="number" id="editTemplateStartRow" min="1"
+                                                   style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                                    <button class="btn btn-secondary" onclick="closeTemplateMappingModal()">Hủy</button>
+                                    <button class="btn" onclick="saveTemplateMapping()">Lưu</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -863,7 +950,7 @@
         document.getElementById('masterDataVaiBtn').addEventListener('click', () => showSection('masterDataVai'));
         document.getElementById('templateBtn').addEventListener('click', () => {
             showSection('template');
-            loadTemplateInfo();
+            loadTemplates();
         });
         document.getElementById('reportBtn').addEventListener('click', () => {
             showSection('report');
@@ -920,6 +1007,15 @@
                 selectedMasterDataVaiFile = e.target.files[0];
                 document.getElementById('uploadMasterDataVaiBtn').disabled = false;
                 hideAlerts('masterDataVai');
+            }
+        });
+
+        // Xử lý file Template
+        document.getElementById('templateFile').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                selectedTemplateFile = e.target.files[0];
+                document.getElementById('uploadTemplateBtn').disabled = false;
+                hideAlerts('template');
             }
         });
 
@@ -1097,6 +1193,8 @@
             }
         }
 
+        let currentEditingTemplateId = null;
+
         // Upload Template
         async function uploadTemplate() {
             if (!selectedTemplateFile) {
@@ -1104,8 +1202,19 @@
                 return;
             }
 
+            const name = document.getElementById('templateNameInput').value.trim();
+            if (!name) {
+                showError('template', 'Vui lòng nhập tên template');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('templateFile', selectedTemplateFile);
+            formData.append('name', name);
+            formData.append('description', document.getElementById('templateDescriptionInput').value.trim());
+            formData.append('skuColumn', document.getElementById('templateSkuColumn').value.toUpperCase() || 'C');
+            formData.append('slColumn', document.getElementById('templateSlColumn').value.toUpperCase() || 'D');
+            formData.append('startRow', document.getElementById('templateStartRow').value || '1');
 
             showProgress('template');
             document.getElementById('uploadTemplateBtn').disabled = true;
@@ -1126,9 +1235,15 @@
 
                 if (result.success) {
                     showSuccess('template', result.message);
-                    loadTemplateInfo();
+                    loadTemplates();
+                    // Reset form
                     selectedTemplateFile = null;
                     document.getElementById('templateFile').value = '';
+                    document.getElementById('templateNameInput').value = '';
+                    document.getElementById('templateDescriptionInput').value = '';
+                    document.getElementById('templateSkuColumn').value = 'C';
+                    document.getElementById('templateSlColumn').value = 'D';
+                    document.getElementById('templateStartRow').value = '1';
                     document.getElementById('uploadTemplateBtn').disabled = true;
                 } else {
                     showError('template', result.message);
@@ -1144,36 +1259,175 @@
             }
         }
 
-        // Load thông tin template
-        async function loadTemplateInfo() {
+        // Load danh sách templates
+        async function loadTemplates() {
             try {
-                const response = await fetch('/api/template-info', {
+                const response = await fetch('/api/templates', {
                     credentials: 'include'
                 });
                 const result = await response.json();
                 
-                const templateInfo = document.getElementById('templateInfo');
-                if (result.success && result.data) {
-                    const info = result.data;
-                    templateInfo.innerHTML = `
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                            <div>
-                                <strong>Tên file:</strong> ${info.filename || 'N/A'}
+                const templatesList = document.getElementById('templatesList');
+                if (result.success && result.data && result.data.length > 0) {
+                    templatesList.innerHTML = result.data.map(template => {
+                        const createdDate = new Date(template.createdAt).toLocaleString('vi-VN');
+                        const activeBadge = template.isActive 
+                            ? '<span style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px;">✓ Active</span>' 
+                            : '';
+                        
+                        return `
+                            <div style="background: white; padding: 16px; border-radius: 8px; border: 2px solid ${template.isActive ? '#10b981' : '#e0e0e0'}; margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                    <div style="flex: 1;">
+                                        <h4 style="margin: 0; color: #333; display: flex; align-items: center;">
+                                            ${template.name}${activeBadge}
+                                        </h4>
+                                        ${template.description ? `<p style="color: #666; margin: 8px 0 0 0; font-size: 14px;">${template.description}</p>` : ''}
+                                        <div style="margin-top: 8px; font-size: 12px; color: #999;">
+                                            <div>File: ${template.filename}</div>
+                                            <div>Mapping: SKU → ${template.skuColumn}, SL → ${template.slColumn}, Hàng bắt đầu: ${template.startRow}</div>
+                                            <div>Ngày tạo: ${createdDate}</div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; flex-direction: column;">
+                                        ${!template.isActive ? `<button class="btn" onclick="setActiveTemplate('${template._id}')" style="padding: 6px 12px; font-size: 12px;">Đặt làm Active</button>` : ''}
+                                        <button class="btn" onclick="editTemplateMapping('${template._id}')" style="padding: 6px 12px; font-size: 12px; background: #3b82f6;">Mapping</button>
+                                        <button class="btn btn-secondary" onclick="deleteTemplate('${template._id}', '${template.name}')" style="padding: 6px 12px; font-size: 12px; background: #ef4444;">Xóa</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <strong>Kích thước:</strong> ${info.size ? (info.size / 1024).toFixed(2) + ' KB' : 'N/A'}
-                            </div>
-                            <div>
-                                <strong>Ngày cập nhật:</strong> ${info.modified ? new Date(info.modified).toLocaleString('vi-VN') : 'N/A'}
-                            </div>
-                        </div>
-                    `;
+                        `;
+                    }).join('');
                 } else {
-                    templateInfo.innerHTML = '<p style="color: #999;">Chưa có template được upload</p>';
+                    templatesList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Chưa có template nào. Hãy upload template đầu tiên!</p>';
                 }
             } catch (error) {
-                console.error('Error loading template info:', error);
-                document.getElementById('templateInfo').innerHTML = '<p style="color: #ef4444;">Lỗi tải thông tin template</p>';
+                console.error('Error loading templates:', error);
+                document.getElementById('templatesList').innerHTML = '<p style="color: #ef4444; text-align: center; padding: 20px;">Lỗi tải danh sách templates</p>';
+            }
+        }
+
+        // Set active template
+        async function setActiveTemplate(templateId) {
+            if (!confirm('Bạn có chắc chắn muốn đặt template này làm template mặc định?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/template/${templateId}/set-active`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('template', result.message);
+                    loadTemplates();
+                } else {
+                    showError('template', result.message);
+                }
+            } catch (error) {
+                showError('template', 'Lỗi set active template: ' + error.message);
+            }
+        }
+
+        // Edit template mapping
+        async function editTemplateMapping(templateId) {
+            try {
+                const response = await fetch(`/api/template/${templateId}`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const template = result.data;
+                    currentEditingTemplateId = templateId;
+                    
+                    document.getElementById('editTemplateName').value = template.name;
+                    document.getElementById('editTemplateDescription').value = template.description || '';
+                    document.getElementById('editTemplateSkuColumn').value = template.skuColumn;
+                    document.getElementById('editTemplateSlColumn').value = template.slColumn;
+                    document.getElementById('editTemplateStartRow').value = template.startRow;
+                    
+                    document.getElementById('templateMappingModal').style.display = 'flex';
+                } else {
+                    showError('template', 'Không tìm thấy template');
+                }
+            } catch (error) {
+                showError('template', 'Lỗi tải thông tin template: ' + error.message);
+            }
+        }
+
+        // Close mapping modal
+        function closeTemplateMappingModal() {
+            document.getElementById('templateMappingModal').style.display = 'none';
+            currentEditingTemplateId = null;
+        }
+
+        // Save template mapping
+        async function saveTemplateMapping() {
+            if (!currentEditingTemplateId) {
+                showError('template', 'Không tìm thấy template để cập nhật');
+                return;
+            }
+
+            const name = document.getElementById('editTemplateName').value.trim();
+            if (!name) {
+                showError('template', 'Vui lòng nhập tên template');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/template/${currentEditingTemplateId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: name,
+                        description: document.getElementById('editTemplateDescription').value.trim(),
+                        skuColumn: document.getElementById('editTemplateSkuColumn').value.toUpperCase(),
+                        slColumn: document.getElementById('editTemplateSlColumn').value.toUpperCase(),
+                        startRow: parseInt(document.getElementById('editTemplateStartRow').value)
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('template', result.message);
+                    closeTemplateMappingModal();
+                    loadTemplates();
+                } else {
+                    showError('template', result.message);
+                }
+            } catch (error) {
+                showError('template', 'Lỗi cập nhật template: ' + error.message);
+            }
+        }
+
+        // Delete template
+        async function deleteTemplate(templateId, templateName) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa template "${templateName}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/template/${templateId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('template', result.message);
+                    loadTemplates();
+                } else {
+                    showError('template', result.message);
+                }
+            } catch (error) {
+                showError('template', 'Lỗi xóa template: ' + error.message);
             }
         }
 

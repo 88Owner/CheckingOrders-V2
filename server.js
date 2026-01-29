@@ -31,6 +31,7 @@ const MasterDataVai = require('./models/MasterDataVai');
 const NhapPhoi = require('./models/NhapPhoi');
 const DoiTuongCatVai = require('./models/DoiTuongCatVai');
 const DatabaseConfig = require('./models/DatabaseConfig');
+const Template = require('./models/Template');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -2206,13 +2207,21 @@ app.post('/api/upload-master-data-vai', requireLogin, requireWarehouseManager, u
     }
 });
 
-// Route upload template xuất file
+// Route upload template xuất file - Hỗ trợ nhiều template với tên
 app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.single('templateFile'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({
                 success: false,
                 message: 'Không có file được upload'
+            });
+        }
+
+        const { name, description } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập tên template'
             });
         }
 
@@ -2223,12 +2232,11 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
             fs.mkdirSync(templateDir, { recursive: true });
         }
 
-        const templatePath = path.join(templateDir, 'nhap_phoi_template.xlsx');
-        
-        // Xóa template cũ nếu có
-        if (fs.existsSync(templatePath)) {
-            fs.unlinkSync(templatePath);
-        }
+        // Tạo tên file unique
+        const timestamp = Date.now();
+        const sanitizedName = name.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${sanitizedName}_${timestamp}.xlsx`;
+        const templatePath = path.join(templateDir, filename);
 
         // Copy file mới vào thư mục template
         fs.copyFileSync(req.file.path, templatePath);
@@ -2236,13 +2244,32 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
         // Xóa file tạm
         fs.unlinkSync(req.file.path);
 
+        // Lưu thông tin template vào database
+        const template = new Template({
+            name: name.trim(),
+            filename: filename,
+            filePath: templatePath,
+            skuColumn: req.body.skuColumn || 'C',
+            slColumn: req.body.slColumn || 'D',
+            startRow: req.body.startRow ? parseInt(req.body.startRow) : 1,
+            description: description || '',
+            createdBy: req.session.user?.username || null
+        });
+
+        await template.save();
+
         res.json({
             success: true,
             message: 'Upload template thành công!',
             data: {
-                filename: 'nhap_phoi_template.xlsx',
+                id: template._id,
+                name: template.name,
+                filename: template.filename,
                 size: fs.statSync(templatePath).size,
-                modified: fs.statSync(templatePath).mtime
+                skuColumn: template.skuColumn,
+                slColumn: template.slColumn,
+                startRow: template.startRow,
+                createdAt: template.createdAt
             }
         });
 
@@ -2258,6 +2285,28 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
             }
         }
 
+        // Xóa file đã copy nếu có lỗi
+        if (req.body.name && req.file) {
+            try {
+                const templateDir = path.join(__dirname, 'uploads', 'template');
+                const sanitizedName = req.body.name.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+                const filename = `${sanitizedName}_${Date.now()}.xlsx`;
+                const templatePath = path.join(templateDir, filename);
+                if (fs.existsSync(templatePath)) {
+                    fs.unlinkSync(templatePath);
+                }
+            } catch (deleteError) {
+                console.log('Không thể xóa file template:', deleteError.message);
+            }
+        }
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên template đã tồn tại. Vui lòng chọn tên khác.'
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Lỗi upload template: ' + error.message
@@ -2265,27 +2314,218 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
     }
 });
 
-// Route lấy thông tin template
+// Route lấy danh sách tất cả templates
+app.get('/api/templates', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const templates = await Template.find({}).sort({ createdAt: -1 });
+        res.json({
+            success: true,
+            data: templates
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy danh sách templates:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy danh sách templates: ' + error.message
+        });
+    }
+});
+
+// Route lấy thông tin template theo ID
+app.get('/api/template/:id', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const template = await Template.findById(req.params.id);
+        if (!template) {
+            return res.status(404).json({
+                success: false,
+                message: 'Template không tồn tại'
+            });
+        }
+
+        // Kiểm tra file có tồn tại không
+        const fileExists = fs.existsSync(template.filePath);
+        const fileStats = fileExists ? fs.statSync(template.filePath) : null;
+
+        res.json({
+            success: true,
+            data: {
+                ...template.toObject(),
+                fileExists: fileExists,
+                fileSize: fileStats ? fileStats.size : null,
+                fileModified: fileStats ? fileStats.mtime : null
+            }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy thông tin template:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy thông tin template: ' + error.message
+        });
+    }
+});
+
+// Route cập nhật mapping cột cho template
+app.put('/api/template/:id', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const { skuColumn, slColumn, startRow, description, name } = req.body;
+        const template = await Template.findById(req.params.id);
+        
+        if (!template) {
+            return res.status(404).json({
+                success: false,
+                message: 'Template không tồn tại'
+            });
+        }
+
+        // Cập nhật các trường
+        if (skuColumn) template.skuColumn = skuColumn.toUpperCase();
+        if (slColumn) template.slColumn = slColumn.toUpperCase();
+        if (startRow !== undefined) template.startRow = parseInt(startRow);
+        if (description !== undefined) template.description = description;
+        if (name && name.trim() && name.trim() !== template.name) {
+            // Kiểm tra tên trùng
+            const existingTemplate = await Template.findOne({ name: name.trim(), _id: { $ne: template._id } });
+            if (existingTemplate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tên template đã tồn tại'
+                });
+            }
+            template.name = name.trim();
+        }
+
+        await template.save();
+
+        res.json({
+            success: true,
+            message: 'Cập nhật template thành công!',
+            data: template
+        });
+    } catch (error) {
+        console.error('❌ Lỗi cập nhật template:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi cập nhật template: ' + error.message
+        });
+    }
+});
+
+// Route xóa template
+app.delete('/api/template/:id', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        const template = await Template.findById(req.params.id);
+        
+        if (!template) {
+            return res.status(404).json({
+                success: false,
+                message: 'Template không tồn tại'
+            });
+        }
+
+        // Xóa file
+        if (fs.existsSync(template.filePath)) {
+            try {
+                fs.unlinkSync(template.filePath);
+            } catch (fileError) {
+                console.log('Không thể xóa file template:', fileError.message);
+            }
+        }
+
+        // Xóa record trong database
+        await Template.findByIdAndDelete(req.params.id);
+
+        res.json({
+            success: true,
+            message: 'Xóa template thành công!'
+        });
+    } catch (error) {
+        console.error('❌ Lỗi xóa template:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xóa template: ' + error.message
+        });
+    }
+});
+
+// Route set template active (template được sử dụng khi xuất file)
+app.post('/api/template/:id/set-active', requireLogin, requireWarehouseManager, async (req, res) => {
+    try {
+        // Tắt tất cả template active khác
+        await Template.updateMany({}, { isActive: false });
+        
+        // Set template này là active
+        const template = await Template.findByIdAndUpdate(
+            req.params.id,
+            { isActive: true },
+            { new: true }
+        );
+
+        if (!template) {
+            return res.status(404).json({
+                success: false,
+                message: 'Template không tồn tại'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: `Template "${template.name}" đã được đặt làm template mặc định!`,
+            data: template
+        });
+    } catch (error) {
+        console.error('❌ Lỗi set active template:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi set active template: ' + error.message
+        });
+    }
+});
+
+// Route lấy template active (để tương thích với code cũ)
 app.get('/api/template-info', requireLogin, requireWarehouseManager, async (req, res) => {
     try {
-        const templatePath = path.join(__dirname, 'uploads', 'template', 'nhap_phoi_template.xlsx');
+        const activeTemplate = await Template.findOne({ isActive: true });
         
-        if (fs.existsSync(templatePath)) {
-            const stats = fs.statSync(templatePath);
+        if (activeTemplate && fs.existsSync(activeTemplate.filePath)) {
+            const stats = fs.statSync(activeTemplate.filePath);
             res.json({
                 success: true,
                 data: {
-                    filename: 'nhap_phoi_template.xlsx',
+                    id: activeTemplate._id,
+                    name: activeTemplate.name,
+                    filename: activeTemplate.filename,
                     size: stats.size,
-                    modified: stats.mtime
+                    modified: stats.mtime,
+                    skuColumn: activeTemplate.skuColumn,
+                    slColumn: activeTemplate.slColumn,
+                    startRow: activeTemplate.startRow
                 }
             });
         } else {
-            res.json({
-                success: true,
-                data: null,
-                message: 'Chưa có template được upload'
-            });
+            // Fallback: tìm template đầu tiên
+            const firstTemplate = await Template.findOne().sort({ createdAt: -1 });
+            if (firstTemplate && fs.existsSync(firstTemplate.filePath)) {
+                const stats = fs.statSync(firstTemplate.filePath);
+                res.json({
+                    success: true,
+                    data: {
+                        id: firstTemplate._id,
+                        name: firstTemplate.name,
+                        filename: firstTemplate.filename,
+                        size: stats.size,
+                        modified: stats.mtime,
+                        skuColumn: firstTemplate.skuColumn,
+                        slColumn: firstTemplate.slColumn,
+                        startRow: firstTemplate.startRow
+                    }
+                });
+            } else {
+                res.json({
+                    success: true,
+                    data: null,
+                    message: 'Chưa có template được upload'
+                });
+            }
         }
     } catch (error) {
         console.error('❌ Lỗi lấy thông tin template:', error);
