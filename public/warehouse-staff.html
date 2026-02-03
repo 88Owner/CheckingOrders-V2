@@ -805,7 +805,7 @@
                         <div id="chieuDaiCayVaiGroup" style="width: 150px; display: none;">
                             <label for="chieuDaiCayVaiInput" style="font-size: 0.85rem; margin-bottom: 5px; display: block;">Chiều dài (m) *</label>
                             <input type="number" id="chieuDaiCayVaiInput" 
-                                   step="0.1" min="0" 
+                                   step="0.1" min="0" max="600"
                                    placeholder="VD: 10.5"
                                    style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;"
                                    oninput="validateSoMBanDau(this); calculateArea(); checkValidationBeforeAdd();"
@@ -2013,6 +2013,23 @@
             return Math.round(totalMeters * 10) / 10;
         }
 
+        // Tính tổng số m ngang đã dùng cho phôi phát sinh và lưu trữ (isPhatSinh/isLuuTru)
+        // Dùng để check: tổng m ngang (phôi + lưu trữ) không vượt quá số m đã cắt của mẫu nguồn (Sương đêm)
+        function calculateTongMNgangPhoiLuuTru(kichThuocData) {
+            let total = 0;
+            for (const szSku in kichThuocData) {
+                const data = kichThuocData[szSku];
+                if (!data || (!data.isPhatSinh && !data.isLuuTru)) continue;
+                const parts = (data.szSku || '').split('-');
+                const ngang = parseFloat(parts[0]) || 0;
+                if (!ngang) continue;
+                const ngangThucTe = ngang + 5;
+                const soLuong = data.soLuong || 0;
+                total += (ngangThucTe * soLuong) / 100;
+            }
+            return Math.round(total * 10) / 10;
+        }
+
         // Tính toán diện tích
         function calculateArea() {
             const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
@@ -2229,6 +2246,18 @@
         
         function validateSoMBanDau(input) {
             const isValid = validateNumberInput(input, 'chieuDaiCayVaiError', 'Số m ban đầu');
+            if (!isValid) return false;
+            const value = (input.value || '').trim().replace(',', '.');
+            if (value !== '') {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue) && numValue > 600) {
+                    const errorElement = document.getElementById('chieuDaiCayVaiError');
+                    errorElement.textContent = 'Chiều dài (m) không được lớn hơn 600.';
+                    errorElement.style.display = 'block';
+                    input.style.borderColor = '#dc3545';
+                    return false;
+                }
+            }
             if (isValid && input.value) {
                 // Kiểm tra lại SL phôi và Số m lỗi khi Số m ban đầu thay đổi
                 const soLuongInput = document.getElementById('soLuongInput');
@@ -2240,7 +2269,7 @@
                     validateSoMLoi(vaiLoiInput);
                 }
             }
-            return isValid;
+            return true;
         }
         
         function validateSLPhoi(input) {
@@ -2491,6 +2520,7 @@
             const cacBoCoTheDung = tinhCacBoChieuCao(chieuCaoDaCat);
 
             content.innerHTML = `
+                <div id="phatSinhMauError" style="display: none; margin-bottom: 15px; padding: 12px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24; font-size: 0.95rem;"></div>
                 <div style="margin-bottom: 15px;">
                     <div style="font-weight: 600; color: #333; margin-bottom: 10px;">
                         Mẫu phát sinh: <span style="color: #28a745;">${mauPhatSinh.maMau} - ${mauPhatSinh.tenMau}</span>
@@ -3211,29 +3241,30 @@
             const caoThucTe = cao + 5;
             const dienTich = (ngangThucTe * caoThucTe) / 10000;
 
-            // Ràng buộc: Kiểm tra xem có đủ số m còn lại để thêm phôi phát sinh không
-            // (Phôi phát sinh không tính vào số m cắt, nhưng cần đảm bảo logic đúng)
+            // Ràng buộc: Tổng số m ngang (xử lý phôi + lưu trữ) không vượt quá tổng số m ngang đã cắt (mẫu nguồn Sương đêm)
+            // Trời xanh sinh ra từ Sương đêm → check bằng số m đã cắt của Sương đêm
             const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
             if (chieuDaiCayVai > 0) {
                 const vaiLoiChecked = document.getElementById('vaiLoiCheckbox').checked;
                 const chieuDaiLoi = vaiLoiChecked ? (parseFloat(document.getElementById('vaiLoiInput').value) || 0) : 0;
                 const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - chieuDaiLoi);
                 
-                // Tính số m đã cắt (không tính phôi phát sinh)
+                // Số m đã cắt của mẫu nguồn (Sương đêm) - không tính phôi phát sinh/lưu trữ
                 const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
                 const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, maMau);
-                const soMConLai = Math.max(0, chieuDaiHuuDung - soMDaCat);
-                
-                // Tính số m cần cho phôi phát sinh này (để kiểm tra logic, không tính vào số m cắt)
+                // Tổng m ngang đã dùng cho phôi phát sinh + lưu trữ (Trời xanh)
+                const tongMNgangPhoiLuuTru = calculateTongMNgangPhoiLuuTru(currentKichThuocData);
                 const soMCanChoPhoiPhatSinh = (ngangThucTe * soLuong) / 100;
+                const tongMNgangSauKhiThem = tongMNgangPhoiLuuTru + soMCanChoPhoiPhatSinh;
                 
-                // Kiểm tra: số m còn lại phải đủ để cắt phôi phát sinh (kiểm tra logic)
-                // Lưu ý: Đây chỉ là kiểm tra logic, phôi phát sinh không tính vào số m cắt
-                if (soMCanChoPhoiPhatSinh > soMConLai) {
-                    showError(`Phôi phát sinh này cần ${soMCanChoPhoiPhatSinh.toFixed(1)}m nhưng chỉ còn ${soMConLai.toFixed(1)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`);
+                // Kiểm tra: tổng m ngang (phôi + lưu trữ) không vượt quá số m đã cắt của Sương đêm
+                if (tongMNgangSauKhiThem > soMDaCat) {
+                    const msg = `Tổng m ngang xử lý phôi và lưu trữ (${tongMNgangSauKhiThem.toFixed(1)}m) không được vượt quá số m đã cắt của Sương đêm (${soMDaCat.toFixed(1)}m). Hiện đã dùng ${tongMNgangPhoiLuuTru.toFixed(1)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`;
+                    showPhatSinhMauError(msg);
                     return;
                 }
             }
+            clearPhatSinhMauError();
 
             // Thêm vào currentKichThuocData với mẫu phát sinh
             if (!currentKichThuocData[szSku]) {
@@ -3338,6 +3369,24 @@
                 showError('Không tìm thấy mẫu phát sinh');
                 return;
             }
+
+            // Ràng buộc (Sương đêm → Trời xanh): Tổng m ngang (phôi + lưu trữ) không vượt quá số m đã cắt của Sương đêm
+            const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
+            if (isSuongDem && chieuDaiCayVai > 0) {
+                const vaiLoiChecked = document.getElementById('vaiLoiCheckbox').checked;
+                const chieuDaiLoi = vaiLoiChecked ? (parseFloat(document.getElementById('vaiLoiInput').value) || 0) : 0;
+                const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - chieuDaiLoi);
+                const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, String(maMau));
+                const tongMNgangPhoiLuuTru = calculateTongMNgangPhoiLuuTru(currentKichThuocData);
+                const soMCanChoLuuTru = (ngangThucTe * soLuong) / 100;
+                const tongMNgangSauKhiThem = tongMNgangPhoiLuuTru + soMCanChoLuuTru;
+                if (tongMNgangSauKhiThem > soMDaCat) {
+                    const msg = `Tổng m ngang xử lý phôi và lưu trữ (${tongMNgangSauKhiThem.toFixed(1)}m) không được vượt quá số m đã cắt của Sương đêm (${soMDaCat.toFixed(1)}m). Hiện đã dùng ${tongMNgangPhoiLuuTru.toFixed(1)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`;
+                    showPhatSinhMauError(msg);
+                    return;
+                }
+            }
+            clearPhatSinhMauError();
 
             if (!currentKichThuocData[szSku]) {
                 currentKichThuocData[szSku] = {
@@ -5072,6 +5121,28 @@
         function hideAlerts() {
             document.getElementById('successAlert').style.display = 'none';
             document.getElementById('errorAlert').style.display = 'none';
+        }
+
+        // Hiển thị lỗi ngay trong vùng xử lý phôi sau cắt (phát sinh mẫu dư ra)
+        function showPhatSinhMauError(message) {
+            const errEl = document.getElementById('phatSinhMauError');
+            const formEl = document.getElementById('phatSinhMauForm');
+            if (errEl) {
+                errEl.textContent = message;
+                errEl.style.display = 'block';
+            }
+            if (formEl) {
+                formEl.style.display = 'block';
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function clearPhatSinhMauError() {
+            const errEl = document.getElementById('phatSinhMauError');
+            if (errEl) {
+                errEl.textContent = '';
+                errEl.style.display = 'none';
+            }
         }
 
         // Khởi tạo
