@@ -60,55 +60,133 @@ function requireOrderCreator(req, res, next) {
     }
 }
 
-async function createReceiveInventoryOnSapo(baseConfig, inventory, endpoint) {
+async function createPurchaseOrderOnSapo(baseConfig, purchaseOrder, endpoint) {
     const {
         location_id,
-        supplier_id,
-        assignee_id,
-        receipt_status
+        supplier_id
     } = baseConfig;
 
     const normalizeLineItem = (it) => ({
         sku: it.sku,
-        barcode: it.barcode || null,
-        note: it.note || null,
         name: it.name || it.sku,
-        title: it.title || null,
-        variant_title: it.variant_title || null,
-        price: typeof it.price === 'number' ? it.price : null,
-        quantity: Number(it.quantity) || 0,
-        rejected_quantity: Number(it.rejected_quantity) || 0,
-        unit: it.unit || null,
-        tax_title: it.tax_title || null,
-        tax_rate: typeof it.tax_rate === 'number' ? it.tax_rate : null,
-        discount_type: it.discount_type || null,
-        discount_value: typeof it.discount_value === 'number' ? it.discount_value : null,
-        purchase_order_line_item_id: it.purchase_order_line_item_id || null,
-        lot_items: Array.isArray(it.lot_items) ? it.lot_items : []
+        quantity: Number(it.quantity) || 0
     });
 
     const payload = {
-        receive_inventory: {
-            id: 0,
+        purchase_order: {
             location_id,
             supplier_id,
-            assignee_id,
-            receipt_status,
-            discount_type: inventory.discount_type || null,
-            discount_value: typeof inventory.discount_value === 'number' ? inventory.discount_value : 0,
-            line_items: (inventory.line_items || []).map(normalizeLineItem),
-            combination_line_items: Array.isArray(inventory.combination_line_items) ? inventory.combination_line_items : [],
-            landed_cost_lines: Array.isArray(inventory.landed_cost_lines) ? inventory.landed_cost_lines : [],
-            tax_included: typeof inventory.tax_included === 'boolean' ? inventory.tax_included : false,
-            tags: Array.isArray(inventory.tags) ? inventory.tags : [],
-            due_on: inventory.due_on || null,
-            reference: inventory.reference || null,
-            note: inventory.note || null,
-            purchase_order_id: inventory.purchase_order_id || null
+            line_items: (purchaseOrder.line_items || []).map(normalizeLineItem),
+            note: purchaseOrder.note || null,
+            reference: purchaseOrder.reference || null
         }
     };
 
     return sapoAPI('POST', endpoint, payload);
+}
+
+async function fetchInventoryItemIdsFromSapoBySkus(skus) {
+    const normalizedSkus = Array.from(
+        new Set(
+            (skus || [])
+                .map(s => String(s || '').trim().toLowerCase())
+                .filter(Boolean)
+        )
+    );
+
+    if (!normalizedSkus.length) {
+        return {};
+    }
+
+    const foundMap = new Map();
+
+    for (const skuNorm of normalizedSkus) {
+        const skuOriginal = skus.find(s => String(s || '').trim().toLowerCase() === skuNorm) || skuNorm;
+
+        const endpoint = `/admin/inventory_items.json?limit=1&sku=${encodeURIComponent(skuOriginal)}`;
+        const res = await sapoAPI('GET', endpoint);
+
+        const items = res && res.data && Array.isArray(res.data.inventory_items)
+            ? res.data.inventory_items
+            : [];
+
+        if (!items.length) {
+            continue;
+        }
+
+        const inventoryItem = items[0];
+        const invId = inventoryItem && inventoryItem.id;
+
+        if (!invId) {
+            continue;
+        }
+
+        foundMap.set(skuNorm, {
+            sku: skuOriginal,
+            inventory_item_id: invId
+        });
+    }
+
+    if (!foundMap.size) {
+        return {};
+    }
+
+    const ops = [];
+    for (const [, info] of foundMap.entries()) {
+        ops.push(
+            MasterData.findOneAndUpdate(
+                { sku: info.sku },
+                {
+                    $set: {
+                        sku: info.sku,
+                        sapoInventoryItemId: info.inventory_item_id
+                    }
+                },
+                { upsert: true, new: true }
+            )
+        );
+    }
+
+    try {
+        await Promise.all(ops);
+    } catch (e) {
+        console.error('Lỗi cập nhật MasterData với inventory_item_id từ Sapo:', e.message);
+    }
+
+    const result = {};
+    for (const [normSku, info] of foundMap.entries()) {
+        result[normSku] = info.inventory_item_id;
+    }
+
+    return result;
+}
+
+async function autoFillInventoryItemIds(items) {
+    if (!Array.isArray(items) || !items.length) {
+        return;
+    }
+
+    const skusToLookup = Array.from(
+        new Set(
+            items
+                .filter(it => !Number.isFinite(it.inventory_item_id))
+                .map(it => String(it.sku || '').trim())
+                .filter(Boolean)
+        )
+    );
+
+    if (!skusToLookup.length) {
+        return;
+    }
+
+    const map = await fetchInventoryItemIdsFromSapoBySkus(skusToLookup);
+
+    items.forEach(it => {
+        const norm = String(it.sku || '').trim().toLowerCase();
+        if (!Number.isFinite(it.inventory_item_id) && Object.prototype.hasOwnProperty.call(map, norm)) {
+            it.inventory_item_id = map[norm];
+        }
+    });
 }
 
 router.post('/api/order-creator/upload', requireOrderCreator, upload.single('file'), async (req, res) => {
@@ -170,10 +248,32 @@ router.post('/api/order-creator/upload', requireOrderCreator, upload.single('fil
                 ? md.tenPhienBan.trim()
                 : row.sku;
 
+            const inventoryItemId = md && typeof md.sapoInventoryItemId === 'number'
+                ? md.sapoInventoryItemId
+                : null;
+
             items.push({
                 sku: row.sku,
                 name,
-                quantity: row.quantity
+                quantity: row.quantity,
+                inventory_item_id: inventoryItemId
+            });
+        }
+
+        await autoFillInventoryItemIds(items);
+
+        const missingInventoryIds = items
+            .filter(it => !Number.isFinite(it.inventory_item_id))
+            .map(it => it.sku);
+
+        if (missingInventoryIds.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm được inventory_item_id trên Sapo cho một số SKU. Vui lòng kiểm tra lại SKU hoặc cấu hình sản phẩm trên Sapo.',
+                data: {
+                    missingInventoryItemSkus: missingInventoryIds,
+                    missingMasterDataSkus: missingSkus
+                }
             });
         }
 
@@ -182,12 +282,12 @@ router.post('/api/order-creator/upload', requireOrderCreator, upload.single('fil
             const endpoint =
                 config.SAPO_PURCHASE_ORDER_ENDPOINT ||
                 process.env.SAPO_PURCHASE_ORDER_ENDPOINT ||
-                '/admin/receive_inventories.json';
+                '/admin/purchase_orders.json';
 
             const locationIdRaw = config.SAPO_LOCATION_ID || process.env.SAPO_LOCATION_ID;
             const supplierIdRaw = config.SAPO_SUPPLIER_ID || process.env.SAPO_SUPPLIER_ID;
             const assigneeIdRaw = config.SAPO_ASSIGNEE_ID || process.env.SAPO_ASSIGNEE_ID;
-            const receiptStatus = config.SAPO_RECEIPT_STATUS || process.env.SAPO_RECEIPT_STATUS || 'pending';
+            const receiptStatusRaw = config.SAPO_RECEIPT_STATUS || process.env.SAPO_RECEIPT_STATUS || 'pending';
 
             const location_id = Number(locationIdRaw);
             const supplier_id = Number(supplierIdRaw);
@@ -203,18 +303,22 @@ router.post('/api/order-creator/upload', requireOrderCreator, upload.single('fil
                 return res.status(400).json({ success: false, message: 'Thiếu cấu hình SAPO_ASSIGNEE_ID trong .env' });
             }
 
+            const allowedReceiptStatuses = ['pending', 'received'];
+            const normalizedStatus = String(receiptStatusRaw || '').trim().toLowerCase();
+            const receipt_status = allowedReceiptStatuses.includes(normalizedStatus) ? normalizedStatus : 'pending';
+
             const baseConfig = {
                 location_id,
                 supplier_id,
                 assignee_id,
-                receipt_status: receiptStatus
+                receipt_status
             };
 
-            const inventory = {
+            const purchaseOrder = {
                 line_items: items
             };
 
-            sapoResult = await createReceiveInventoryOnSapo(baseConfig, inventory, endpoint);
+            sapoResult = await createPurchaseOrderOnSapo(baseConfig, purchaseOrder, endpoint);
         } catch (e) {
             return res.status(500).json({
                 success: false,
@@ -273,12 +377,12 @@ router.post('/api/order-creator/receive-inventories/bulk', requireOrderCreator, 
         const endpoint =
             config.SAPO_PURCHASE_ORDER_ENDPOINT ||
             process.env.SAPO_PURCHASE_ORDER_ENDPOINT ||
-            '/admin/receive_inventories.json';
+            '/admin/purchase_orders.json';
 
         const locationIdRaw = config.SAPO_LOCATION_ID || process.env.SAPO_LOCATION_ID;
         const supplierIdRaw = config.SAPO_SUPPLIER_ID || process.env.SAPO_SUPPLIER_ID;
         const assigneeIdRaw = config.SAPO_ASSIGNEE_ID || process.env.SAPO_ASSIGNEE_ID;
-        const receiptStatus = config.SAPO_RECEIPT_STATUS || process.env.SAPO_RECEIPT_STATUS || 'pending';
+        const receiptStatusRaw = config.SAPO_RECEIPT_STATUS || process.env.SAPO_RECEIPT_STATUS || 'pending';
 
         const location_id = Number(locationIdRaw);
         const supplier_id = Number(supplierIdRaw);
@@ -294,11 +398,15 @@ router.post('/api/order-creator/receive-inventories/bulk', requireOrderCreator, 
             return res.status(400).json({ success: false, message: 'Thiếu cấu hình SAPO_ASSIGNEE_ID trong .env' });
         }
 
+        const allowedReceiptStatuses = ['pending', 'received'];
+        const normalizedStatus = String(receiptStatusRaw || '').trim().toLowerCase();
+        const receipt_status = allowedReceiptStatuses.includes(normalizedStatus) ? normalizedStatus : 'pending';
+
         const baseConfig = {
             location_id,
             supplier_id,
             assignee_id,
-            receipt_status: receiptStatus
+            receipt_status
         };
 
         const results = [];
@@ -317,7 +425,7 @@ router.post('/api/order-creator/receive-inventories/bulk', requireOrderCreator, 
             }
 
             try {
-                const sapoRes = await createReceiveInventoryOnSapo(baseConfig, inv, endpoint);
+                const sapoRes = await createPurchaseOrderOnSapo(baseConfig, inv, endpoint);
                 results.push({
                     index: i,
                     success: true,

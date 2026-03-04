@@ -14,6 +14,11 @@ const masterDataSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    // ID sản phẩm tồn kho trên Sapo, dùng cho receive_inventories
+    sapoInventoryItemId: {
+        type: Number,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

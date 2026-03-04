@@ -28,6 +28,16 @@ services:
       ERPNEXT_URL: ${ERPNEXT_URL:-http://host.docker.internal:8080}
       ERPNEXT_API_KEY: ${ERPNEXT_API_KEY:-7da6579c83ee8ff}
       ERPNEXT_API_SECRET: ${ERPNEXT_API_SECRET:-406e4001191ddc0}
+
+       # SAPO Configuration (thêm đoạn này)
+      SAPO_URL: https://tinhtra.mysapo.net
+      SAPO_API_KEY: 002d591935e245e5ba9993e20b9c60e3
+      SAPO_API_SECRET: b10296a85d6f4ca99ad8b699192937db
+      SAPO_PURCHASE_ORDER_ENDPOINT: /admin/purchase_orders.json
+      SAPO_LOCATION_ID: "889532"
+      SAPO_SUPPLIER_ID: "121591"
+      SAPO_ASSIGNEE_ID: "809229"
+      SAPO_RECEIPT_STATUS: active
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
