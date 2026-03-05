@@ -6,6 +6,8 @@ const path = require('path');
 const Order = require('../models/Order');
 const ComboData = require('../models/ComboData');
 const MasterData = require('../models/MasterData');
+const { sapoAPI } = require('../utils/sapoApi');
+const config = require('../config');
 
 const router = express.Router();
 
@@ -52,9 +54,9 @@ function requireChecker(req, res, next) {
         const decoded = require('jsonwebtoken').verify(token, process.env.SESSION_SECRET || 'secret');
         // console.log('🔑 [REQUIRE-CHECKER] Token decoded:', { username: decoded.username, role: decoded.role });
         
-        if (decoded.role !== 'checker') {
+        if (!['checker', 'packer'].includes(decoded.role)) {
             // console.log('❌ [REQUIRE-CHECKER] Role không đúng:', decoded.role);
-            return res.status(403).send('Bạn không có quyền truy cập');
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
         }
         
         req.authUser = decoded;
@@ -225,6 +227,184 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
         }
         
         res.status(500).json({ success: false, message: 'Lỗi import file: ' + error.message });
+    }
+});
+
+// API cho checker: tự động lấy đơn hàng từ Sapo và nạp vào Order
+router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const orders = await Order.find({});
+        let needBackup = false;
+        if (orders.length > 0) {
+            const firstOrderDate = orders[0].importDate ? new Date(orders[0].importDate) : orders[0].createdAt;
+            firstOrderDate.setHours(0, 0, 0, 0);
+            if (firstOrderDate.getTime() !== today.getTime()) {
+                needBackup = true;
+            }
+        }
+
+        if (needBackup) {
+            const DataOrder = require('../models/DataOrder');
+            const backupDocs = orders.map(o => ({
+                ...o.toObject(),
+                archivedAt: new Date()
+            }));
+            if (backupDocs.length > 0) await DataOrder.insertMany(backupDocs);
+            await Order.deleteMany({});
+        }
+
+        // Luôn gọi đúng endpoint danh sách đơn hàng trên Sapo
+        const endpoint = '/admin/orders.json';
+
+        const sapoRes = await sapoAPI('GET', endpoint);
+        const payload = sapoRes ? sapoRes.data : null;
+
+        // Sapo có thể trả về nhiều shape khác nhau tùy phiên bản/endpoint
+        let sapoOrders = [];
+        if (payload && Array.isArray(payload.orders)) {
+            sapoOrders = payload.orders;
+        } else if (payload && payload.data && Array.isArray(payload.data.orders)) {
+            sapoOrders = payload.data.orders;
+        } else if (payload && Array.isArray(payload.data)) {
+            sapoOrders = payload.data;
+        } else if (Array.isArray(payload)) {
+            sapoOrders = payload;
+        }
+
+        if (!sapoOrders.length) {
+            return res.json({
+                success: true,
+                message: 'Không có đơn hàng nào từ Sapo để import.',
+                data: {
+                    imported: 0,
+                    updated: 0,
+                    unchanged: 0,
+                    totalFromSapo: 0,
+                    debug: payload && typeof payload === 'object' ? { keys: Object.keys(payload).slice(0, 30) } : null
+                }
+            });
+        }
+
+        const oldOrders = await Order.find({});
+        const oldMap = new Map();
+        for (const o of oldOrders) {
+            oldMap.set(o.maDonHang + '|' + o.maHang, o);
+        }
+
+        let imported = 0, updated = 0, unchanged = 0;
+        const ops = [];
+        let stt = 1;
+
+        let ordersWithItems = 0;
+        let itemsImportedConsidered = 0;
+
+        for (const so of sapoOrders) {
+            const maDongGoi = String(so.packing_code || so.number || '').trim();
+            const maVanDon = String(so.shipping_code || so.fulfillment_code || '').trim();
+            const maDonHang = String(so.code || so.name || so.number || so.id || '').trim();
+
+            if (!maDonHang) {
+                continue;
+            }
+
+            const lineItems =
+                (Array.isArray(so.line_items) ? so.line_items : null) ||
+                (Array.isArray(so.items) ? so.items : null) ||
+                (Array.isArray(so.order_items) ? so.order_items : null) ||
+                [];
+
+            if (lineItems.length) ordersWithItems++;
+
+            for (const li of lineItems) {
+                const maHang = String(li.sku || li.variant_sku || li.product_sku || '').trim();
+                const soLuong = Number(li.quantity || li.qty || 0);
+                if (!maHang || !soLuong) continue;
+                itemsImportedConsidered++;
+
+                const key = maDonHang + '|' + maHang;
+                const exist = oldMap.get(key);
+                if (!exist) {
+                    ops.push({
+                        insertOne: {
+                            document: {
+                                stt: stt++,
+                                maDongGoi,
+                                maVanDon,
+                                maDonHang,
+                                maHang,
+                                soLuong,
+                                importDate: today,
+                                createdBy: req.authUser.username
+                            }
+                        }
+                    });
+                    imported++;
+                } else {
+                    if (exist.verified === true) {
+                        unchanged++;
+                    } else {
+                        let changed = false;
+                        if (exist.stt !== Number(stt)) changed = true;
+                        if (exist.maDongGoi !== maDongGoi) changed = true;
+                        if (exist.maVanDon !== maVanDon) changed = true;
+                        if (exist.soLuong !== soLuong) changed = true;
+                        if (changed) {
+                            ops.push({
+                                updateOne: {
+                                    filter: { _id: exist._id },
+                                    update: {
+                                        $set: {
+                                            stt: Number(stt),
+                                            maDongGoi,
+                                            maVanDon,
+                                            soLuong,
+                                            importDate: today,
+                                            createdBy: req.authUser.username
+                                        }
+                                    }
+                                }
+                            });
+                            updated++;
+                        } else {
+                            unchanged++;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (ops.length > 0) {
+            await Order.bulkWrite(ops);
+        }
+
+        return res.json({
+            success: true,
+            message: `Đã import tự động từ Sapo: ${imported} đơn mới, cập nhật ${updated}, giữ nguyên ${unchanged}.`,
+            data: {
+                imported,
+                updated,
+                unchanged,
+                totalFromSapo: sapoOrders.length,
+                ordersWithItems,
+                itemsConsidered: itemsImportedConsidered,
+                debug: {
+                    endpoint,
+                    sampleOrderKeys: sapoOrders[0] && typeof sapoOrders[0] === 'object' ? Object.keys(sapoOrders[0]).slice(0, 40) : null,
+                    sampleLineItemKeys: (sapoOrders[0] && (sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items) && (sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items)[0])
+                        ? Object.keys((sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items)[0]).slice(0, 40)
+                        : null
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Checker upload-from-sapo error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy đơn từ Sapo: ' + error.message
+        });
     }
 });
 

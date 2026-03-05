@@ -445,6 +445,7 @@
                     <div class="upload-actions">
                         <input type="file" id="filePicker" accept=".xlsx,.xls" style="display:inline-block;" />
                         <button id="doUpload" class="btn">Upload đơn hàng</button>
+                        <button id="doAutoUploadSapo" class="btn" style="background:#10b981;">Upload tự động từ Sapo</button>
                     </div>
                     <div id="fileName" class="filename"></div>
                     <div class="progress-line" style="display:none;width:100%;"><div class="progress-bar" id="uploadBar"></div></div>
@@ -5605,7 +5606,7 @@ window.showOrderPager = function(show) {
             });
             */
             
-            if (userRole === 'checker') {
+            if (userRole === 'checker' || userRole === 'packer') {
                 // Đảm bảo các nút chức năng luôn hoạt động
                 const uploadBtn = document.getElementById('uploadBtn');
                 const checkBtn = document.getElementById('checkBtn');
@@ -5627,6 +5628,7 @@ window.showOrderPager = function(show) {
                 const uploadComboBar = document.getElementById('uploadComboBar');
                 const doUploadCombo = document.getElementById('doUploadCombo');
                 const fixComboData = document.getElementById('fixComboData');
+                const autoUploadBtn = document.getElementById('doAutoUploadSapo');
                 function showToast(msg, ok) {
                     toast.textContent = msg;
                     toast.style.background = ok ? '#065f46' : '#7f1d1d';
@@ -5739,6 +5741,46 @@ window.showOrderPager = function(show) {
                         }
                     })();
                 });
+                if (autoUploadBtn) {
+                    autoUploadBtn.addEventListener('click', async () => {
+                        autoUploadBtn.disabled = true;
+                        setStatus('Đang lấy đơn hàng từ Sapo...', '');
+                        let token = '';
+                        if (typeof getAuthToken === 'function') token = getAuthToken();
+                        else if (sessionStorage.getItem('jwt')) token = sessionStorage.getItem('jwt');
+                        try {
+                            const res = await fetch('/api/checker/upload-from-sapo', {
+                                method: 'POST',
+                                headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                            });
+                            const result = await res.json().catch(() => ({ success: false, message: 'Lỗi server' }));
+                            if (result.success) {
+                                setStatus(result.message || 'Upload tự động thành công', 'ok');
+                                showSuccessModal(
+                                    'Upload tự động thành công!',
+                                    result.message || 'Đã lấy đơn hàng từ Sapo và nạp vào hệ thống.\nSẵn sàng để kiểm tra.',
+                                    3000
+                                );
+                                await switchView('view');
+                            } else {
+                                setStatus(result.message || 'Lỗi upload tự động', 'err');
+                                showErrorModal(
+                                    'Upload tự động thất bại',
+                                    result.message || 'Có lỗi khi lấy đơn từ Sapo. Vui lòng thử lại.'
+                                );
+                            }
+                        } catch (e) {
+                            setStatus('Lỗi kết nối tới server: ' + (e.message || e), 'err');
+                            showErrorModal(
+                                'Lỗi kết nối',
+                                'Không kết nối được tới server khi gọi upload tự động từ Sapo.'
+                            );
+                        } finally {
+                            autoUploadBtn.disabled = false;
+                            ensureInputFocus();
+                        }
+                    });
+                }
                 const dropHandler = async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
