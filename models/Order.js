@@ -21,6 +21,14 @@ const orderSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    mauVai: {
+        type: String,
+        default: ''
+    },
+    tenPhienBan: {
+        type: String,
+        default: ''
+    },
     soLuong: {
         type: Number,
         required: true

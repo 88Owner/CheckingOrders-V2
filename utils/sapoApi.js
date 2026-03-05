@@ -10,7 +10,7 @@ function sapoAPI(method, endpoint, data = null) {
             return reject(new Error('SAPO_URL chưa được cấu hình trong biến môi trường (.env).'));
         }
 
-        // Sử dụng Basic Authentication: apikey:apisecret
+        // Auth Type: Basic Auth — username = API Key, password = API Secret
         const apiKey = config.SAPO_API_KEY || process.env.SAPO_API_KEY;
         const apiSecret = config.SAPO_API_SECRET || process.env.SAPO_API_SECRET;
 
@@ -37,6 +37,7 @@ function sapoAPI(method, endpoint, data = null) {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                // Basic Auth: username = API Key, password = API Secret (base64 encoded)
                 'Authorization': 'Basic ' + Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')
             }
         };

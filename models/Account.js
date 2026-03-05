@@ -12,8 +12,7 @@ const accountSchema = new mongoose.Schema({
             'checker', 
             'warehouse_manager', 
             'warehouse_staff', 
-            'production_worker',
-            'order_creator'
+            'production_worker'
         ], 
         default: 'user' 
     },

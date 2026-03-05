@@ -391,6 +391,7 @@
                 <button id="viewBtn" class="nav-btn active">Xem đơn hàng</button>
                 <button id="cancelledBtn" class="nav-btn">Xem đơn hủy</button>
                 <button id="statsBtn" class="nav-btn">Thống kê</button>
+                <button id="missingOrdersBtn" class="nav-btn">Đơn hàng thiếu</button>
                 <button id="uploadBtn" class="nav-btn">Upload file</button>
                 <button id="checkBtn" class="nav-btn">Check đơn</button>
                 <div style="height:16px;"></div>
@@ -440,6 +441,34 @@
                 </div>
                 <div id="status" class="status"></div>
                 <div id="rows" class="rows"></div>
+
+                <!-- Đơn hàng thiếu: UI placeholder -->
+                <div id="missingOrdersPanel" style="display:none;margin-top:18px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h2 style="margin:0;font-size:18px;font-weight:600;color:#0f172a;">Đơn hàng thiếu</h2>
+                        <button id="exportMissingOrdersBtn" class="btn">Xuất file hàng thiếu (xlsx)</button>
+                    </div>
+                    <div style="overflow:auto;border-radius:8px;border:1px solid #e2e8f0;background:white;">
+                        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">Mã vận đơn</th>
+                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">SKU</th>
+                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">Tên SP</th>
+                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">Số lượng</th>
+                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">Có thể bánbán</th>
+                                </tr>
+                            </thead>
+                            <tbody id="missingOrdersBody">
+                                <tr>
+                                    <td colspan="5" style="padding:16px 10px;text-align:center;color:#64748b;font-style:italic;">
+                                        Chưa có dữ liệu. Chức năng xử lý sẽ được bổ sung sau.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 <div id="uploadPanel" style="display:none;margin-top:18px;">
                     <div class="dropzone" id="dropzone">Kéo thả file Excel đơn hàng vào đây hoặc chọn file bên dưới</div>
                     <div class="upload-actions">
@@ -5046,6 +5075,74 @@ window.showOrderPager = function(show) {
             }
         }
 
+        // Hàm load danh sách đơn hàng thiếu từ server (Sapo inventory)
+        async function loadMissingOrders() {
+            const tbody = document.getElementById('missingOrdersBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="padding:12px 10px;text-align:center;color:#64748b;">
+                        Đang tính toán danh sách đơn hàng thiếu...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const headers = { 'Authorization': 'Bearer ' + getAuthToken() };
+                const res = await fetch('/api/checker/missing-orders', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers
+                });
+                const result = await res.json().catch(() => ({ success: false, message: 'Lỗi server' }));
+
+                if (!result.success) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="padding:12px 10px;text-align:center;color:#b91c1c;">
+                                ${escapeHtml(result.message || 'Không lấy được danh sách đơn hàng thiếu')}
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                const rows = (result.data && result.data.rows) || [];
+
+                if (!rows.length) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="padding:12px 10px;text-align:center;color:#64748b;">
+                                Không có đơn hàng nào bị thiếu theo tồn kho Sapo hiện tại.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                for (const r of rows) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(r.maVanDon || '')}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(r.sku || '')}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(r.tenSp || '')}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${r.soLuong || 0}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${r.inventoryQuantity !== undefined && r.inventoryQuantity !== null ? Number(r.inventoryQuantity) : '—'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } catch (error) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="padding:12px 10px;text-align:center;color:#b91c1c;">
+                            Lỗi khi tải danh sách đơn hàng thiếu: ${escapeHtml(error.message || String(error))}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
 
         // Hàm tự động refresh khi có thao tác trên database (chỉ khi ở chế độ view)
         function autoRefreshIfInViewMode() {
@@ -5361,6 +5458,7 @@ window.showOrderPager = function(show) {
             const uploadPanel = document.getElementById('uploadPanel');
             const uploadMasterPanel = document.getElementById('uploadMasterPanel');
             const uploadComboPanel = document.getElementById('uploadComboPanel');
+            const missingOrdersPanel = document.getElementById('missingOrdersPanel');
             const rows = document.getElementById('rows');
             const inputWrap = document.getElementById('inputWrap');
             const metaWrap = document.getElementById('metaWrap');
@@ -5368,6 +5466,7 @@ window.showOrderPager = function(show) {
                 uploadPanel.style.display = '';
                 uploadMasterPanel.style.display = '';
                 uploadComboPanel.style.display = '';
+                if (missingOrdersPanel) missingOrdersPanel.style.display = 'none';
                 rows.style.display = 'none';
                 inputWrap.style.display = 'none';
                 metaWrap.style.display = 'none';
@@ -5376,6 +5475,7 @@ window.showOrderPager = function(show) {
                 uploadPanel.style.display = 'none';
                 uploadMasterPanel.style.display = 'none';
                 uploadComboPanel.style.display = 'none';
+                if (missingOrdersPanel) missingOrdersPanel.style.display = 'none';
                 rows.style.display = '';
                 inputWrap.style.display = '';
                 metaWrap.style.display = '';
@@ -5404,6 +5504,7 @@ window.showOrderPager = function(show) {
                 uploadPanel.style.display = 'none';
                 uploadMasterPanel.style.display = 'none';
                 uploadComboPanel.style.display = 'none';
+                if (missingOrdersPanel) missingOrdersPanel.style.display = 'none';
                 rows.style.display = '';
                 inputWrap.style.display = 'none';
                 metaWrap.style.display = '';
@@ -5415,12 +5516,25 @@ window.showOrderPager = function(show) {
                 uploadPanel.style.display = 'none';
                 uploadMasterPanel.style.display = 'none';
                 uploadComboPanel.style.display = 'none';
+                if (missingOrdersPanel) missingOrdersPanel.style.display = 'none';
                 rows.style.display = '';
                 inputWrap.style.display = 'none';
                 metaWrap.style.display = '';
                 // Load và hiển thị thống kê
                 loadStats();
                 setStatus('', '');
+            } else if (view === 'missingOrders') {
+                // Đơn hàng thiếu: chỉ hiển thị bảng tĩnh (UI placeholder)
+                uploadPanel.style.display = 'none';
+                uploadMasterPanel.style.display = 'none';
+                uploadComboPanel.style.display = 'none';
+                rows.style.display = 'none';
+                inputWrap.style.display = 'none';
+                metaWrap.style.display = '';
+                if (missingOrdersPanel) {
+                    missingOrdersPanel.style.display = '';
+                }
+                await loadMissingOrders();
             } else {
                 // view: only list all orders - load real-time data from database
                 uploadPanel.style.display = 'none';
@@ -5629,6 +5743,8 @@ window.showOrderPager = function(show) {
                 const doUploadCombo = document.getElementById('doUploadCombo');
                 const fixComboData = document.getElementById('fixComboData');
                 const autoUploadBtn = document.getElementById('doAutoUploadSapo');
+                const missingOrdersBtn = document.getElementById('missingOrdersBtn');
+                const exportMissingOrdersBtn = document.getElementById('exportMissingOrdersBtn');
                 function showToast(msg, ok) {
                     toast.textContent = msg;
                     toast.style.background = ok ? '#065f46' : '#7f1d1d';
@@ -5660,8 +5776,42 @@ window.showOrderPager = function(show) {
                 viewBtn.addEventListener('click', async () => await switchView('view'));
                 cancelledBtn.addEventListener('click', async () => await switchView('cancelled'));
                 statsBtn.addEventListener('click', async () => await switchView('stats'));
+                if (missingOrdersBtn) {
+                    missingOrdersBtn.addEventListener('click', async () => await switchView('missingOrders'));
+                }
                 uploadBtn.addEventListener('click', async () => await switchView('upload'));
                 checkBtn.addEventListener('click', async () => await switchView('check'));
+                if (exportMissingOrdersBtn) {
+                    exportMissingOrdersBtn.addEventListener('click', async () => {
+                        try {
+                            setStatus('Đang xuất file đơn hàng thiếu...', 'info');
+                            const headers = { 'Authorization': 'Bearer ' + getAuthToken() };
+                            const res = await fetch('/api/checker/missing-orders/export', {
+                                method: 'GET',
+                                credentials: 'include',
+                                headers
+                            });
+                            if (!res.ok) {
+                                const text = await res.text().catch(() => '');
+                                throw new Error(text || ('HTTP ' + res.status));
+                            }
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'don-hang-thieu.xlsx';
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            URL.revokeObjectURL(url);
+                            setStatus('Đã xuất file đơn hàng thiếu.', 'ok');
+                        } catch (e) {
+                            setStatus('Lỗi xuất file đơn hàng thiếu: ' + (e.message || e), 'err');
+                        } finally {
+                            ensureInputFocus();
+                        }
+                    });
+                }
                 
                 
                 filePicker.addEventListener('change', async (e) => {
@@ -5741,7 +5891,8 @@ window.showOrderPager = function(show) {
                         }
                     })();
                 });
-                if (autoUploadBtn) {
+                if (autoUploadBtn && !autoUploadBtn.dataset.boundAutoUpload) {
+                    autoUploadBtn.dataset.boundAutoUpload = '1';
                     autoUploadBtn.addEventListener('click', async () => {
                         autoUploadBtn.disabled = true;
                         setStatus('Đang lấy đơn hàng từ Sapo...', '');

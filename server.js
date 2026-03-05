@@ -37,8 +37,6 @@ const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
 const checkerUploadRouter = require('./routes/checkerUpload');
 const exportNhapPhoiRouter = require('./routes/exportNhapPhoi');
-const orderCreatorRouter = require('./routes/orderCreator');
-
 const app = express();
 
 // Middleware - Phải setup trước các router
@@ -93,7 +91,6 @@ app.use((req, res, next) => {
 app.use(masterDataUploadRouter);
 app.use(checkerUploadRouter);
 app.use('/api/export-nhap-phoi', exportNhapPhoiRouter);
-app.use(orderCreatorRouter);
 
 // JWT middleware for token-based authentication
 function authFromToken(req, res, next) {
@@ -254,7 +251,6 @@ app.post('/api/login', async (req, res) => {
                      account.role === 'warehouse_manager' ? '/warehouse-manager' :
                      account.role === 'warehouse_staff' ? '/warehouse-staff' :
                      account.role === 'production_worker' ? '/production-worker' :
-                     account.role === 'order_creator' ? '/order-creator' :
                      '/'
         });
 
@@ -273,7 +269,7 @@ app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
             return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
         }
 
-        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker', 'order_creator'].includes(role)) {
+        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker'].includes(role)) {
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
 
@@ -378,17 +374,6 @@ app.get('/checker-home', (req, res) => {
 // Route packer home page
 app.get('/packer-home', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'packerhome.html'));
-});
-
-// Route order creator page
-app.get('/order-creator', (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/login');
-    }
-    if (req.session.user.role !== 'order_creator' && req.session.user.role !== 'admin') {
-        return res.status(403).send('Bạn không có quyền truy cập trang này');
-    }
-    res.sendFile(path.join(__dirname, 'public', 'order-creator.html'));
 });
 
 // API test lấy thông tin cho 1 đơn hàng theo mã vận đơn
@@ -499,7 +484,7 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
         
         console.log(`[UPDATE ROLE] Admin ${req.session.user.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
         
-        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker','order_creator'].includes(role)) {
+        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker'].includes(role)) {
             console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }

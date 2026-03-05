@@ -11,6 +11,183 @@ const config = require('../config');
 
 const router = express.Router();
 
+/**
+ * Helper: Tính danh sách đơn hàng thiếu dựa trên tồn kho Sapo.
+ * - Lấy toàn bộ orders hiện tại
+ * - Gọi Sapo /admin/products.json để lấy inventory theo SKU
+ * - Nếu inventory_quantity <= Số lượng SKU trong đơn -> coi là thiếu
+ */
+async function computeMissingOrdersFromSapo() {
+    const todayOrders = await Order.find({}).lean();
+    if (!todayOrders.length) {
+        return { rows: [], stats: { totalOrders: 0, totalLines: 0, totalDistinctSku: 0, totalMissing: 0 } };
+    }
+
+    // Gom theo MaVanDon + SKU để tính tổng số lượng mỗi SKU trong từng đơn
+    const aggregated = new Map(); // key: maVanDon|sku
+    const skuSet = new Set();
+
+    for (const o of todayOrders) {
+        if (!o.maVanDon || !o.maHang || !o.soLuong) continue;
+        const key = `${o.maVanDon}|${o.maHang}`;
+        const current = aggregated.get(key) || {
+            maVanDon: o.maVanDon,
+            sku: o.maHang,
+            soLuong: 0,
+            tenPhienBan: o.tenPhienBan || '',
+            mauVai: o.mauVai || ''
+        };
+        current.soLuong += Number(o.soLuong) || 0;
+        aggregated.set(key, current);
+        skuSet.add(o.maHang);
+    }
+
+    const aggregatedRows = Array.from(aggregated.values());
+    if (!aggregatedRows.length) {
+        return { rows: [], stats: { totalOrders: todayOrders.length, totalLines: 0, totalDistinctSku: skuSet.size, totalMissing: 0 } };
+    }
+
+    const normalizeSku = (s) => String(s || '').trim().toLowerCase();
+
+    // Load MasterData để fallback tên SP (key chuẩn hóa)
+    const masterDatas = await MasterData.find({ sku: { $in: Array.from(skuSet) } }).lean();
+    const masterMap = new Map();
+    for (const md of masterDatas) {
+        if (md && md.sku) masterMap.set(normalizeSku(md.sku), md);
+    }
+
+    // Gọi Sapo /admin/products.json — lấy đủ tất cả trang (phân trang)
+    const LIMIT_PER_PAGE = 250;
+    let sapoProducts = [];
+    let page = 1;
+    let hasMore = true;
+    while (hasMore) {
+        const endpoint = `/admin/products.json?limit=${LIMIT_PER_PAGE}&page=${page}`;
+        const sapoRes = await sapoAPI('GET', endpoint);
+        const payload = sapoRes ? sapoRes.data : null;
+
+        let chunk = [];
+        if (payload && Array.isArray(payload.products)) {
+            chunk = payload.products;
+        } else if (payload && payload.data && Array.isArray(payload.data.products)) {
+            chunk = payload.data.products;
+        }
+        if (!chunk.length) break;
+        sapoProducts = sapoProducts.concat(chunk);
+        hasMore = chunk.length >= LIMIT_PER_PAGE;
+        page += 1;
+    }
+
+    const skuInventoryMap = new Map(); // key: SKU normalized (lowercase trim), value: inventory_quantity
+    const skuNameMap = new Map();      // key: SKU normalized, value: tên hiển thị
+
+    // Lấy số trong kho: ưu tiên inventory_quantity của variant (đúng trường Sapo)
+    const getVariantInventoryQuantity = (variant) => {
+        if (!variant || typeof variant !== 'object') return 0;
+        if (typeof variant.inventory_quantity === 'number') return variant.inventory_quantity;
+        if (typeof variant.inventory === 'number') return variant.inventory;
+        if (Array.isArray(variant.inventories)) {
+            return variant.inventories.reduce((sum, inv) => sum + (Number(inv.quantity) || 0), 0);
+        }
+        return 0;
+    };
+
+    for (const p of sapoProducts) {
+        const productName = p.name || p.title || '';
+        const variants = Array.isArray(p.variants) ? p.variants : [];
+        if (!variants.length) continue;
+
+        for (const v of variants) {
+            const skuRaw = String(v.sku || v.variant_sku || v.product_sku || '').trim();
+            if (!skuRaw) continue;
+            const skuKey = normalizeSku(skuRaw);
+            const inventory_quantity = getVariantInventoryQuantity(v);
+            const prev = skuInventoryMap.get(skuKey) ?? 0;
+            skuInventoryMap.set(skuKey, prev + inventory_quantity);
+
+            if (!skuNameMap.has(skuKey)) {
+                const variantName = v.name || v.title || '';
+                skuNameMap.set(skuKey, variantName || productName);
+            }
+        }
+    }
+
+    // Hàm parse Mẫu / Loại / Ngang / Cao từ tên SP
+    function parseFromName(name) {
+        const result = { mau: '', loai: '', ngang: '', cao: '' };
+        if (!name || typeof name !== 'string') return result;
+        const trimmed = name.trim();
+
+        // Pattern: "Ngân hà Rido 120-150"
+        const match = trimmed.match(/(.+?)\s+(\S+)\s+(\d+)\s*-\s*(\d+)/u);
+        if (match) {
+            result.mau = match[1].trim();
+            result.loai = match[2].trim();
+            result.ngang = match[3];
+            result.cao = match[4];
+            return result;
+        }
+
+        // Fallback: cố gắng tách số cuối cùng
+        const numMatch = trimmed.match(/(.+?)(\d+)\s*-\s*(\d+)/u);
+        if (numMatch) {
+            result.mau = numMatch[1].trim();
+            result.ngang = numMatch[2];
+            result.cao = numMatch[3];
+            return result;
+        }
+
+        result.mau = trimmed;
+        return result;
+    }
+
+    const missingRows = [];
+
+    for (const row of aggregatedRows) {
+        const skuKey = normalizeSku(row.sku);
+        const inventoryQty = skuInventoryMap.get(skuKey);
+        const soLuong = row.soLuong || 0;
+
+        // Chỉ coi là thiếu khi: đã tìm thấy SKU trên Sapo VÀ tồn kho <= số lượng đơn
+        // SKU không có trong Sapo (undefined) -> không liệt vào hàng thiếu
+        if (inventoryQty === undefined || inventoryQty === null) continue;
+        if (Number(inventoryQty) > soLuong) continue;
+
+        const master = masterMap.get(skuKey);
+        const nameFromMaster = master && typeof master.tenPhienBan === 'string' ? master.tenPhienBan : null;
+        const nameFromOrder = row.tenPhienBan && typeof row.tenPhienBan === 'string' ? row.tenPhienBan : null;
+        const nameFromSapo = skuNameMap.get(skuKey);
+        const tenSp = nameFromOrder || nameFromMaster || nameFromSapo || '';
+
+        const parsed = parseFromName(tenSp);
+        // inventoryQuantity = inventory_quantity của variant tương ứng SKU (từ Sapo variants[])
+        missingRows.push({
+            maVanDon: row.maVanDon,
+            sku: row.sku,
+            tenSp,
+            soLuong,
+            inventoryQuantity: Number(inventoryQty) || 0,
+            mau: parsed.mau,
+            loai: parsed.loai,
+            ngang: parsed.ngang,
+            cao: parsed.cao
+        });
+    }
+
+    return {
+        rows: missingRows,
+        stats: {
+            totalOrders: todayOrders.length,
+            totalLines: aggregatedRows.length,
+            totalDistinctSku: skuSet.size,
+            totalMissing: missingRows.length,
+            sapoProductsPages: page - 1,
+            sapoProductsCount: sapoProducts.length,
+            sapoSkuCount: skuInventoryMap.size
+        }
+    };
+}
+
 // Cấu hình multer cho upload file
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -297,14 +474,76 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
         let imported = 0, updated = 0, unchanged = 0;
         const ops = [];
         let stt = 1;
+        const rowsForUpsert = [];
 
         let ordersWithItems = 0;
         let itemsImportedConsidered = 0;
+        let totalOrdersWithFulfillments = 0;
+        let totalMatchedFulfillmentPending = 0;
+        const statusSamples = [];
 
         for (const so of sapoOrders) {
+            // Điều kiện: chỉ lấy các đơn có fulfillments khác rỗng
+            // và trong fulfillments có ít nhất 1 phần tử có shipment_status = 'pending'
+            let hasFulfillments = false;
+            let hasPendingFulfillment = false;
+            const sampleStatus = {};
+
+            if (so && Array.isArray(so.fulfillments) && so.fulfillments.length > 0) {
+                hasFulfillments = true;
+                totalOrdersWithFulfillments++;
+
+                const fulfillments = so.fulfillments;
+
+                const checkFulfillmentPending = (f) => {
+                    if (!f || typeof f !== 'object') return false;
+                    if (f.shipment_status === 'pending') return true;
+                    if (Array.isArray(f.shipment_statuses)) {
+                        return f.shipment_statuses.some(s => s === 'pending' || (s && s.status === 'pending'));
+                    }
+                    if (typeof f.shipment_statuses === 'string' && f.shipment_statuses === 'pending') {
+                        return true;
+                    }
+                    return false;
+                };
+
+                hasPendingFulfillment = fulfillments.some(f => checkFulfillmentPending(f));
+
+                if (statusSamples.length < 10) {
+                    sampleStatus.fulfillments = fulfillments.slice(0, 3); // tránh trả về quá nặng
+                }
+            }
+
+            if (!hasFulfillments || !hasPendingFulfillment) {
+                // Không có fulfillments hoặc không fulfillment nào pending -> bỏ qua
+                if (statusSamples.length < 10 && (hasFulfillments || so.fulfillments)) {
+                    statusSamples.push({
+                        id: so.id ?? null,
+                        code: so.code ?? so.name ?? so.number ?? null,
+                        statusFields: sampleStatus
+                    });
+                }
+                continue;
+            }
+
+            if (hasPendingFulfillment) {
+                totalMatchedFulfillmentPending++;
+                if (statusSamples.length < 10) {
+                    statusSamples.push({
+                        id: so.id ?? null,
+                        code: so.code ?? so.name ?? so.number ?? null,
+                        statusFields: sampleStatus
+                    });
+                }
+            }
+
             const maDongGoi = String(so.packing_code || so.number || '').trim();
-            const maVanDon = String(so.shipping_code || so.fulfillment_code || '').trim();
-            const maDonHang = String(so.code || so.name || so.number || so.id || '').trim();
+            let maVanDon = String(so.shipping_code || so.fulfillment_code || '').trim();
+            // Nếu không có mã vận đơn riêng, dùng trường name/code làm mã vận đơn
+            if (!maVanDon) {
+                maVanDon = String(so.name || so.code || so.number || so.id || '').trim();
+            }
+            const maDonHang = maVanDon;
 
             if (!maDonHang) {
                 continue;
@@ -323,54 +562,83 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
                 const soLuong = Number(li.quantity || li.qty || 0);
                 if (!maHang || !soLuong) continue;
                 itemsImportedConsidered++;
+                rowsForUpsert.push({
+                    stt: stt++,
+                    maDongGoi,
+                    maVanDon,
+                    maDonHang,
+                    maHang,
+                    soLuong
+                });
+            }
+        }
 
-                const key = maDonHang + '|' + maHang;
-                const exist = oldMap.get(key);
-                if (!exist) {
-                    ops.push({
-                        insertOne: {
-                            document: {
-                                stt: stt++,
-                                maDongGoi,
-                                maVanDon,
-                                maDonHang,
-                                maHang,
-                                soLuong,
-                                importDate: today,
-                                createdBy: req.authUser.username
-                            }
+        // Lookup MasterData theo SKU để gán tên SP giống luồng upload file
+        const skuList = [...new Set(rowsForUpsert.map(r => r.maHang).filter(Boolean))];
+        const masterDatas = skuList.length ? await MasterData.find({ sku: { $in: skuList } }).lean() : [];
+        const masterMap = new Map();
+        for (const md of masterDatas) {
+            if (md && md.sku) masterMap.set(String(md.sku).trim(), md);
+        }
+
+        for (const r of rowsForUpsert) {
+            const md = masterMap.get(r.maHang);
+            const mauVai = md && typeof md.mauVai === 'string' ? md.mauVai : '';
+            const tenPhienBan = md && typeof md.tenPhienBan === 'string' ? md.tenPhienBan : '';
+
+            const key = r.maDonHang + '|' + r.maHang;
+            const exist = oldMap.get(key);
+            if (!exist) {
+                ops.push({
+                    insertOne: {
+                        document: {
+                            stt: r.stt,
+                            maDongGoi: r.maDongGoi,
+                            maVanDon: r.maVanDon,
+                            maDonHang: r.maDonHang,
+                            maHang: r.maHang,
+                            mauVai,
+                            tenPhienBan,
+                            soLuong: r.soLuong,
+                            importDate: today,
+                            createdBy: req.authUser.username
                         }
-                    });
-                    imported++;
+                    }
+                });
+                imported++;
+            } else {
+                if (exist.verified === true) {
+                    unchanged++;
                 } else {
-                    if (exist.verified === true) {
-                        unchanged++;
-                    } else {
-                        let changed = false;
-                        if (exist.stt !== Number(stt)) changed = true;
-                        if (exist.maDongGoi !== maDongGoi) changed = true;
-                        if (exist.maVanDon !== maVanDon) changed = true;
-                        if (exist.soLuong !== soLuong) changed = true;
-                        if (changed) {
-                            ops.push({
-                                updateOne: {
-                                    filter: { _id: exist._id },
-                                    update: {
-                                        $set: {
-                                            stt: Number(stt),
-                                            maDongGoi,
-                                            maVanDon,
-                                            soLuong,
-                                            importDate: today,
-                                            createdBy: req.authUser.username
-                                        }
+                    let changed = false;
+                    if (exist.stt !== r.stt) changed = true;
+                    if (exist.maDongGoi !== r.maDongGoi) changed = true;
+                    if (exist.maVanDon !== r.maVanDon) changed = true;
+                    if (exist.soLuong !== r.soLuong) changed = true;
+                    if ((exist.mauVai || '') !== mauVai) changed = true;
+                    if ((exist.tenPhienBan || '') !== tenPhienBan) changed = true;
+
+                    if (changed) {
+                        ops.push({
+                            updateOne: {
+                                filter: { _id: exist._id },
+                                update: {
+                                    $set: {
+                                        stt: r.stt,
+                                        maDongGoi: r.maDongGoi,
+                                        maVanDon: r.maVanDon,
+                                        soLuong: r.soLuong,
+                                        mauVai,
+                                        tenPhienBan,
+                                        importDate: today,
+                                        createdBy: req.authUser.username
                                     }
                                 }
-                            });
-                            updated++;
-                        } else {
-                            unchanged++;
-                        }
+                            }
+                        });
+                        updated++;
+                    } else {
+                        unchanged++;
                     }
                 }
             }
@@ -395,7 +663,13 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
                     sampleOrderKeys: sapoOrders[0] && typeof sapoOrders[0] === 'object' ? Object.keys(sapoOrders[0]).slice(0, 40) : null,
                     sampleLineItemKeys: (sapoOrders[0] && (sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items) && (sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items)[0])
                         ? Object.keys((sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items)[0]).slice(0, 40)
-                        : null
+                        : null,
+                    statusStats: {
+                        totalOrdersFromSapo: sapoOrders.length,
+                        totalOrdersWithFulfillments,
+                        totalMatchedFulfillmentPending
+                    },
+                    statusSamples
                 }
             }
         });
@@ -789,6 +1063,65 @@ router.post('/api/checker/upload-masterdata', requireChecker, upload.single('fil
         res.status(500).json({ 
             success: false, 
             message: 'Lỗi import MasterData: ' + error.message 
+        });
+    }
+});
+
+// API cho checker: Lấy danh sách đơn hàng thiếu dựa trên tồn kho Sapo
+router.get('/api/checker/missing-orders', requireChecker, async (req, res) => {
+    try {
+        const { rows, stats } = await computeMissingOrdersFromSapo();
+        return res.json({
+            success: true,
+            data: {
+                rows,
+                stats
+            }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi /api/checker/missing-orders:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi tính toán đơn hàng thiếu: ' + error.message
+        });
+    }
+});
+
+// API cho checker: Xuất file Excel đơn hàng thiếu
+router.get('/api/checker/missing-orders/export', requireChecker, async (req, res) => {
+    try {
+        const { rows } = await computeMissingOrdersFromSapo();
+
+        // Chuẩn bị dữ liệu cho Excel
+        const aoa = [];
+        aoa.push(['MaVanDon', 'SKU', 'SL', 'Loai', 'Mau', 'Ngang', 'Cao', 'So luong']);
+        for (const r of rows) {
+            aoa.push([
+                r.maVanDon || '',
+                r.sku || '',
+                r.soLuong || 0,
+                r.loai || '',
+                r.mau || '',
+                r.ngang || '',
+                r.cao || '',
+                r.soLuong || 0
+            ]);
+        }
+
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Don hang thieu');
+
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="don-hang-thieu.xlsx"');
+        res.send(buffer);
+    } catch (error) {
+        console.error('❌ Lỗi /api/checker/missing-orders/export:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi xuất file đơn hàng thiếu: ' + error.message
         });
     }
 });

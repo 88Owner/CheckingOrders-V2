@@ -342,10 +342,6 @@
             background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
             color: white;
         }
-        .role-badge.order_creator {
-            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-            color: white;
-        }
 
         /* Enhanced button styles for table actions */
         .btn-small {
@@ -691,7 +687,6 @@
                             <option value="warehouse_manager">Quản lý kho phôi</option>
                             <option value="warehouse_staff">Nhân viên kho phôi</option>
                             <option value="production_worker">Nhân viên sản xuất</option>
-                            <option value="order_creator">Tạo đơn hàng (Sapo)</option>
                             <option value="user">User</option>
                             <option value="packer">Packer</option>
                             <option value="warehouse_manager">Quản lý kho phôi</option>
@@ -1315,7 +1310,6 @@
                                 <option value="warehouse_manager" ${role === 'warehouse_manager' ? 'selected' : ''}>Quản lý kho phôi</option>
                                 <option value="warehouse_staff" ${role === 'warehouse_staff' ? 'selected' : ''}>Nhân viên kho phôi</option>
                                 <option value="production_worker" ${role === 'production_worker' ? 'selected' : ''}>Nhân viên sản xuất</option>
-                                <option value="order_creator" ${role === 'order_creator' ? 'selected' : ''}>Tạo đơn hàng (Sapo)</option>
                                 <option value="user" ${role === 'user' ? 'selected' : ''}>User</option>
                             </select>
                             <button class="btn-small btn-success" onclick="saveRole('${accountId}')">💾 Save</button>
