@@ -253,6 +253,7 @@ app.post('/api/login', async (req, res) => {
                      account.role === 'warehouse_manager' ? '/warehouse-manager' :
                      account.role === 'warehouse_staff' ? '/warehouse-staff' :
                      account.role === 'production_worker' ? '/production-worker' :
+                     account.role === 'reconciler' ? '/reconciler-home' :
                      '/'
         });
 
@@ -266,12 +267,12 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
     try {
         const { username, password, role } = req.body;
-        
+
         if (!username || !password || !role) {
             return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
         }
 
-        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker'].includes(role)) {
+        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker', 'reconciler'].includes(role)) {
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
 
@@ -371,6 +372,14 @@ app.get('/checker-home', (req, res) => {
         return res.redirect('/login');
     }
     res.sendFile(path.join(__dirname, 'public', 'checker-home.html'));
+});
+
+// Route reconciler (Đối soát) home page
+app.get('/reconciler-home', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/login');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'reconciler-home.html'));
 });
 
 // Route packer home page
@@ -483,10 +492,10 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
     try {
         const { role } = req.body;
         const accountId = req.params.id;
-        
+
         console.log(`[UPDATE ROLE] Admin ${req.session.user.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
-        
-        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker'].includes(role)) {
+
+        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker','reconciler'].includes(role)) {
             console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
@@ -3779,11 +3788,11 @@ app.delete('/api/nhap-phoi/:id', requireLogin, requireWarehouseAccess, async (re
 // Route lấy danh sách orders cho checker với date filtering
 app.get('/api/orders/checker', authFromToken, async (req, res) => {
     try {
-        // Chỉ cho phép checker và admin truy cập
-        if (req.authUser.role !== 'checker' && req.authUser.role !== 'admin') {
+        // Chỉ cho phép checker, đối soát và admin truy cập
+        if (!['checker', 'reconciler', 'admin'].includes(req.authUser.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ checker mới có quyền truy cập'
+                message: 'Chỉ checker, đối soát hoặc admin mới có quyền truy cập'
             });
         }
 

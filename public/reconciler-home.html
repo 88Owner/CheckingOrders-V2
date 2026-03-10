@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đối soát đơn hàng - Shisonson</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+
+        .header .role-pill {
+            position: absolute;
+            right: 30px;
+            top: 24px;
+            background: rgba(15,23,42,0.2);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .header .user-info {
+            position: absolute;
+            right: 30px;
+            top: 52px;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 140px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            color: #111827;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #e0f2fe;
+            color: #1d4ed8;
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 8px;
+        }
+
+        .form-group {
+            flex: 1 1 260px;
+            margin-bottom: 6px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.15);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 11px 20px;
+            border-radius: 999px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(79,70,229,0.35);
+        }
+
+        .status-line {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            min-height: 18px;
+        }
+
+        .status-ok {
+            color: #16a34a;
+        }
+
+        .status-err {
+            color: #b91c1c;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(160px,1fr));
+            gap: 12px;
+            font-size: 0.9rem;
+        }
+
+        .label-sm {
+            color: #6b7280;
+            font-size: 0.8rem;
+        }
+
+        .value-lg {
+            font-weight: 600;
+            color: #111827;
+            margin-top: 2px;
+        }
+
+        .scroll {
+            max-height: 320px;
+            overflow: auto;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            margin-top: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-done {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-pending {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .small {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 16px 18px;
+            }
+
+            .container {
+                padding: 0 12px 12px;
+            }
+
+            th, td {
+                white-space: normal;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Đối soát đơn hàng theo mã vận đơn</h1>
+        <p>Tra cứu nhanh tình trạng đóng gói, nhân viên phụ trách và thời gian hoàn thành đơn.</p>
+        <button class="logout-btn" id="logoutBtn">Đăng xuất</button>
+        <div class="role-pill">Role: Đối soát</div>
+        <div class="user-info" id="currentUser"></div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-title">
+                <span>Tra cứu theo mã vận đơn</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="maVanDon">Mã vận đơn</label>
+                    <input type="text" id="maVanDon" placeholder="Nhập chính xác mã vận đơn...">
+                </div>
+                <button class="btn" id="btnTraCuu">🔍 Tra cứu</button>
+            </div>
+            <div class="status-line" id="statusLine"></div>
+        </div>
+
+        <div id="summaryCard" class="card" style="display:none;">
+            <div class="card-title">
+                <span>Thông tin đóng gói</span>
+                <span class="tag" id="summaryStatusTag"></span>
+            </div>
+            <div class="grid">
+                <div>
+                    <div class="label-sm">Mã vận đơn</div>
+                    <div class="value-lg" id="summaryMaVanDon"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Mã đóng gói</div>
+                    <div class="value-lg" id="summaryMaDongGoi"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Số mặt hàng</div>
+                    <div class="value-lg" id="summaryTotalItems"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Tổng SL yêu cầu</div>
+                    <div class="value-lg" id="summaryTotalRequired"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Tổng SL đã quét</div>
+                    <div class="value-lg" id="summaryTotalScanned"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Nhân viên kiểm tra chính</div>
+                    <div class="value-lg" id="summaryChecker"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Thời gian hoàn thành</div>
+                    <div class="value-lg" id="summaryVerifiedAt"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="detailCard" class="card" style="display:none;">
+            <div class="card-title">
+                <span>Chi tiết mặt hàng trong đơn</span>
+            </div>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>SKU</th>
+                            <th>Số lượng</th>
+                            <th>Đã quét</th>
+                            <th>Trạng thái</th>
+                            <th>Nhân viên</th>
+                            <th>Thời gian hoàn thành</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getToken() {
+            try {
+                return sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function initUser() {
+            const token = getToken();
+            const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+            try {
+                const res = await fetch('/api/me', { headers, credentials: 'include' });
+                const result = await res.json();
+                if (!result.success || result.role !== 'reconciler') {
+                    window.location.href = '/login';
+                    return;
+                }
+                document.getElementById('currentUser').textContent = 'User: ' + (result.username || '');
+            } catch (e) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function traCuu() {
+            const maVanDonInput = document.getElementById('maVanDon');
+            const maVanDon = maVanDonInput.value.trim();
+            const statusLine = document.getElementById('statusLine');
+            const detailBody = document.getElementById('detailBody');
+            const summaryCard = document.getElementById('summaryCard');
+            const detailCard = document.getElementById('detailCard');
+
+            statusLine.textContent = '';
+            statusLine.className = 'status-line';
+            detailBody.innerHTML = '';
+            summaryCard.style.display = 'none';
+            detailCard.style.display = 'none';
+
+            if (!maVanDon) {
+                statusLine.textContent = 'Vui lòng nhập mã vận đơn.';
+                statusLine.classList.add('status-err');
+                maVanDonInput.focus();
+                return;
+            }
+
+            const token = getToken();
+            if (!token) {
+                statusLine.textContent = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+                statusLine.classList.add('status-err');
+                return;
+            }
+
+            try {
+                statusLine.textContent = 'Đang lấy dữ liệu đơn hàng...';
+
+                const headers = { 'Authorization': 'Bearer ' + token };
+                const res = await fetch('/api/orders/checker?maVanDon=' + encodeURIComponent(maVanDon) + '&pageSize=1000', {
+                    headers
+                });
+                const json = await res.json();
+
+                if (!json.success) {
+                    statusLine.textContent = json.message || 'Không tìm thấy đơn hàng với mã vận đơn này.';
+                    statusLine.classList.add('status-err');
+                    return;
+                }
+
+                const orders = json.data?.orders || [];
+
+                if (!orders.length) {
+                    statusLine.textContent = 'Không có mặt hàng nào trong mã vận đơn này.';
+                    statusLine.classList.add('status-err');
+                    return;
+                }
+
+                const first = orders[0];
+                const totalRequired = orders.reduce((s, o) => s + (o.soLuong || 0), 0);
+                const totalScanned = orders.reduce((s, o) => s + (o.scannedQuantity || 0), 0);
+                const total = orders.length;
+                const completedCount = orders.filter(o => o.verified).length;
+                const isCompleted = total > 0 && completedCount === total;
+
+                const uniqueCheckers = Array.from(new Set(orders.map(o => o.checkingBy).filter(Boolean)));
+                const mainChecker = uniqueCheckers[0] || '';
+
+                const verifiedTimes = orders.map(o => o.verifiedAt ? new Date(o.verifiedAt) : null).filter(Boolean);
+                let completedAtText = '';
+                if (verifiedTimes.length) {
+                    const latest = new Date(Math.max.apply(null, verifiedTimes));
+                    completedAtText = latest.toLocaleString('vi-VN');
+                }
+
+                document.getElementById('summaryMaVanDon').textContent = first.maVanDon || maVanDon;
+                document.getElementById('summaryMaDongGoi').textContent = first.maDongGoi || '';
+                document.getElementById('summaryTotalItems').textContent = orders.length.toString();
+                document.getElementById('summaryTotalRequired').textContent = totalRequired;
+                document.getElementById('summaryTotalScanned').textContent = totalScanned;
+                document.getElementById('summaryChecker').textContent = mainChecker || '—';
+                document.getElementById('summaryVerifiedAt').textContent = completedAtText || 'Chưa hoàn thành';
+
+                const tag = document.getElementById('summaryStatusTag');
+                tag.textContent = isCompleted ? 'ĐÃ HOÀN THÀNH' : 'CHƯA HOÀN THÀNH';
+                tag.style.background = isCompleted ? '#dcfce7' : '#fee2e2';
+                tag.style.color = isCompleted ? '#166534' : '#b91c1c';
+
+                detailBody.innerHTML = '';
+                orders.forEach((o, idx) => {
+                    const tr = document.createElement('tr');
+                    const done = !!o.verified;
+                    const verifiedAt = o.verifiedAt ? new Date(o.verifiedAt).toLocaleString('vi-VN') : '';
+                    const scanned = o.scannedQuantity || 0;
+                    const required = o.soLuong || 0;
+                    const over = scanned > required;
+
+                    tr.innerHTML = `
+                        <td>${idx + 1}</td>
+                        <td>${o.maHang || ''}</td>
+                        <td>${required}</td>
+                        <td>${scanned}</td>
+                        <td>
+                            <span class="badge ${done ? 'badge-done' : 'badge-pending'}">
+                                ${done ? 'Hoàn thành' : (scanned > 0 ? 'Đang quét' : 'Chưa quét')}
+                            </span>
+                            ${over ? '<div class="small">SL quét &gt; SL yêu cầu</div>' : ''}
+                        </td>
+                        <td>${o.checkingBy || ''}</td>
+                        <td>${verifiedAt}</td>
+                    `;
+                    detailBody.appendChild(tr);
+                });
+
+                summaryCard.style.display = 'block';
+                detailCard.style.display = 'block';
+                statusLine.textContent = 'Đã tải xong dữ liệu cho mã vận đơn ' + (first.maVanDon || maVanDon) + '.';
+                statusLine.classList.add('status-ok');
+            } catch (e) {
+                console.error(e);
+                statusLine.textContent = 'Lỗi hệ thống khi tra cứu. Vui lòng thử lại.';
+                statusLine.classList.add('status-err');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initUser();
+            document.getElementById('btnTraCuu').addEventListener('click', traCuu);
+            document.getElementById('maVanDon').addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    traCuu();
+                }
+            });
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    const token = getToken();
+                    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                    await fetch('/api/logout', { method: 'POST', headers, credentials: 'include' });
+                } catch(e) {}
+                try {
+                    sessionStorage.removeItem('auth_token');
+                    sessionStorage.removeItem('checkerAuthToken');
+                } catch(e) {}
+                window.location.href = '/login';
+            });
+        });
+    </script>
+</body>
+</html>
+

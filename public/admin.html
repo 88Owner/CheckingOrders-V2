@@ -687,11 +687,7 @@
                             <option value="warehouse_manager">Quản lý kho phôi</option>
                             <option value="warehouse_staff">Nhân viên kho phôi</option>
                             <option value="production_worker">Nhân viên sản xuất</option>
-                            <option value="user">User</option>
-                            <option value="packer">Packer</option>
-                            <option value="warehouse_manager">Quản lý kho phôi</option>
-                            <option value="warehouse_staff">Nhân viên kho phôi</option>
-                            <option value="production_worker">Nhân viên sản xuất</option>
+                            <option value="reconciler">Đối soát</option>
                             <option value="user">User</option>
                         </select>
                 </div>
@@ -1310,6 +1306,7 @@
                                 <option value="warehouse_manager" ${role === 'warehouse_manager' ? 'selected' : ''}>Quản lý kho phôi</option>
                                 <option value="warehouse_staff" ${role === 'warehouse_staff' ? 'selected' : ''}>Nhân viên kho phôi</option>
                                 <option value="production_worker" ${role === 'production_worker' ? 'selected' : ''}>Nhân viên sản xuất</option>
+                                <option value="reconciler" ${role === 'reconciler' ? 'selected' : ''}>Đối soát</option>
                                 <option value="user" ${role === 'user' ? 'selected' : ''}>User</option>
                             </select>
                             <button class="btn-small btn-success" onclick="saveRole('${accountId}')">💾 Save</button>

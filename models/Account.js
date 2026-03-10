@@ -3,18 +3,19 @@ const mongoose = require('mongoose');
 const accountSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { 
-        type: String, 
+    role: {
+        type: String,
         enum: [
-            'user', 
-            'admin', 
-            'packer', 
-            'checker', 
-            'warehouse_manager', 
-            'warehouse_staff', 
-            'production_worker'
-        ], 
-        default: 'user' 
+            'user',
+            'admin',
+            'packer',
+            'checker',
+            'warehouse_manager',
+            'warehouse_staff',
+            'production_worker',
+            'reconciler' // Đối soát
+        ],
+        default: 'user'
     },
     
     // Mapping với ERPNext Employee
