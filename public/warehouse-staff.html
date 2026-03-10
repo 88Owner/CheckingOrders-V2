@@ -967,6 +967,56 @@
         </div>
     </div>
 
+    <!-- Barcode Modal (capture/print thủ công) -->
+    <div class="modal" id="barcodeModal" style="display:none;" onclick="handleBarcodeModalBackdrop(event)">
+        <div class="modal-content" style="max-width:720px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Mã vạch đối tượng cắt vải</h3>
+                <button class="modal-close" onclick="closeBarcodeModal()" title="Đóng">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <div style="font-size:0.95rem; color:#333;">
+                        ID: <strong id="barcodeTextLabel"></strong>
+                    </div>
+                    <div style="background:#f8f9fa; border:2px dashed #e0e0e0; border-radius:10px; padding:14px; display:flex; justify-content:center;">
+                        <img id="barcodeImage" alt="Barcode" style="max-width:100%; height:auto; image-rendering: pixelated;" />
+                    </div>
+                    <div style="font-size:0.85rem; color:#666;">
+                        Bạn có thể <strong>capture</strong> ảnh này hoặc dùng nút <strong>In</strong>/<strong>Tải PNG</strong>.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" style="width:auto; padding:10px 16px;" onclick="copyBarcodeText()">Copy ID</button>
+                <a class="btn btn-secondary" id="barcodeDownloadLink" style="width:auto; padding:10px 16px; text-decoration:none; display:inline-flex; align-items:center;" download>⬇Tải PNG</a>
+                <button class="btn" style="width:auto; padding:10px 16px;" onclick="printBarcode()">In</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export confirm modal -->
+    <div class="modal" id="exportConfirmModal" style="display:none;" onclick="handleExportConfirmBackdrop(event)">
+        <div class="modal-content" style="max-width:720px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Xác nhận xuất file</h3>
+                <button class="modal-close" onclick="closeExportConfirmModal()" title="Đóng">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; flex-direction:column; gap:10px; color:#333;">
+                    <div id="exportConfirmMessage" style="font-size:1rem; line-height:1.5;"></div>
+                    <div style="font-size:0.9rem; color:#666;">
+                        Nếu chọn <strong>Có</strong>: hệ thống sẽ xuất Excel và tải thêm <strong>PDF chứa tất cả mã vạch đối tượng cắt vải</strong>.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" style="width:auto; padding:10px 16px;" onclick="exportConfirmNo()">Không</button>
+                <button class="btn" style="width:auto; padding:10px 16px;" onclick="exportConfirmYes()">Có</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let mauVaiList = [];
         let kichThuocList = [];
@@ -979,6 +1029,158 @@
         let currentCatVaiId = null; // Lưu ID đối tượng cắt vải hiện tại
         let copiedKichThuocTemplate = null; // Template kích thước đã sao chép (dùng để dán cho mẫu khác)
         const CHIEU_CAO_MAC_DINH = 230; // cm = 2.3m
+
+        function escapeAttr(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function openBarcodeModal(catVaiId) {
+            const text = String(catVaiId || '').trim();
+            if (!text) {
+                showError('Mẫu này chưa có ID đối tượng cắt vải để tạo mã vạch');
+                return;
+            }
+
+            const modal = document.getElementById('barcodeModal');
+            const label = document.getElementById('barcodeTextLabel');
+            const img = document.getElementById('barcodeImage');
+            const link = document.getElementById('barcodeDownloadLink');
+
+            const src = `/api/barcode?text=${encodeURIComponent(text)}`;
+            if (label) label.textContent = text;
+            if (img) img.src = src;
+            if (link) link.href = src;
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeBarcodeModal() {
+            const modal = document.getElementById('barcodeModal');
+            const img = document.getElementById('barcodeImage');
+            if (img) img.src = '';
+            if (modal) modal.style.display = 'none';
+        }
+
+        function handleBarcodeModalBackdrop(e) {
+            // close when clicking outside modal-content
+            if (e && e.target && e.target.id === 'barcodeModal') {
+                closeBarcodeModal();
+            }
+        }
+
+        async function copyBarcodeText() {
+            const label = document.getElementById('barcodeTextLabel');
+            const text = (label?.textContent || '').trim();
+            if (!text) return;
+            try {
+                await navigator.clipboard.writeText(text);
+                showSuccess('Đã copy ID: ' + text);
+            } catch {
+                // Fallback
+                const temp = document.createElement('input');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+                showSuccess('Đã copy ID: ' + text);
+            }
+        }
+
+        function printBarcode() {
+            const label = document.getElementById('barcodeTextLabel');
+            const img = document.getElementById('barcodeImage');
+            const text = (label?.textContent || '').trim();
+            const src = img?.src || '';
+            if (!src) return;
+
+            const w = window.open('', '_blank', 'width=900,height=700');
+            if (!w) {
+                showError('Trình duyệt đang chặn pop-up. Hãy cho phép pop-up để in.');
+                return;
+            }
+            w.document.open();
+            w.document.write(`
+                <!DOCTYPE html>
+                <html lang="vi">
+                <head>
+                    <meta charset="UTF-8" />
+                    <title>In mã vạch</title>
+                    <style>
+                        body{font-family:Segoe UI, Arial, sans-serif; padding:24px;}
+                        .wrap{display:flex; flex-direction:column; gap:12px; align-items:center;}
+                        .id{font-size:16px; font-weight:700;}
+                        img{max-width:100%; height:auto;}
+                        @media print { body{padding:0;} }
+                    </style>
+                </head>
+                <body>
+                    <div class="wrap">
+                        <div class="id">${escapeAttr(text)}</div>
+                        <img src="${escapeAttr(src)}" alt="Barcode" />
+                    </div>
+                    <script>
+                        window.onload = function(){ window.print(); };
+                    <\/script>
+                </body>
+                </html>
+            `);
+            w.document.close();
+        }
+
+        // ----- Export confirm flow -----
+        let pendingExportAction = null;
+
+        function getUniqueCatVaiIdsFromList() {
+            const ids = (savedCayVaiList || [])
+                .map(cv => (cv && cv.catVaiId) ? String(cv.catVaiId).trim() : '')
+                .filter(Boolean);
+            return Array.from(new Set(ids));
+        }
+
+        function openExportConfirmModal() {
+            const modal = document.getElementById('exportConfirmModal');
+            const msg = document.getElementById('exportConfirmMessage');
+            const ids = getUniqueCatVaiIdsFromList();
+            const total = (savedCayVaiList || []).length;
+
+            if (msg) {
+                if (ids.length > 0) {
+                    msg.innerHTML = `Danh sách đang có <strong>${total}</strong> mục. Bạn chưa in mã vạch.<br/>Bạn có muốn <strong>xuất tất cả mã vạch</strong> (PDF) kèm theo file Excel không?<br/><span style="color:#0f766e;font-weight:600;">Sẽ tạo PDF cho ${ids.length} ID đối tượng cắt vải.</span>`;
+                } else {
+                    msg.innerHTML = `Danh sách đang có <strong>${total}</strong> mục nhưng <strong>chưa có ID đối tượng cắt vải</strong> (catVaiId) để tạo mã vạch.<br/>Bạn vẫn muốn xuất file Excel không?`;
+                }
+            }
+            pendingExportAction = { ids };
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeExportConfirmModal() {
+            const modal = document.getElementById('exportConfirmModal');
+            if (modal) modal.style.display = 'none';
+            pendingExportAction = null;
+        }
+
+        function handleExportConfirmBackdrop(e) {
+            if (e && e.target && e.target.id === 'exportConfirmModal') {
+                closeExportConfirmModal();
+            }
+        }
+
+        function exportConfirmNo() {
+            // Cancel và quay lại trang hiện tại (không xuất)
+            closeExportConfirmModal();
+        }
+
+        async function exportConfirmYes() {
+            const ids = pendingExportAction?.ids || [];
+            closeExportConfirmModal();
+            await exportFileInternal({ includeBarcodePdf: true, barcodeIds: ids });
+        }
 
         // Khởi tạo trang
         async function initializePage() {
@@ -1002,6 +1204,19 @@
                 savedCayVaiList = [];
                 savedItems = [];
                 renderSavedList();
+
+                // Delegate click cho nút "Mã vạch" trong danh sách bên trái
+                const savedListEl = document.getElementById('savedList');
+                if (savedListEl && !savedListEl.dataset.barcodeBound) {
+                    savedListEl.dataset.barcodeBound = '1';
+                    savedListEl.addEventListener('click', (e) => {
+                        const btn = e.target?.closest?.('.btn-barcode');
+                        if (!btn) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openBarcodeModal(btn.dataset.catvaiid);
+                    });
+                }
 
                 // Setup mẫu vải autocomplete
                 setupMauVaiAutocomplete();
@@ -4640,6 +4855,7 @@
                         <div style="display:flex; gap:8px; align-items:center;">
                             <div style="font-size: 0.85rem; color: #666; margin-right:8px;">${dateStr}</div>
                             <div class="saved-item-actions">
+                                            <button class="btn btn-small btn-secondary btn-barcode" data-catvaiid="${escapeAttr(cayVai.catVaiId || '')}" title="Hiển thị mã vạch theo ID đối tượng cắt vải">Mã vạch</button>
                                             <button class="btn btn-small btn-secondary" onclick="editSavedCayVai('${cayVaiId}')">Sửa</button>
                                             <button class="btn btn-small btn-secondary" onclick="duplicateSavedCayVai('${cayVaiId}')">Sao chép</button>
                                             <button class="btn btn-small btn-danger" onclick="deleteSavedCayVai('${cayVaiId}')">Xóa</button>
@@ -4968,6 +5184,57 @@
                 return;
             }
 
+            // Mở popup xác nhận xuất + mã vạch
+            openExportConfirmModal();
+        }
+
+        async function downloadBarcodePdf(barcodeIds) {
+            const ids = Array.isArray(barcodeIds) ? barcodeIds : [];
+            if (ids.length === 0) return;
+
+            const res = await fetch('/api/barcodes/pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ ids })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ message: 'Lỗi không xác định' }));
+                throw new Error(err.message || 'Không thể tải PDF mã vạch');
+            }
+
+            const blob = await res.blob();
+            if (!blob || blob.size === 0) {
+                throw new Error('PDF mã vạch rỗng');
+            }
+
+            // Try to infer filename from header
+            const cd = res.headers.get('Content-Disposition');
+            let filename = `barcode_doi_tuong_cat_${Date.now()}.pdf`;
+            if (cd) {
+                const m = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (m && m[1]) filename = m[1].replace(/['"]/g, '');
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            }, 100);
+        }
+
+        // Thực thi export (Excel + optional PDF barcodes)
+        async function exportFileInternal({ includeBarcodePdf, barcodeIds } = {}) {
+            const btn = document.getElementById('exportBtn');
+            if (btn.disabled) return;
+
             // Gộp tất cả items từ tất cả cây vải đã lưu, kèm theo maMau
             // Lưu ý: không include bất kỳ field metadata nào (ví dụ mayAoGoi)
             // Ưu tiên dùng item.maMau nếu có (đặc biệt quan trọng cho item lưu trữ)
@@ -5036,6 +5303,7 @@
             btn.innerHTML = '🔄 Đang xử lý...';
 
             try {
+                // 1) Export Excel như cũ
                 const response = await fetch('/api/export-nhap-phoi', {
                     method: 'POST',
                     headers: {
@@ -5084,7 +5352,18 @@
                     a.remove();
                 }, 100);
 
-                showSuccess(`Xuất file thành công! Đã xuất ${dataToSend.length} SKU với tổng ${allItemsWithMau.reduce((sum, item) => sum + item.soLuong, 0)} sản phẩm.`);
+                // 2) Optional: tải PDF barcode
+                if (includeBarcodePdf) {
+                    try {
+                        await downloadBarcodePdf(barcodeIds);
+                    } catch (e) {
+                        // Excel đã xuất xong, nên chỉ báo lỗi PDF (không chặn)
+                        console.error('Barcode PDF download error:', e);
+                        showError('Đã xuất Excel nhưng lỗi tải PDF mã vạch: ' + (e?.message || String(e)));
+                    }
+                }
+
+                showSuccess(`Xuất file thành công! Đã xuất ${dataToSend.length} SKU với tổng ${allItemsWithMau.reduce((sum, item) => sum + item.soLuong, 0)} sản phẩm.${includeBarcodePdf ? ' (kèm PDF mã vạch nếu có)' : ''}`);
 
                 // Xóa danh sách bên trái sau khi xuất file thành công
                 savedCayVaiList = [];

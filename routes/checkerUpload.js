@@ -6,6 +6,7 @@ const path = require('path');
 const Order = require('../models/Order');
 const ComboData = require('../models/ComboData');
 const MasterData = require('../models/MasterData');
+const MauVai = require('../models/MauVai');
 const { sapoAPI } = require('../utils/sapoApi');
 const config = require('../config');
 
@@ -45,6 +46,36 @@ async function computeMissingOrdersFromSapo() {
     const aggregatedRows = Array.from(aggregated.values());
     if (!aggregatedRows.length) {
         return { rows: [], stats: { totalOrders: todayOrders.length, totalLines: 0, totalDistinctSku: skuSet.size, totalMissing: 0 } };
+    }
+
+    // Chuẩn bị map Mẫu vải (MauVai) từ mã mẫu (aa trong SKU aa-bb-ccc-ddd)
+    const maMauSet = new Set();
+    for (const row of aggregatedRows) {
+        const sku = row.sku;
+        if (!sku) continue;
+        const parts = String(sku).trim().split('-');
+        if (parts.length >= 4) {
+            const [aa, bb, ccc, ddd] = parts;
+            if (
+                aa && bb && ccc && ddd &&
+                /^\d+$/.test(aa) &&
+                /^\d+$/.test(bb) &&
+                /^\d+$/.test(ccc) &&
+                /^\d+$/.test(ddd)
+            ) {
+                maMauSet.add(String(aa).trim());
+            }
+        }
+    }
+
+    let mauVaiMap = new Map();
+    if (maMauSet.size > 0) {
+        const mauVaiDocs = await MauVai.find({ maMau: { $in: Array.from(maMauSet) } }).lean();
+        for (const mv of mauVaiDocs) {
+            if (mv && mv.maMau) {
+                mauVaiMap.set(String(mv.maMau).trim(), mv);
+            }
+        }
     }
 
     const normalizeSku = (s) => String(s || '').trim().toLowerCase();
@@ -141,6 +172,66 @@ async function computeMissingOrdersFromSapo() {
         return result;
     }
 
+    // Hàm parse thông tin từ SKU dạng aa-bb-ccc-ddd
+    function parseFromSkuForMissingOrder(sku, mauVaiMapLocal) {
+        const result = { mau: '', loai: '', ngang: '', cao: '' };
+        if (!sku) return result;
+
+        const parts = String(sku).trim().split('-');
+        if (parts.length < 4) return result;
+
+        const [aa, bb, ccc, ddd] = parts;
+        if (!aa || !bb || !ccc || !ddd) return result;
+        if (
+            !/^\d+$/.test(aa) ||
+            !/^\d+$/.test(bb) ||
+            !/^\d+$/.test(ccc) ||
+            !/^\d+$/.test(ddd)
+        ) {
+            return result;
+        }
+
+        const maMau = String(aa).trim();
+        const mv = mauVaiMapLocal.get(maMau);
+        result.mau = mv ? (mv.tenMau || mv.maMau || maMau) : maMau;
+
+        const loaiCode = parseInt(bb, 10);
+        switch (loaiCode) {
+            case 1:
+                result.loai = 'Rido';
+                break;
+            case 2:
+                result.loai = 'Ore';
+                break;
+            case 3:
+                result.loai = 'Dán 1 lớp';
+                break;
+            case 4:
+                result.loai = 'Dán 2 lớp';
+                break;
+            case 6:
+                result.loai = 'Rèm giường';
+                break;
+            case 9:
+            case 10:
+            case 11:
+            case 12:
+            case 13:
+                result.loai = 'Áo gối B';
+                break;
+            default:
+                result.loai = '';
+        }
+
+        // Chuẩn hóa kích thước: bỏ 0 ở đầu nếu có, nhưng không để trống
+        const ngangStr = String(ccc).trim();
+        const caoStr = String(ddd).trim();
+        result.ngang = ngangStr.replace(/^0+/, '') || ngangStr;
+        result.cao = caoStr.replace(/^0+/, '') || caoStr;
+
+        return result;
+    }
+
     const missingRows = [];
 
     for (const row of aggregatedRows) {
@@ -159,7 +250,9 @@ async function computeMissingOrdersFromSapo() {
         const nameFromSapo = skuNameMap.get(skuKey);
         const tenSp = nameFromOrder || nameFromMaster || nameFromSapo || '';
 
-        const parsed = parseFromName(tenSp);
+        const parsedFromSku = parseFromSkuForMissingOrder(row.sku, mauVaiMap);
+        const parsedFromName = parseFromName(tenSp);
+
         // inventoryQuantity = inventory_quantity của variant tương ứng SKU (từ Sapo variants[])
         missingRows.push({
             maVanDon: row.maVanDon,
@@ -167,10 +260,10 @@ async function computeMissingOrdersFromSapo() {
             tenSp,
             soLuong,
             inventoryQuantity: Number(inventoryQty) || 0,
-            mau: parsed.mau,
-            loai: parsed.loai,
-            ngang: parsed.ngang,
-            cao: parsed.cao
+            mau: parsedFromSku.mau || parsedFromName.mau,
+            loai: parsedFromSku.loai || parsedFromName.loai,
+            ngang: parsedFromSku.ngang || parsedFromName.ngang,
+            cao: parsedFromSku.cao || parsedFromName.cao
         });
     }
 
@@ -187,6 +280,12 @@ async function computeMissingOrdersFromSapo() {
         }
     };
 }
+
+// State dùng để đặt tên file xuất đơn hàng thiếu trong ngày
+let missingOrdersExportState = {
+    dateKey: null,
+    index: 0
+};
 
 // Cấu hình multer cho upload file
 const storage = multer.diskStorage({
@@ -1092,19 +1191,22 @@ router.get('/api/checker/missing-orders/export', requireChecker, async (req, res
     try {
         const { rows } = await computeMissingOrdersFromSapo();
 
-        // Chuẩn bị dữ liệu cho Excel
+        // Chuẩn bị dữ liệu cho Excel - SL = trị tuyệt đối của số lượng thiếu
+        const sortedRows = Array.isArray(rows)
+            ? [...rows].sort((a, b) => String(a?.maVanDon || '').localeCompare(String(b?.maVanDon || ''), 'vi', { numeric: true }))
+            : [];
         const aoa = [];
-        aoa.push(['MaVanDon', 'SKU', 'SL', 'Loai', 'Mau', 'Ngang', 'Cao', 'So luong']);
-        for (const r of rows) {
+        aoa.push(['MaVanDon', 'SKU', 'SL', 'Loai', 'Mau', 'Ngang', 'Cao']);
+        for (const r of sortedRows) {
+            const soLuongThieu = Math.abs((r.inventoryQuantity || 0));
             aoa.push([
                 r.maVanDon || '',
                 r.sku || '',
-                r.soLuong || 0,
+                soLuongThieu,
                 r.loai || '',
                 r.mau || '',
                 r.ngang || '',
-                r.cao || '',
-                r.soLuong || 0
+                r.cao || ''
             ]);
         }
 
@@ -1114,8 +1216,23 @@ router.get('/api/checker/missing-orders/export', requireChecker, async (req, res
 
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
+        // Tên file dạng: Don-Hang-Thieu-mm-dd-ca-i.xlsx (i tăng dần trong ngày)
+        const now = new Date();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const dateKey = `${now.getFullYear()}-${mm}-${dd}`;
+
+        if (missingOrdersExportState.dateKey !== dateKey) {
+            missingOrdersExportState.dateKey = dateKey;
+            missingOrdersExportState.index = 0;
+        }
+        missingOrdersExportState.index += 1;
+
+        const caIndex = missingOrdersExportState.index;
+        const fileName = `Don-hang-thieu-${mm}-${dd}-ca-${caIndex}.xlsx`;
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename="don-hang-thieu.xlsx"');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
         res.send(buffer);
     } catch (error) {
         console.error('❌ Lỗi /api/checker/missing-orders/export:', error);

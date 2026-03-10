@@ -456,7 +456,7 @@
                                     <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">SKU</th>
                                     <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">Tên SP</th>
                                     <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">Số lượng</th>
-                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">Có thể bánbán</th>
+                                    <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">Số lượng thiếu</th>
                                 </tr>
                             </thead>
                             <tbody id="missingOrdersBody">
@@ -4074,14 +4074,13 @@ window.showOrderPager = function(show) {
                 const uiDateFrom = document.getElementById('cancelledDateFrom')?.value || cancelledFilters.dateFrom || '';
                 const uiDateTo = document.getElementById('cancelledDateTo')?.value || cancelledFilters.dateTo || '';
 
-                // Gọi API để lấy user behaviour với action "Hủy đơn"; truyền filter ngày nếu có
+                // Gọi API để lấy danh sách đơn hủy; truyền filter ngày nếu có
                 const params = new URLSearchParams();
-                params.set('method', 'scanner');
                 params.set('limit', '2000'); // client-side pagination will slice
                 if (uiDateFrom) params.set('dateFrom', uiDateFrom);
                 if (uiDateTo) params.set('dateTo', uiDateTo);
 
-                const response = await fetch('/api/user-behaviour?' + params.toString(), {
+                const response = await fetch('/api/cancelled-orders?' + params.toString(), {
                     method: 'GET',
                     credentials: 'include',
                     headers: {
@@ -4100,11 +4099,8 @@ window.showOrderPager = function(show) {
                     throw new Error(result.message || 'Lỗi khi tải dữ liệu');
                 }
                 
-                // Lọc các behaviour có chứa "Hủy đơn" trong description
-                const behaviours = result.data?.behaviours || result.data || [];
-                const cancelledBehaviours = behaviours.filter(behaviour => 
-                    behaviour.description && behaviour.description.toLowerCase().includes('hủy đơn')
-                );
+                // API đã trả đúng behaviours đơn hủy
+                const cancelledBehaviours = result.data?.behaviours || result.data || [];
 
                 // Chuyển đổi dữ liệu để hiển thị
                 const cancelledOrders = cancelledBehaviours.map(behaviour => {
@@ -5799,7 +5795,10 @@ window.showOrderPager = function(show) {
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = 'don-hang-thieu.xlsx';
+                            // Lấy tên file từ Content-Disposition (Don-Hang-Thieu-mm-dd-ca-i.xlsx)
+                            const cd = res.headers.get('Content-Disposition');
+                            const match = cd && cd.match(/filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/i) || cd && cd.match(/filename="?([^";\n]+)"?/i);
+                            a.download = (match && match[1] ? match[1].trim() : null) || 'don-hang-thieu.xlsx';
                             document.body.appendChild(a);
                             a.click();
                             a.remove();

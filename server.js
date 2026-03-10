@@ -37,6 +37,7 @@ const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
 const checkerUploadRouter = require('./routes/checkerUpload');
 const exportNhapPhoiRouter = require('./routes/exportNhapPhoi');
+const barcodeRouter = require('./routes/barcode');
 const app = express();
 
 // Middleware - Phải setup trước các router
@@ -91,6 +92,7 @@ app.use((req, res, next) => {
 app.use(masterDataUploadRouter);
 app.use(checkerUploadRouter);
 app.use('/api/export-nhap-phoi', exportNhapPhoiRouter);
+app.use(barcodeRouter);
 
 // JWT middleware for token-based authentication
 function authFromToken(req, res, next) {
@@ -4385,6 +4387,97 @@ app.get('/api/user-behaviour', authFromToken, async (req, res) => {
             success: false,
             message: 'Lỗi lấy user behaviour: ' + error.message
         });
+    }
+});
+
+// Route lấy danh sách "đơn hủy" (từ UserBehaviour) cho checker/admin
+app.get('/api/cancelled-orders', authFromToken, async (req, res) => {
+    try {
+        const UserBehaviour = require('./models/UserBehaviour');
+
+        // Chỉ checker/admin mới xem danh sách đơn hủy toàn hệ thống
+        if (!['admin', 'checker'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+
+        const {
+            dateFrom,
+            dateTo,
+            user,
+            searchText,
+            limit = 2000,
+            page = 1
+        } = req.query;
+
+        const query = {
+            method: 'scanner',
+            $or: [
+                { 'metadata.action': 'cancel_order' },
+                { description: { $regex: /hủy\s*đơn/i } }
+            ]
+        };
+
+        if (user) {
+            query.user = String(user).trim();
+        }
+
+        if (dateFrom || dateTo) {
+            query.time = {};
+            if (dateFrom) {
+                const from = new Date(String(dateFrom));
+                if (!isNaN(from.getTime())) query.time.$gte = from;
+            }
+            if (dateTo) {
+                const to = new Date(String(dateTo));
+                if (!isNaN(to.getTime())) {
+                    to.setHours(23, 59, 59, 999);
+                    query.time.$lte = to;
+                }
+            }
+            // nếu parse fail -> xóa để tránh query sai
+            if (!Object.keys(query.time).length) delete query.time;
+        }
+
+        if (searchText) {
+            const st = String(searchText).trim();
+            if (st) {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { 'metadata.maVanDon': { $regex: new RegExp(st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
+                        { description: { $regex: new RegExp(st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } }
+                    ]
+                });
+            }
+        }
+
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.min(5000, Math.max(1, parseInt(limit) || 2000));
+        const skip = (pageNum - 1) * limitNum;
+
+        const behaviours = await UserBehaviour.find(query)
+            .sort({ time: -1 })
+            .limit(limitNum)
+            .skip(skip)
+            .lean();
+
+        const total = await UserBehaviour.countDocuments(query);
+
+        return res.json({
+            success: true,
+            data: {
+                behaviours,
+                pagination: {
+                    page: pageNum,
+                    limit: limitNum,
+                    total,
+                    pages: Math.ceil(total / limitNum)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy cancelled-orders:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi lấy đơn hủy: ' + error.message });
     }
 });
 
