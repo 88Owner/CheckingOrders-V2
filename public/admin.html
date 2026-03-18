@@ -898,6 +898,25 @@
                     </div>
                 </div>
 
+                <!-- Restore Database -->
+                <div style="margin-bottom: 20px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 2px solid #ffeeba;">
+                    <h4 style="color: #856404; margin-bottom: 15px;">Restore Database từ Cloud về Local</h4>
+                    <p style="color: #856404; margin-bottom: 15px;">
+                        Chức năng này sẽ đồng bộ dữ liệu từ Cloud database về Local database bằng cách upsert theo <code>_id</code> (không xóa dữ liệu Local hiện có).
+                        Hãy đảm bảo bạn hiểu rõ trước khi thực hiện.
+                    </p>
+                    <button id="restoreDbBtn" onclick="restoreDatabase()" class="btn btn-warning" style="font-size: 1.1rem; padding: 15px 30px;">
+                        Restore Database từ Cloud
+                    </button>
+                    <div id="restoreProgress" style="display: none; margin-top: 15px; padding: 15px; background: white; border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #ffc107; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span id="restoreStatusText">Đang restore...</span>
+                        </div>
+                        <div id="restoreDetails" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
+                    </div>
+                </div>
+
                 <!-- Switch Database -->
                 <div style="margin-bottom: 20px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
                     <h4 style="color: #856404; margin-bottom: 15px;">Chuyển đổi Database</h4>
@@ -2586,6 +2605,63 @@ ${machine.comPorts.map(port =>
                 backupBtn.disabled = false;
                 setTimeout(() => {
                     backupProgress.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        async function restoreDatabase() {
+            if (!confirm('Bạn có chắc chắn muốn RESTORE database từ Cloud về Local?\n\nHệ thống sẽ upsert dữ liệu từ Cloud vào Local theo _id.\nDữ liệu Local hiện có sẽ không bị xóa nhưng có thể bị ghi đè nếu trùng _id.')) {
+                return;
+            }
+
+            const restoreBtn = document.getElementById('restoreDbBtn');
+            const restoreProgress = document.getElementById('restoreProgress');
+            const restoreStatusText = document.getElementById('restoreStatusText');
+            const restoreDetails = document.getElementById('restoreDetails');
+
+            try {
+                restoreBtn.disabled = true;
+                restoreProgress.style.display = 'block';
+                restoreStatusText.textContent = 'Đang restore từ Cloud về Local...';
+                restoreStatusText.style.color = '#333';
+                restoreDetails.textContent = '';
+
+                const response = await fetch('/api/admin/restore-database', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    restoreStatusText.textContent = '✅ Restore thành công!';
+                    restoreStatusText.style.color = '#28a745';
+
+                    let detailsHtml = `<div style="margin-top: 10px;"><strong>Chi tiết:</strong></div>`;
+                    detailsHtml += `<div>- Collections đã restore: ${result.data.collectionsRestored || 0}</div>`;
+                    detailsHtml += `<div>- Documents đã restore: ${result.data.documentsRestored || 0}</div>`;
+                    detailsHtml += `<div>- Thời gian: ${result.data.duration || 'N/A'}</div>`;
+                    restoreDetails.innerHTML = detailsHtml;
+
+                    showSuccess('Restore database từ Cloud về Local thành công!');
+                    loadDatabaseStatus();
+                } else {
+                    restoreStatusText.textContent = '❌ Restore thất bại: ' + result.message;
+                    restoreStatusText.style.color = '#dc3545';
+                    showError('Restore database thất bại: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error restoring database:', error);
+                restoreStatusText.textContent = '❌ Lỗi: ' + error.message;
+                restoreStatusText.style.color = '#dc3545';
+                showError('Lỗi restore database: ' + error.message);
+            } finally {
+                restoreBtn.disabled = false;
+                setTimeout(() => {
+                    restoreProgress.style.display = 'none';
                 }, 5000);
             }
         }

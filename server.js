@@ -852,6 +852,186 @@ app.post('/api/admin/backup-database', requireLogin, requireAdmin, async (req, r
     }
 });
 
+// API restore database từ cloud về local
+app.post('/api/admin/restore-database', requireLogin, requireAdmin, async (req, res) => {
+    const startTime = Date.now();
+    let collectionsRestored = 0;
+    let documentsRestored = 0;
+
+    try {
+        console.log('[RESTORE DATABASE] Bắt đầu restore database từ cloud về local...');
+
+        const dbConfig = await DatabaseConfig.getConfig();
+
+        // Chỉ cho phép restore khi database hiện tại là local
+        if (dbConfig.currentDbType !== 'local') {
+            return res.json({
+                success: false,
+                message: 'Chỉ có thể restore khi đang dùng Local database. Database hiện tại: ' + dbConfig.currentDbType
+            });
+        }
+
+        // Chuẩn hóa cloud URI tương tự API backup
+        let cloudUri = dbConfig.cloudDbUri.trim();
+        if (cloudUri.includes('mongodb+srv://') || cloudUri.includes('mongodb://')) {
+            const urlParts = cloudUri.match(/^(mongodb\+?srv?:\/\/[^\/]+)(\/[^?]*)?(\?.*)?$/);
+            if (urlParts) {
+                const base = urlParts[1];
+                const currentDb = urlParts[2];
+                const query = urlParts[3] || '';
+                if (!currentDb || currentDb === '/') {
+                    cloudUri = base + '/OrderDetailing' + query;
+                } else {
+                    cloudUri = base + currentDb + query;
+                }
+            }
+        }
+
+        console.log('[RESTORE DATABASE] Cloud URI (masked):', cloudUri.replace(/:[^:]+@/, ':****@'));
+
+        // Kết nối đến cloud database
+        const cloudConnection = mongoose.createConnection(cloudUri, {
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000
+        });
+
+        try {
+            if (typeof cloudConnection.asPromise === 'function') {
+                await cloudConnection.asPromise();
+            } else {
+                let retryCount = 0;
+                while (cloudConnection.readyState !== 1 && retryCount < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retryCount++;
+                }
+                if (cloudConnection.readyState !== 1) {
+                    throw new Error('Cloud connection timeout. ReadyState: ' + cloudConnection.readyState);
+                }
+            }
+        } catch (connectError) {
+            await cloudConnection.close().catch(() => {});
+            throw new Error('Không thể kết nối đến cloud database: ' + connectError.message);
+        }
+
+        // Lấy db object từ cloud connection
+        let cloudDb = null;
+        let retryCount = 0;
+        while (!cloudDb && retryCount < 15) {
+            if (cloudConnection.db) {
+                cloudDb = cloudConnection.db;
+                break;
+            }
+            if (cloudConnection.getClient && cloudConnection.readyState === 1) {
+                try {
+                    const client = cloudConnection.getClient();
+                    if (client && client.db) {
+                        const dbName = cloudUri.match(/\/([^\/?]+)(\?|$)/);
+                        const databaseName = dbName ? dbName[1] : 'OrderDetailing';
+                        cloudDb = client.db(databaseName);
+                        if (cloudDb) break;
+                    }
+                } catch (clientError) {
+                    console.warn('[RESTORE DATABASE] Không thể lấy db từ client:', clientError.message);
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+            retryCount++;
+        }
+
+        if (!cloudDb) {
+            await cloudConnection.close().catch(() => {});
+            throw new Error(`Cloud connection không có db object sau ${retryCount} lần thử. ReadyState: ${cloudConnection.readyState}`);
+        }
+
+        console.log('[RESTORE DATABASE] ✅ Đã kết nối đến cloud database');
+        console.log('[RESTORE DATABASE] Cloud database name:', cloudDb.databaseName);
+
+        // Đảm bảo local connection có db
+        if (!mongoose.connection.db) {
+            await cloudConnection.close().catch(() => {});
+            throw new Error('Local connection không có db object');
+        }
+
+        // Lấy danh sách collections từ cloud database
+        const cloudCollections = await cloudDb.listCollections().toArray();
+        console.log(`[RESTORE DATABASE] Tìm thấy ${cloudCollections.length} collections trong cloud database`);
+
+        // Restore từng collection từ cloud về local
+        for (const collectionInfo of cloudCollections) {
+            const collectionName = collectionInfo.name;
+
+            // Bỏ qua system collections và DatabaseConfig để tránh ghi đè cấu hình local
+            if (collectionName.startsWith('system.') || collectionName === 'databaseconfigs') {
+                continue;
+            }
+
+            try {
+                const cloudCollection = cloudDb.collection(collectionName);
+                const localCollection = mongoose.connection.db.collection(collectionName);
+
+                const documents = await cloudCollection.find({}).toArray();
+                console.log(`[RESTORE DATABASE] Collection ${collectionName}: ${documents.length} documents từ cloud`);
+
+                if (documents.length === 0) {
+                    continue;
+                }
+
+                const bulkOps = documents.map(doc => ({
+                    replaceOne: {
+                        filter: { _id: doc._id },
+                        replacement: doc,
+                        upsert: true
+                    }
+                }));
+
+                const batchSize = 1000;
+                let batchNumber = 0;
+
+                for (let i = 0; i < bulkOps.length; i += batchSize) {
+                    batchNumber++;
+                    const batch = bulkOps.slice(i, i + batchSize);
+                    const result = await localCollection.bulkWrite(batch, { ordered: false });
+                    const batchRestored = (result.upsertedCount || 0) + (result.modifiedCount || 0);
+                    documentsRestored += batchRestored;
+                    console.log(`[RESTORE DATABASE] Collection ${collectionName}: Batch ${batchNumber}/${Math.ceil(bulkOps.length / batchSize)} - Upserted: ${result.upsertedCount || 0}, Modified: ${result.modifiedCount || 0}`);
+                }
+
+                collectionsRestored++;
+                console.log(`[RESTORE DATABASE] ✅ Đã restore ${documents.length} documents vào collection: ${collectionName}`);
+            } catch (collectionError) {
+                console.error(`[RESTORE DATABASE] ❌ Lỗi restore collection ${collectionName}:`, collectionError.message);
+                console.error(`[RESTORE DATABASE] Stack:`, collectionError.stack);
+                // Tiếp tục với collection tiếp theo
+            }
+        }
+
+        await cloudConnection.close().catch(() => {});
+
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2) + 's';
+        console.log('[RESTORE DATABASE] Restore hoàn tất:');
+        console.log(`  - Collections đã restore: ${collectionsRestored}`);
+        console.log(`  - Documents đã restore: ${documentsRestored}`);
+        console.log(`  - Thời gian thực hiện: ${duration}`);
+
+        res.json({
+            success: true,
+            message: `Restore thành công: ${collectionsRestored} collections, ${documentsRestored} documents đã restore từ cloud về local`,
+            data: {
+                collectionsRestored,
+                documentsRestored,
+                duration
+            }
+        });
+    } catch (error) {
+        console.error('[RESTORE DATABASE] Lỗi:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi restore database: ' + error.message
+        });
+    }
+});
+
 // API chuyển đổi database (local/cloud)
 app.post('/api/admin/switch-database', requireLogin, requireAdmin, async (req, res) => {
     try {

@@ -372,10 +372,11 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
         if (needBackup) {
             // Backup toàn bộ sang DataOrder
             const DataOrder = require('../models/DataOrder');
-            const backupDocs = orders.map(o => ({
-                ...o.toObject(),
-                archivedAt: new Date()
-            }));
+            const backupDocs = orders.map(o => {
+                const doc = o.toObject();
+                delete doc._id;
+                return { ...doc, archivedAt: new Date() };
+            });
             if (backupDocs.length > 0) await DataOrder.insertMany(backupDocs);
             // Xóa khỏi orders
             await Order.deleteMany({});
@@ -405,11 +406,27 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
         }
         let imported = 0, updated = 0, unchanged = 0;
         const ops = [];
-        for (let i = 2; i < data.length; i++) {
+        let lastMaDongGoi = '';
+        let lastMaVanDon = '';
+        for (let i = 5; i < data.length; i++) {
             const row = data[i];
-            if (!row || row.length < 6) continue;
-            const [stt, maDongGoi, maVanDon, maDonHang, maHang, soLuong] = row;
-            if (!stt || !maDongGoi || !maVanDon || !maDonHang || !maHang || !soLuong) continue;
+            if (!row || row.length < 38) continue;
+            const maVanDon = row[1]; // Cột B
+            const maDongGoi = row[2]; // Cột C
+            const maHang = row[34]; // Cột AI
+            const soLuong = row[37]; // Cột AL
+
+            // Fill down: nếu trống thì dùng giá trị dòng trước
+            const currentMaDongGoi = maDongGoi || lastMaDongGoi;
+            const currentMaVanDon = maVanDon || lastMaVanDon;
+            if (maDongGoi) lastMaDongGoi = maDongGoi;
+            if (maVanDon) lastMaVanDon = maVanDon;
+
+            if (!currentMaDongGoi || !currentMaVanDon || !maHang || !soLuong) continue;
+
+            // Set các trường khác mặc định
+            const stt = i - 4; // Số thứ tự từ 1
+            const maDonHang = String(currentMaVanDon); // Giả sử mã đơn hàng là mã vận đơn
 
             // Giữ nguyên mã combo và số lượng từ file Excel
             let normalizedMaHang = String(maHang).trim();
@@ -426,8 +443,8 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
                     insertOne: {
                         document: {
                             stt: Number(stt),
-                            maDongGoi: String(maDongGoi),
-                            maVanDon: String(maVanDon),
+                            maDongGoi: String(currentMaDongGoi),
+                            maVanDon: String(currentMaVanDon),
                             maDonHang: String(maDonHang),
                             maHang: String(normalizedMaHang),
                             soLuong: Number(normalizedSoLuong),
@@ -446,8 +463,8 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
                     // Đơn chưa verified = false -> Kiểm tra có thay đổi không
                     let changed = false;
                     if (exist.stt !== Number(stt)) changed = true;
-                    if (exist.maDongGoi !== String(maDongGoi)) changed = true;
-                    if (exist.maVanDon !== String(maVanDon)) changed = true;
+                    if (exist.maDongGoi !== String(currentMaDongGoi)) changed = true;
+                    if (exist.maVanDon !== String(currentMaVanDon)) changed = true;
                     if (exist.soLuong !== Number(normalizedSoLuong)) changed = true;
                     if (changed) {
                         ops.push({
@@ -456,8 +473,8 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
                                 update: {
                                     $set: {
                                         stt: Number(stt),
-                                        maDongGoi: String(maDongGoi),
-                                        maVanDon: String(maVanDon),
+                                        maDongGoi: String(currentMaDongGoi),
+                                        maVanDon: String(currentMaVanDon),
                                         soLuong: Number(normalizedSoLuong),
                                         importDate: today,
                                         createdBy: req.authUser.username
