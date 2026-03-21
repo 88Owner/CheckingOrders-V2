@@ -655,9 +655,34 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
 
             const maDongGoi = String(so.packing_code || so.number || '').trim();
             let maVanDon = String(so.shipping_code || so.fulfillment_code || '').trim();
-            // Nếu không có mã vận đơn riêng, dùng trường name/code làm mã vận đơn
+            let trackingSource = 'order-level'; // debug: track where maVanDon came from
+            
+            // Nếu không có mã vận đơn từ order level, thử lấy từ fulfillments (đặc biệt là tracking_number)
+            if (!maVanDon && Array.isArray(so.fulfillments) && so.fulfillments.length > 0) {
+                // Lấy từ fulfillment đầu tiên có tracking code/number
+                const fulfillment = so.fulfillments[0];
+                if (fulfillment && typeof fulfillment === 'object') {
+                    // Priority: tracking_number > tracking_code > shipment_code > code
+                    if (fulfillment.tracking_number) {
+                        maVanDon = String(fulfillment.tracking_number).trim();
+                        trackingSource = 'fulfillments[0].tracking_number';
+                    } else if (fulfillment.tracking_code) {
+                        maVanDon = String(fulfillment.tracking_code).trim();
+                        trackingSource = 'fulfillments[0].tracking_code';
+                    } else if (fulfillment.shipment_code) {
+                        maVanDon = String(fulfillment.shipment_code).trim();
+                        trackingSource = 'fulfillments[0].shipment_code';
+                    } else if (fulfillment.code) {
+                        maVanDon = String(fulfillment.code).trim();
+                        trackingSource = 'fulfillments[0].code';
+                    }
+                }
+            }
+            
+            // Nếu vẫn không có mã vận đơn, dùng trường name/code làm mã vận đơn
             if (!maVanDon) {
                 maVanDon = String(so.name || so.code || so.number || so.id || '').trim();
+                trackingSource = 'order-fallback';
             }
             const maDonHang = maVanDon;
 
@@ -779,6 +804,17 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
                     sampleOrderKeys: sapoOrders[0] && typeof sapoOrders[0] === 'object' ? Object.keys(sapoOrders[0]).slice(0, 40) : null,
                     sampleLineItemKeys: (sapoOrders[0] && (sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items) && (sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items)[0])
                         ? Object.keys((sapoOrders[0].line_items || sapoOrders[0].items || sapoOrders[0].order_items)[0]).slice(0, 40)
+                        : null,
+                    sampleFulfillmentKeys: (sapoOrders[0] && Array.isArray(sapoOrders[0].fulfillments) && sapoOrders[0].fulfillments[0])
+                        ? Object.keys(sapoOrders[0].fulfillments[0]).slice(0, 30)
+                        : null,
+                    sampleFulfillmentData: (sapoOrders[0] && Array.isArray(sapoOrders[0].fulfillments) && sapoOrders[0].fulfillments[0])
+                        ? {
+                            tracking_number: sapoOrders[0].fulfillments[0].tracking_number || null,
+                            tracking_code: sapoOrders[0].fulfillments[0].tracking_code || null,
+                            shipment_code: sapoOrders[0].fulfillments[0].shipment_code || null,
+                            code: sapoOrders[0].fulfillments[0].code || null
+                          }
                         : null,
                     statusStats: {
                         totalOrdersFromSapo: sapoOrders.length,

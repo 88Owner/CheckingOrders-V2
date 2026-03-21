@@ -3864,7 +3864,8 @@ app.get('/api/doi-tuong-cat-vai/:catVaiId', requireLogin, requireWarehouseAccess
                 nhapLaiKho: doiTuong.nhapLaiKho,
                 items: doiTuong.items,
                 mayAoGoi: doiTuong.mayAoGoi || [],
-                trangThai: doiTuong.trangThai
+                trangThai: doiTuong.trangThai,
+                lichSuCat: doiTuong.lichSuCat || []
             }
         });
 
@@ -3873,6 +3874,61 @@ app.get('/api/doi-tuong-cat-vai/:catVaiId', requireLogin, requireWarehouseAccess
         res.status(500).json({
             success: false,
             message: 'Lỗi lấy thông tin đối tượng cắt vải: ' + error.message
+        });
+    }
+});
+
+// API tìm kiếm DoiTuongCatVai bằng keyword
+app.get('/api/doi-tuong-cat-vai/search/keyword', requireLogin, requireWarehouseAccess, async (req, res) => {
+    try {
+        const { q } = req.query;
+        const username = req.session.user.username;
+        
+        if (!q || q.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập từ khóa tìm kiếm'
+            });
+        }
+
+        // Tìm kiếm bằng catVaiId, maMau, tenMau (admin xem được tất cả, user xem của mình)
+        const query = {
+            $or: [
+                { catVaiId: { $regex: q, $options: 'i' } },
+                { maMau: { $regex: q, $options: 'i' } },
+                { tenMau: { $regex: q, $options: 'i' } }
+            ]
+        };
+
+        // Nếu không phải admin, chỉ xem của chính mình
+        if (req.session.user.role !== 'admin') {
+            query.createdBy = username;
+        }
+
+        const doiTuongList = await DoiTuongCatVai.find(query)
+            .sort({ ngayNhap: -1 })
+            .limit(50);
+
+        res.json({
+            success: true,
+            data: doiTuongList.map(dt => ({
+                _id: dt._id,
+                catVaiId: dt.catVaiId,
+                maMau: dt.maMau,
+                tenMau: dt.tenMau,
+                ngayNhap: dt.ngayNhap,
+                createdBy: dt.createdBy,
+                chieuDaiCayVai: dt.chieuDaiCayVai,
+                tienDoPercent: dt.tienDoPercent,
+                trangThai: dt.trangThai
+            }))
+        });
+
+    } catch (error) {
+        console.error('❌ Lỗi tìm kiếm đối tượng cắt vải:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi tìm kiếm đối tượng cắt vải: ' + error.message
         });
     }
 });

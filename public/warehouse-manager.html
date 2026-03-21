@@ -793,14 +793,14 @@
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 16px;">
                                 <div>
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mẫu vải:</label>
-                                    <select id="reportFilterMau" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                    <select id="reportFilterMau" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                         <option value="">Tất cả mẫu vải</option>
                                     </select>
                                 </div>
                                 
                                 <div>
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Loại lọc thời gian:</label>
-                                    <select id="reportFilterType" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="updateDateFilterUI()">
+                                    <select id="reportFilterType" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="updateDateFilterUI(); setTimeout(loadReport, 100)">
                                         <option value="all">Tất cả thời gian</option>
                                         <option value="date">Chọn ngày</option>
                                         <option value="month">Chọn tháng</option>
@@ -812,40 +812,40 @@
                                 
                                 <div id="dateFilterContainer" style="display: none;">
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;" id="dateFilterLabel">Ngày:</label>
-                                    <input type="date" id="reportFilterDate" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                    <input type="date" id="reportFilterDate" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                 </div>
                                 
                                 <div id="monthFilterContainer" style="display: none;">
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Tháng:</label>
-                                    <input type="month" id="reportFilterMonth" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                    <input type="month" id="reportFilterMonth" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                 </div>
                                 
                                 <div id="quarterFilterContainer" style="display: none;">
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Quý:</label>
-                                    <select id="reportFilterQuarter" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                    <select id="reportFilterQuarter" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                         <option value="">Chọn quý</option>
                                         <option value="Q1">Quý 1</option>
                                         <option value="Q2">Quý 2</option>
                                         <option value="Q3">Quý 3</option>
                                         <option value="Q4">Quý 4</option>
                                     </select>
-                                    <input type="number" id="reportFilterQuarterYear" placeholder="Năm" min="2020" max="2100" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; margin-top: 8px;">
+                                    <input type="number" id="reportFilterQuarterYear" placeholder="Năm" min="2020" max="2100" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; margin-top: 8px;" onchange="loadReport()">
                                 </div>
                                 
                                 <div id="yearFilterContainer" style="display: none;">
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Năm:</label>
-                                    <input type="number" id="reportFilterYear" placeholder="Nhập năm" min="2020" max="2100" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                    <input type="number" id="reportFilterYear" placeholder="Nhập năm" min="2020" max="2100" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                 </div>
                                 
                                 <div id="rangeFilterContainer" style="display: none; grid-column: 1 / -1;">
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                         <div>
                                             <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Từ ngày:</label>
-                                            <input type="date" id="reportFilterDateFrom" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                            <input type="date" id="reportFilterDateFrom" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                         </div>
                                         <div>
                                             <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Đến ngày:</label>
-                                            <input type="date" id="reportFilterDateTo" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                            <input type="date" id="reportFilterDateTo" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" onchange="loadReport()">
                                         </div>
                                     </div>
                                 </div>
@@ -857,30 +857,202 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="data-preview" id="reportDataPreview">
-                        <h3 style="margin-bottom: 16px;">Danh sách đối tượng cắt vải</h3>
-                        <p style="color: #666; margin-bottom: 16px; font-size: 14px;">
-                            Danh sách tất cả các đối tượng cắt vải được gom nhóm theo ID. Click vào biểu tượng 📋 để xem chi tiết lịch sử cắt.
-                        </p>
-                        <div style="overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">
-                            <table class="data-table" id="reportDataTable" style="width: 100%; min-width: 1200px;">
-                                <thead id="reportTableHead">
-                                </thead>
-                                <tbody id="reportTableBody">
-                                    <tr>
-                                        <td colspan="13" style="text-align: center; padding: 40px; color: #999;">
-                                            <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
-                                            <div>Đang tải danh sách đối tượng cắt vải...</div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+
+                    <!-- Phần Thống kê chi tiết -->
+                    <div id="reportStatistics" style="display: none; margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 16px; color: #333;">📊 Thống kê chi tiết</h3>
+                        
+                        <!-- Tab Navigation -->
+                        <div style="display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid #e0e0e0;">
+                            <button onclick="switchDetailTab('fabricObjects')" id="tabFabricBtn" style="padding: 12px 20px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; margin-right: 8px; transition: all 0.2s;">
+                                📦 Danh sách cây vải
+                            </button>
+                            <button onclick="switchDetailTab('cuttingSessions')" id="tabCuttingBtn" style="padding: 12px 20px; border: none; background: #f0f0f0; color: #333; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s;">
+                                ✂️ Danh sách lần cắt
+                            </button>
+                        </div>
+
+                        <!-- Fabric Objects Grid -->
+                        <div id="fabricObjectsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <!-- Cards will be populated here -->
+                        </div>
+
+                        <!-- Cutting Sessions Grid -->
+                        <div id="cuttingSessionsGrid" style="display: none; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <!-- Cards will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Report Data Preview -->
+                    <div class="data-preview" id="reportDataPreview" style="padding: 0;">
+                        <!-- Breadcrumb Navigation -->
+                        <div id="reportBreadcrumb" style="background: linear-gradient(135deg, #f5f7fa 0%, #f0f3f8 100%); padding: 12px 24px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 12px; font-size: 14px;">
+                            <span style="cursor: pointer; color: #667eea; font-weight: 600;" onclick="resetReportView()">📋 Báo cáo</span>
+                            <span id="breadcrumbArrow" style="color: #ddd; display: none;">→</span>
+                            <span id="breadcrumbLevel2" style="color: #666; display: none;"></span>
+                            <span id="breadcrumbArrow2" style="color: #ddd; display: none;">→</span>
+                            <span id="breadcrumbLevel3" style="color: #666; display: none;"></span>
+                            <div style="flex: 1;"></div>
+                            <button id="exportReportBtn" class="btn btn-secondary" onclick="exportReport()" style="padding: 6px 16px; font-size: 12px;">📊 Xuất báo cáo</button>
+                        </div>
+                        
+                        <!-- Views Container -->
+                        <div id="reportViewsContainer" style="padding: 20px;">
+                            <!-- Level 1: Danh sách Cây vải -->
+                            <div id="fabricListView" style="display: block;">
+                                <div style="margin-bottom: 16px;">
+                                    <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 18px;">📦 Danh sách cây vải</h3>
+                                    <p style="margin: 0; color: #666; font-size: 13px;">Click để xem chi tiết lịch sử cắt</p>
+                                </div>
+                                <div id="fabricListContainer" style="display: grid; gap: 12px;">
+                                    <div style="text-align: center; padding: 40px; color: #999;">
+                                        <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                                        <div>Đang tải danh sách...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Level 2: Lịch sử cắt của cây vải -->
+                            <div id="cuttingHistoryView" style="display: none;">
+                                <div style="margin-bottom: 20px;">
+                                    <h3 id="historyTitle" style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 18px;">✂️ Lịch sử cắt</h3>
+                                    <div id="historySummary" style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;"></div>
+                                </div>
+                                <div id="cuttingHistoryContainer" style="display: grid; gap: 12px;"></div>
+                            </div>
+                            
+                            <!-- Level 3: Chi tiết lần cắt -->
+                            <div id="cutDetailView" style="display: none; padding: 20px; background: white; border-radius: 12px; border: 1px solid #e0e0e0;">
+                                <div id="cutDetailContent"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal chi tiết lần cắt -->
+                    <div id="cutDetailModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto; padding: 20px;">
+                        <div style="max-width: 900px; margin: 40px auto; background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                            <div style="padding: 24px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                                    <h2 style="color: var(--primary); margin: 0;">Chi tiết lần cắt</h2>
+                                    <button class="btn btn-secondary" onclick="hideCutDetail()" style="padding: 8px 16px; cursor: pointer;">Đóng</button>
+                                </div>
+
+                                <!-- Thông tin cơ bản -->
+                                <div style="background: #f8f9ff; padding: 16px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 20px;">
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                        <div>
+                                            <div style="color: #666; font-size: 0.9rem;">ID đối tượng cắt</div>
+                                            <div style="font-weight: 600; font-size: 1rem;" id="cutDetailCatVaiId">-</div>
+                                        </div>
+                                        <div>
+                                            <div style="color: #666; font-size: 0.9rem;">Mẫu vải</div>
+                                            <div style="font-weight: 600; font-size: 1rem;" id="cutDetailMauInfo">-</div>
+                                        </div>
+                                        <div>
+                                            <div style="color: #666; font-size: 0.9rem;">Ngày cắt</div>
+                                            <div style="font-weight: 600; font-size: 1rem;" id="cutDetailDate">-</div>
+                                        </div>
+                                        <div>
+                                            <div style="color: #666; font-size: 0.9rem;">Nhân viên</div>
+                                            <div style="font-weight: 600; font-size: 1rem;" id="cutDetailCreatedBy">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Thống kê số m -->
+                                <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; border-left: 4px solid var(--ok); margin-bottom: 20px;">
+                                    <h3 style="color: var(--ok); margin: 0 0 12px 0;">Thống kê</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                                        <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #c8e6c9;">
+                                            <div style="color: #666; font-size: 0.85rem;">Diện tích đã cắt</div>
+                                            <div style="font-weight: 600; font-size: 1.2rem; color: var(--ok);" id="cutDetailDienTich">-</div>
+                                            <div style="color: #999; font-size: 0.8rem;">m²</div>
+                                        </div>
+                                        <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #c8e6c9;">
+                                            <div style="color: #666; font-size: 0.85rem;">Số m còn lại</div>
+                                            <div style="font-weight: 600; font-size: 1.2rem; color: var(--primary);" id="cutDetailSoMConLai">-</div>
+                                            <div style="color: #999; font-size: 0.8rem;">m</div>
+                                        </div>
+                                        <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #ffcdd2;">
+                                            <div style="color: #666; font-size: 0.85rem;">Vải lỗi</div>
+                                            <div style="font-weight: 600; font-size: 1.2rem; color: #ff6b6b;" id="cutDetailVaiLoi">-</div>
+                                            <div style="color: #999; font-size: 0.8rem;">m</div>
+                                        </div>
+                                        <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #fff9c4;">
+                                            <div style="color: #666; font-size: 0.85rem;">Vải thiếu</div>
+                                            <div style="font-weight: 600; font-size: 1.2rem; color: #ffc107;" id="cutDetailVaiThieu">-</div>
+                                            <div style="color: #999; font-size: 0.8rem;">m</div>
+                                        </div>
+                                        <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #e0f2f1;">
+                                            <div style="color: #666; font-size: 0.85rem;">Nhập lại kho</div>
+                                            <div style="font-weight: 600; font-size: 1.2rem; color: #20c997;" id="cutDetailNhapLaiKho">-</div>
+                                            <div style="color: #999; font-size: 0.8rem;">m</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Danh sách kích thước -->
+                                <div style="margin-bottom: 20px;">
+                                    <h3 style="color: var(--primary); margin-bottom: 12px;">Danh sách kích thước cắt</h3>
+                                    <div style="overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">
+                                        <table style="width: 100%; min-width: 400px; border-collapse: collapse;">
+                                            <thead>
+                                                <tr style="background: #f0f0f0;">
+                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Kích thước</th>
+                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">SKU</th>
+                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">SL</th>
+                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Diện tích (m²)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cutDetailItemsBody">
+                                                <tr>
+                                                    <td colspan="4" style="padding: 20px; text-align: center; color: #999;">Đang tải...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Thông tin bổ sung -->
+                                <div id="cutDetailMayAoGoiContainer" style="display: none;">
+                                    <h3 style="color: var(--primary); margin-bottom: 12px;">May áo gối</h3>
+                                    <div style="background: #e9f7ef; padding: 12px; border-radius: 8px; border-left: 4px solid #20c997; margin-bottom: 20px;">
+                                        <div id="cutDetailMayAoGoiList"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
                     <div class="alert alert-success" id="reportSuccessAlert"></div>
                     <div class="alert alert-error" id="reportErrorAlert"></div>
+                </div>
+
+                <!-- Template Section -->
+                <div id="templateSection" class="content-section">
+                    <div class="section-title">
+                        <span class="icon"></span>
+                        Upload Template xuất file
+                    </div>
+
+                    <div style="background: #f8f9ff; padding: 20px; border-radius: 12px; border-left: 4px solid var(--primary); margin-bottom: 24px;">
+                        <h3>📋 Thông tin về chức năng</h3>
+                        <p>Upload các file template để xuất dữ liệu theo định dạng của bạn.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Chọn Template</label>
+                        <input type="file" id="templateFileInput" accept=".xlsx" style="padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; font-size: 14px;">
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn" onclick="uploadTemplate()" style="padding: 12px 24px;">📤 Upload Template</button>
+                        <button class="btn btn-secondary" onclick="downloadSampleTemplate()" style="padding: 12px 24px;">⬇️ Tải template mẫu</button>
+                    </div>
+
+                    <div class="progress-bar" id="templateProgressBar" style="display: none; margin-top: 12px;"></div>
+                    <div class="alert alert-success" id="templateSuccessAlert" style="display: none; margin-top: 12px;"></div>
+                    <div class="alert alert-error" id="templateErrorAlert" style="display: none; margin-top: 12px;"></div>
                 </div>
             </div>
         </div>
@@ -1516,23 +1688,19 @@
                 if (result.success) {
                     const data = result.data;
                     
-                    // Cập nhật thống kê
-                    document.getElementById('totalCatVai').textContent = data.summary.totalCatVai || 0;
-                    document.getElementById('totalItems').textContent = data.summary.totalItems || 0;
-                    document.getElementById('totalDienTich').textContent = (data.summary.totalDienTich || 0).toFixed(2);
-                    document.getElementById('totalSoM').textContent = (data.summary.totalSoM || 0).toFixed(1);
-                    document.getElementById('totalVaiThieu').textContent = (data.summary.totalVaiThieu || 0).toFixed(1);
-                    document.getElementById('totalVaiLoi').textContent = (data.summary.totalVaiLoi || 0).toFixed(1);
-                    
-                    // Hiển thị danh sách các đối tượng cắt (luôn gom nhóm theo catVaiId)
+                    // Display report data
                     if (data.list && data.list.length > 0) {
                         displayReportTable(data.list, true);
                     } else {
-                        // Hiển thị thông báo nếu không có dữ liệu
-                        const tableHead = document.getElementById('reportTableHead');
-                        const tableBody = document.getElementById('reportTableBody');
-                        tableHead.innerHTML = '';
-                        tableBody.innerHTML = '<tr><td colspan="13" style="text-align: center; padding: 20px; color: #999;">Không có dữ liệu đối tượng cắt vải</td></tr>';
+                        // Show empty message
+                        const container = document.getElementById('fabricListContainer');
+                        container.innerHTML = `
+                            <div style="text-align: center; padding: 60px 20px; color: #999; grid-column: 1/-1;">
+                                <div style="font-size: 64px; margin-bottom: 16px;">📭</div>
+                                <div style="font-size: 18px; font-weight: 500;">Không có dữ liệu</div>
+                                <div style="font-size: 14px; margin-top: 8px;">Vui lòng kiểm tra bộ lọc hoặc dữ liệu hệ thống</div>
+                            </div>
+                        `;
                     }
                     
                     // Load danh sách mẫu vải vào filter
@@ -1557,28 +1725,89 @@
             }
         }
 
-        // Hiển thị bảng báo cáo - danh sách các đối tượng cắt vải
+        // ============ REPORT VIEW SYSTEM - Rollup/Drilldown ============
+        let reportViewState = {
+            level: 1,  // 1: Fabric list, 2: Cutting history, 3: Cut detail
+            selectedFabric: null,
+            selectedCutIndex: null,
+            allFabricData: []
+        };
+
+        // Reset view về level 1
+        function resetReportView() {
+            reportViewState.level = 1;
+            reportViewState.selectedFabric = null;
+            reportViewState.selectedCutIndex = null;
+            showReportLevel(1);
+        }
+
+        // Show level trong hierarchy
+        function showReportLevel(level) {
+            // Hide all levels
+            document.getElementById('fabricListView').style.display = 'none';
+            document.getElementById('cuttingHistoryView').style.display = 'none';
+            document.getElementById('cutDetailView').style.display = 'none';
+            
+            // Update breadcrumb
+            document.getElementById('breadcrumbArrow').style.display = 'none';
+            document.getElementById('breadcrumbLevel2').style.display = 'none';
+            document.getElementById('breadcrumbArrow2').style.display = 'none';
+            document.getElementById('breadcrumbLevel3').style.display = 'none';
+            
+            if (level === 1) {
+                document.getElementById('fabricListView').style.display = 'block';
+            } else if (level === 2) {
+                document.getElementById('cuttingHistoryView').style.display = 'block';
+                document.getElementById('breadcrumbArrow').style.display = 'inline';
+                document.getElementById('breadcrumbLevel2').style.display = 'inline';
+                document.getElementById('breadcrumbLevel2').innerHTML = `<span style="color: #667eea; font-weight: 600;">${reportViewState.selectedFabric?.catVaiId || ''}</span>`;
+            } else if (level === 3) {
+                document.getElementById('cutDetailView').style.display = 'block';
+                document.getElementById('breadcrumbArrow').style.display = 'inline';
+                document.getElementById('breadcrumbLevel2').style.display = 'inline';
+                document.getElementById('breadcrumbLevel2').innerHTML = `<span style="color: #667eea; font-weight: 600; cursor: pointer;" onclick="showReportLevel(2)">${reportViewState.selectedFabric?.catVaiId || ''}</span>`;
+                document.getElementById('breadcrumbArrow2').style.display = 'inline';
+                document.getElementById('breadcrumbLevel3').style.display = 'inline';
+                document.getElementById('breadcrumbLevel3').innerHTML = `Lần cắt ${reportViewState.selectedCutIndex + 1}`;
+            }
+            
+            reportViewState.level = level;
+        }
+
+        // Drilldown: Click "Số lần cắt" để xem lịch sử cắt của cây vải
+        function drilldownToFabricHistory(fabricIndex) {
+            const fabric = reportViewState.allFabricData[fabricIndex];
+            if (!fabric) return;
+            renderCuttingHistory(fabric);
+            showReportLevel(2);
+            document.getElementById('reportViewsContainer').scrollTop = 0;
+        }
+
+        // Drilldown: Click lần cắt để xem chi tiết
+        function drilldownToCutDetail(fabric, cutIndex, cutData) {
+            reportViewState.selectedFabric = fabric;
+            reportViewState.selectedCutIndex = cutIndex;
+            renderCutDetail(fabric, cutIndex, cutData);
+            showReportLevel(3);
+            document.getElementById('reportViewsContainer').scrollTop = 0;
+        }
+
+        // Render danh sách cây vải (Level 1)
         function displayReportTable(data, groupByCatVaiId = false) {
-            const tableHead = document.getElementById('reportTableHead');
-            const tableBody = document.getElementById('reportTableBody');
+            const container = document.getElementById('fabricListContainer');
             
             if (!data || !Array.isArray(data) || data.length === 0) {
-                tableHead.innerHTML = '';
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="13" style="text-align: center; padding: 40px; color: #999;">
-                            <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-                            <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">Không có dữ liệu đối tượng cắt vải</div>
-                            <div style="font-size: 14px; color: #999;">Vui lòng thử lại với bộ lọc khác hoặc kiểm tra dữ liệu đã được nhập vào hệ thống.</div>
-                        </td>
-                    </tr>
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #999; grid-column: 1/-1;">
+                        <div style="font-size: 64px; margin-bottom: 16px;">📭</div>
+                        <div style="font-size: 18px; font-weight: 500;">Không có dữ liệu</div>
+                        <div style="font-size: 14px; margin-top: 8px;">Vui lòng kiểm tra bộ lọc hoặc dữ liệu hệ thống</div>
+                    </div>
                 `;
                 return;
             }
             
-            console.log('📊 Hiển thị danh sách đối tượng cắt vải:', data.length, 'đối tượng');
-            
-            // Luôn gom nhóm theo catVaiId để hiển thị 1 danh sách duy nhất
+            // Gom nhóm theo catVaiId
             const grouped = {};
             data.forEach(item => {
                 if (!item || !item.catVaiId) return;
@@ -1597,162 +1826,640 @@
                         dienTichConLai: item.dienTichConLai || 0,
                         soMConLai: item.soMConLai || 0,
                         tienDoPercent: item.tienDoPercent || 0,
-                        vaiLoi: item.vaiLoi || { chieuDai: 0, dienTich: 0, soM: 0 },
-                        vaiThieu: item.vaiThieu || { soM: 0 },
-                        nhapLaiKho: item.nhapLaiKho || { soM: 0 },
-                        items: item.items || [],
-                        mayAoGoi: item.mayAoGoi || [],
                         lichSuCat: item.lichSuCat || [],
-                        trangThai: item.trangThai || 'active',
-                        soLanCat: item.lichSuCat ? item.lichSuCat.length : 1
+                        trangThai: item.trangThai || 'active'
                     };
-                } else {
-                    // Cộng dồn nếu có nhiều record cùng ID
-                    grouped[key].dienTichDaCat += (item.dienTichDaCat || 0);
-                    grouped[key].dienTichConLai = Math.max(0, grouped[key].dienTichBanDau - grouped[key].dienTichDaCat);
-                    grouped[key].soMConLai = Math.round((grouped[key].dienTichConLai / 2.3) * 10) / 10;
-                    grouped[key].tienDoPercent = grouped[key].chieuDaiCayVai > 0 ? 
-                        Math.round(((grouped[key].chieuDaiCayVai - grouped[key].soMConLai) / grouped[key].chieuDaiCayVai) * 100) : 0;
-                    grouped[key].items = [...(grouped[key].items || []), ...(item.items || [])];
-                    if (item.lichSuCat && Array.isArray(item.lichSuCat)) {
-                        grouped[key].lichSuCat = [...(grouped[key].lichSuCat || []), ...item.lichSuCat];
-                    }
-                    grouped[key].soLanCat = grouped[key].lichSuCat ? grouped[key].lichSuCat.length : grouped[key].soLanCat + 1;
                 }
             });
             
-            // Chuyển đổi object thành array và sắp xếp theo ngày nhập mới nhất
-            data = Object.values(grouped).sort((a, b) => {
-                const dateA = new Date(a.ngayNhap);
-                const dateB = new Date(b.ngayNhap);
-                return dateB - dateA;
+            const fabricList = Object.values(grouped).sort((a, b) => {
+                return new Date(b.ngayNhap) - new Date(a.ngayNhap);
             });
             
-            tableHead.innerHTML = `
-                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                    <th style="width: 120px; padding: 12px; text-align: left; font-weight: 600;">ID</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600;">Mẫu vải</th>
-                    <th style="width: 100px; padding: 12px; text-align: center; font-weight: 600;">Ngày nhập</th>
-                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">NV</th>
-                    <th style="width: 100px; padding: 12px; text-align: right; font-weight: 600;">Chiều dài (m)</th>
-                    <th style="width: 120px; padding: 12px; text-align: right; font-weight: 600;">Diện tích ban đầu (m²)</th>
-                    <th style="width: 120px; padding: 12px; text-align: right; font-weight: 600;">Diện tích đã cắt (m²)</th>
-                    <th style="width: 100px; padding: 12px; text-align: right; font-weight: 600;">Số m còn lại</th>
-                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">Tiến độ (%)</th>
-                    <th style="width: 100px; padding: 12px; text-align: right; font-weight: 600;">Vải thiếu (m)</th>
-                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">Số lần cắt</th>
-                    <th style="width: 100px; padding: 12px; text-align: center; font-weight: 600;">Trạng thái</th>
-                    <th style="width: 80px; padding: 12px; text-align: center; font-weight: 600;">Chi tiết</th>
-                </tr>
-            `;
+            reportViewState.allFabricData = fabricList;
             
-            if (data.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="13" style="text-align: center; padding: 40px; color: #999;">
-                            <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-                            <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">Không có dữ liệu đối tượng cắt vải</div>
-                            <div style="font-size: 14px; color: #999;">Vui lòng thử lại với bộ lọc khác hoặc kiểm tra dữ liệu đã được nhập vào hệ thống.</div>
-                        </td>
-                    </tr>
+            if (fabricList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #999; grid-column: 1/-1;">
+                        <div style="font-size: 64px; margin-bottom: 16px;">📭</div>
+                        <div style="font-size: 18px; font-weight: 500;">Không có dữ liệu</div>
+                    </div>
                 `;
                 return;
             }
             
-            tableBody.innerHTML = data.map((item, index) => {
-                const hasVaiThieu = item.vaiThieu && item.vaiThieu.soM > 0;
-                const detailId = `detail-${index}`;
-                const rowStyle = index % 2 === 0 ? 'background: #f8f9fa;' : 'background: white;';
+            container.innerHTML = fabricList.map((fabric, idx) => {
+                const soLanCat = fabric.lichSuCat ? fabric.lichSuCat.length : 0;
+                const hasVaiThieu = fabric.vaiThieu && fabric.vaiThieu.soM > 0;
+                const statusBadge = fabric.trangThai === 'active' 
+                    ? '<span style="display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 6px;"></span>Đang cắt'
+                    : '<span style="display: inline-block; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; margin-right: 6px;"></span>Hoàn thành';
+                
                 return `
-                    <tr style="${rowStyle} border-bottom: 1px solid #e0e0e0;">
-                        <td style="padding: 12px;"><strong style="color: var(--primary); font-size: 14px;">${item.catVaiId || 'N/A'}</strong></td>
-                        <td style="padding: 12px;">${item.maMau || ''} - ${item.tenMau || 'N/A'}</td>
-                        <td style="padding: 12px; text-align: center;">${item.ngayNhap ? new Date(item.ngayNhap).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                        <td style="padding: 12px; text-align: center;">${item.createdBy || 'N/A'}</td>
-                        <td style="padding: 12px; text-align: right; font-weight: 500;">${(item.chieuDaiCayVai || 0).toFixed(1)}</td>
-                        <td style="padding: 12px; text-align: right; font-weight: 500;">${(item.dienTichBanDau || 0).toFixed(2)}</td>
-                        <td style="padding: 12px; text-align: right; font-weight: 500; color: var(--primary);">${(item.dienTichDaCat || 0).toFixed(2)}</td>
-                        <td style="padding: 12px; text-align: right; font-weight: 500;">${(item.soMConLai || 0).toFixed(1)}</td>
-                        <td style="padding: 12px; text-align: center;">
-                            <span style="padding: 4px 8px; border-radius: 4px; background: ${item.tienDoPercent >= 100 ? '#22c55e' : item.tienDoPercent >= 50 ? '#f59e0b' : '#ef4444'}; color: white; font-size: 12px; font-weight: 600;">
-                                ${(item.tienDoPercent || 0)}%
-                            </span>
-                        </td>
-                        <td style="padding: 12px; text-align: right; font-weight: ${hasVaiThieu ? 'bold' : 'normal'}; color: ${hasVaiThieu ? '#ef4444' : '#22c55e'};">
-                            ${hasVaiThieu ? (item.vaiThieu.soM || 0).toFixed(1) : '0'}
-                        </td>
-                        <td style="padding: 12px; text-align: center; font-weight: 500;">${item.lichSuCat ? item.lichSuCat.length : 1}</td>
-                        <td style="padding: 12px; text-align: center;">
-                            <span style="padding: 4px 8px; border-radius: 4px; background: ${item.trangThai === 'active' ? '#22c55e' : item.trangThai === 'completed' ? '#3b82f6' : '#999'}; color: white; font-size: 12px; font-weight: 600;">
-                                ${item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ'}
-                            </span>
-                        </td>
-                        <td style="padding: 12px; text-align: center;">
-                            <button class="btn btn-small" onclick="toggleDetail('${detailId}')" style="padding: 6px 12px; font-size: 14px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--primary)'">
-                                ${item.lichSuCat && item.lichSuCat.length > 0 ? '📋 Chi tiết' : '📄 Xem'}
-                            </button>
-                        </td>
-                    </tr>
-                    <tr id="${detailId}" style="display: none; background: #f8f9fa;">
-                        <td colspan="13" style="padding: 20px;">
-                            <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                                <h4 style="margin-bottom: 12px; color: #333;">Chi tiết lịch sử cắt - ID: ${item.catVaiId}</h4>
-                                ${item.mayAoGoi && item.mayAoGoi.length > 0 ? `
-                                    <div style="margin-bottom: 16px; padding: 12px; background: #e9f7ef; border-radius: 6px; border-left: 4px solid #20c997;">
-                                        <strong style="color: #20c997;">📦 May áo gối:</strong>
-                                        <span style="margin-left: 8px; font-size: 0.95rem; color: #333;">
-                                            ${item.mayAoGoi.reduce((sum, m) => sum + (m.value || 0), 0)} m
+                    <div class="fabric-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; transition: all 0.3s ease; display: flex; flex-direction: column;" 
+                         onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'; this.style.borderColor='#667eea';" 
+                         onmouseout="this.style.boxShadow='none'; this.style.borderColor='#e0e0e0';">
+                        
+                        <!-- Header -->
+                        <div style="padding: 16px; background: linear-gradient(135deg, #f5f7fa 0%, #f0f3f8 100%); border-bottom: 1px solid #e0e0e0;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div style="flex: 1;">
+                                    <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">
+                                        <span style="color: #667eea;">📦 ${fabric.catVaiId}</span>
+                                    </h3>
+                                    <p style="margin: 0; color: #666; font-size: 13px;">
+                                        <span style="display: inline-block; background: #e8f1f5; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 12px;">
+                                            ${fabric.maMau}
                                         </span>
-                                    </div>
-                                ` : ''}
-                                ${item.lichSuCat && item.lichSuCat.length > 0 ? `
-                                    <div style="max-height: 400px; overflow-y: auto;">
-                                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                                            <thead>
-                                                <tr style="background: #f0f0f0;">
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Lần cắt</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Ngày cắt</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">NV</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Số kích thước</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Diện tích cắt (m²)</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Số m còn lại</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Vải lỗi (m)</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Vải thiếu (m)</th>
-                                                    <th style="padding: 8px; border: 1px solid #ddd;">Nhập lại kho (m)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${item.lichSuCat.map((lichSu, idx) => `
-                                                    <tr>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${idx + 1}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd;">${new Date(lichSu.ngayCat).toLocaleDateString('vi-VN')}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd;">${lichSu.createdBy || item.createdBy}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${lichSu.items ? lichSu.items.length : 0}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(lichSu.dienTichDaCat || 0).toFixed(2)}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(lichSu.soMConLai || 0).toFixed(1)}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: ${lichSu.vaiLoi && lichSu.vaiLoi.soM > 0 ? '#ef4444' : '#22c55e'}">${(lichSu.vaiLoi && lichSu.vaiLoi.soM) ? lichSu.vaiLoi.soM.toFixed(1) : '0'}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: ${lichSu.vaiThieu && lichSu.vaiThieu.soM > 0 ? '#ef4444' : '#22c55e'}">${(lichSu.vaiThieu && lichSu.vaiThieu.soM) ? lichSu.vaiThieu.soM.toFixed(1) : '0'}</td>
-                                                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(lichSu.nhapLaiKho && lichSu.nhapLaiKho.soM) ? lichSu.nhapLaiKho.soM.toFixed(1) : '0'}</td>
-                                                    </tr>
-                                                `).join('')}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ` : '<p style="color: #999;">Chưa có lịch sử cắt</p>'}
+                                        <span style="margin-left: 8px; color: #999;">${fabric.tenMau}</span>
+                                    </p>
+                                </div>
+                                <div style="text-align: right; font-size: 12px; color: #666;">
+                                    ${statusBadge}
+                                </div>
                             </div>
-                        </td>
-                    </tr>
+                        </div>
+                        
+                        <!-- Metrics Grid -->
+                        <div style="padding: 16px; flex: 1;">
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #667eea;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Chiều dài</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #667eea;">${(fabric.chieuDaiCayVai || 0).toFixed(1)}</div>
+                                    <div style="font-size: 11px; color: #999;">m</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #22c55e15 0%, #20c99715 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #22c55e;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Còn lại</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #22c55e;">${(fabric.soMConLai || 0).toFixed(1)}</div>
+                                    <div style="font-size: 11px; color: #999;">m</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #f59e0b15 0%, #fbbf2415 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Tiến độ</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #f59e0b;">${(fabric.tienDoPercent || 0)}%</div>
+                                    <div style="font-size: 11px; color: #999;">hoàn thành</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #ef444415 0%, #f8749f15 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #ef4444; cursor: pointer;" onclick="drilldownToFabricHistory(${idx})">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 4px; cursor: pointer;">Số lần cắt</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #ef4444; cursor: pointer;">${soLanCat}</div>
+                                    <div style="font-size: 11px; color: #999; cursor: pointer;">lần</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Progress Bar -->
+                            <div style="margin-bottom: 12px;">
+                                <div style="width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden;">
+                                    <div style="width: ${fabric.tienDoPercent || 0}%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Footer -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999;">
+                                <span>📅 ${new Date(fabric.ngayNhap).toLocaleDateString('vi-VN')}</span>
+                                <span style="color: #999; font-size: 11px;">
+                                    Nhập bởi ${fabric.createdBy || 'N/A'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 `;
             }).join('');
         }
         
-        // Toggle hiển thị chi tiết
-        function toggleDetail(detailId) {
-            const detailRow = document.getElementById(detailId);
-            if (detailRow) {
-                detailRow.style.display = detailRow.style.display === 'none' ? '' : 'none';
+        // Render lịch sử cắt (Level 2) - Hiển thị 1 lần cắt tại một thời điểm
+        function renderCuttingHistory(fabric) {
+            reportViewState.selectedFabric = fabric;
+            reportViewState.selectedCutIndex = 0; // Start from first cut
+            
+            if (!fabric.lichSuCat || fabric.lichSuCat.length === 0) {
+                const container = document.getElementById('cuttingHistoryContainer');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #999;">
+                        <div style="font-size: 64px; margin-bottom: 16px;">📭</div>
+                        <div style="font-size: 18px; font-weight: 500;">Chưa có lịch sử cắt</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            displaySingleCutting(fabric, 0);
+        }
+        
+        // Hiển thị một lần cắt duy nhất với navigation
+        function displaySingleCutting(fabric, cutIndex) {
+            reportViewState.selectedFabric = fabric;
+            reportViewState.selectedCutIndex = cutIndex;
+            
+            const title = document.getElementById('historyTitle');
+            title.textContent = `✂️ Lần cắt ${cutIndex + 1} / ${fabric.lichSuCat.length}`;
+            
+            const cut = fabric.lichSuCat[cutIndex];
+            const timeStr = new Date(cut.ngayCat).toLocaleString('vi-VN');
+            const vaiLoi = (cut.vaiLoi && cut.vaiLoi.soM) ? cut.vaiLoi.soM : 0;
+            const vaiThieu = (cut.vaiThieu && cut.vaiThieu.soM) ? cut.vaiThieu.soM : 0;
+            const nhapLaiKho = (cut.nhapLaiKho && cut.nhapLaiKho.soM) ? cut.nhapLaiKho.soM : 0;
+            
+            const summary = document.getElementById('historySummary');
+            summary.innerHTML = `
+                <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">✂️ Lần cắt ${cutIndex + 1}</h3>
+                            <p style="margin: 0; color: #666; font-size: 12px;">
+                                📅 ${timeStr} | 👤 ${cut.createdBy || 'Unknown'}
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="changeCuttingIndex(${cutIndex - 1})" style="padding: 8px 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: 600; color: #333;" ${cutIndex === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>← Trước</button>
+                            <button onclick="changeCuttingIndex(${cutIndex + 1})" style="padding: 8px 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: 600; color: #333;" ${cutIndex === fabric.lichSuCat.length - 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Sau →</button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+                        <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #667eea;">
+                            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Diện tích cắt</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #667eea;">${(cut.dienTichDaCat || 0).toFixed(2)}</div>
+                            <div style="font-size: 11px; color: #999;">m²</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #22c55e15 0%, #20c99715 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #22c55e;">
+                            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Còn lại</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #22c55e;">${(cut.soMConLai || 0).toFixed(1)}</div>
+                            <div style="font-size: 11px; color: #999;">m</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #ef444415 0%, #f8749f15 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #ef4444;">
+                            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Vải lỗi</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #ef4444;">${(vaiLoi || 0).toFixed(1)}</div>
+                            <div style="font-size: 11px; color: #999;">m</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #f59e0b15 0%, #fbbf2415 100%); padding: 12px; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Vải thiếu</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f59e0b;">${(vaiThieu || 0).toFixed(1)}</div>
+                            <div style="font-size: 11px; color: #999;">m</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const container = document.getElementById('cuttingHistoryContainer');
+            
+            // Danh sách kích thước cắt
+            let itemsHtml = '';
+            if (cut.items && cut.items.length > 0) {
+                itemsHtml = `
+                    <div style="margin-top: 20px; padding: 20px; background: white; border-radius: 10px; border: 1px solid #e0e0e0;">
+                        <h4 style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 15px; font-weight: 600;">📋 Danh sách kích thước cắt (${cut.items.length})</h4>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                                        <th style="padding: 12px; text-align: left; color: #666; font-weight: 600;">Kích thước</th>
+                                        <th style="padding: 12px; text-align: center; color: #666; font-weight: 600;">SL</th>
+                                        <th style="padding: 12px; text-align: right; color: #666; font-weight: 600;">Diện tích (m²)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${cut.items.map((item, idx) => `
+                                        <tr style="border-bottom: 1px solid #f0f0f0; background: ${idx % 2 === 0 ? 'white' : '#fafafa'};">
+                                            <td style="padding: 12px; color: #333; font-weight: 500;"><strong>${item.chieuRong || 'N/A'} × ${item.chieuDai || 'N/A'}</strong></td>
+                                            <td style="padding: 12px; text-align: center; color: #666;">${item.soLuong || 1}</td>
+                                            <td style="padding: 12px; text-align: right; color: #667eea; font-weight: 600;">${((item.dienTich || 0)).toFixed(2)}</td>
+                                        </tr>
+                                    `).join('')}
+                                    <tr style="background: #f8f9fa; border-top: 2px solid #ddd; font-weight: 600;">
+                                        <td colspan="2" style="padding: 12px; text-align: right; color: #333;">Tổng cộng:</td>
+                                        <td style="padding: 12px; text-align: right; color: #667eea; font-size: 14px; font-weight: 700;">
+                                            ${cut.items.reduce((sum, item) => sum + (item.dienTich || 0), 0).toFixed(2)}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = `
+                <div style="background: white; border-radius: 10px; border: 1px solid #e0e0e0; padding: 20px;">
+                    <!-- Metrics Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">Diện tích cắt</div>
+                            <div style="font-size: 28px; font-weight: 700;">${(cut.dienTichDaCat || 0).toFixed(2)}</div>
+                            <div style="font-size: 11px; opacity: 0.9;">m²</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #22c55e 0%, #20c997 100%); color: white; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">Còn lại</div>
+                            <div style="font-size: 28px; font-weight: 700;">${(cut.soMConLai || 0).toFixed(1)}</div>
+                            <div style="font-size: 11px; opacity: 0.9;">m</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #ef4444 0%, #f5576c 100%); color: white; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">Vải lỗi</div>
+                            <div style="font-size: 28px; font-weight: 700;">${(vaiLoi || 0).toFixed(1)}</div>
+                            <div style="font-size: 11px; opacity: 0.9;">m</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); color: white; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">Vải thiếu</div>
+                            <div style="font-size: 28px; font-weight: 700;">${(vaiThieu || 0).toFixed(1)}</div>
+                            <div style="font-size: 11px; opacity: 0.9;">m</div>
+                        </div>
+                    </div>
+                    
+                    ${itemsHtml}
+                </div>
+            `;
+        }
+        
+        // Hàm thay đổi index lần cắt
+        function changeCuttingIndex(newIndex) {
+            const fabric = reportViewState.selectedFabric;
+            if (newIndex < 0 || newIndex >= fabric.lichSuCat.length) return;
+            displaySingleCutting(fabric, newIndex);
+        }
+        
+        // Render chi tiết lần cắt (Level 3)
+        function renderCutDetail(fabric, cutIndex, cut) {
+            const vaiLoi = (cut.vaiLoi && cut.vaiLoi.soM) ? cut.vaiLoi.soM : 0;
+            const vaiThieu = (cut.vaiThieu && cut.vaiThieu.soM) ? cut.vaiThieu.soM : 0;
+            const nhapLaiKho = (cut.nhapLaiKho && cut.nhapLaiKho.soM) ? cut.nhapLaiKho.soM : 0;
+            const timeStr = new Date(cut.ngayCat).toLocaleString('vi-VN');
+            
+            let itemsHtml = '';
+            if (cut.items && cut.items.length > 0) {
+                itemsHtml = `
+                    <div style="margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+                        <h4 style="margin: 0 0 12px 0; color: #1a1a1a; font-weight: 600;">📋 Danh sách kích thước cắt (${cut.items.length})</h4>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: white; border-bottom: 2px solid #ddd;">
+                                        <th style="padding: 10px; text-align: left; color: #666; font-weight: 600;">Kích thước</th>
+                                        <th style="padding: 10px; text-align: center; color: #666; font-weight: 600;">SL</th>
+                                        <th style="padding: 10px; text-align: right; color: #666; font-weight: 600;">Diện tích (m²)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${cut.items.map((item, idx) => `
+                                        <tr style="border-bottom: 1px solid #f0f0f0; background: ${idx % 2 === 0 ? 'white' : '#fafafa'};">
+                                            <td style="padding: 10px; color: #333; font-weight: 500;">${item.chieuRong || 'N/A'} × ${item.chieuDai || 'N/A'}</td>
+                                            <td style="padding: 10px; text-align: center; color: #666;">${item.soLuong || 1}</td>
+                                            <td style="padding: 10px; text-align: right; color: #667eea; font-weight: 600;">${((item.dienTich || 0)).toFixed(2)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const content = document.getElementById('cutDetailContent');
+            content.innerHTML = `
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e0e0e0;">
+                    <div>
+                        <h2 style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 22px; font-weight: 700;">✂️ Chi tiết lần cắt ${cutIndex + 1}</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px;">Cây vải: <strong>${fabric.catVaiId}</strong> - ${fabric.maMau} (${fabric.tenMau})</p>
+                    </div>
+                    <button onclick="showReportLevel(2)" style="padding: 10px 20px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: 600; color: #333; transition: all 0.2s;" onmouseover="this.style.background='white'" onmouseout="this.style.background='#f0f0f0';">
+                        ← Quay lại
+                    </button>
+                </div>
+                
+                <!-- Basic Info -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                    <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); padding: 16px; border-radius: 8px; border-left: 4px solid #667eea;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Thời gian cắt</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #333;">📅 ${timeStr}</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #22c55e15 0%, #20c99715 100%); padding: 16px; border-radius: 8px; border-left: 4px solid #22c55e;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Nhân viên</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #333;">👤 ${cut.createdBy || 'Unknown'}</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f59e0b15 0%, #fbbf2415 100%); padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Số lần cắt tổng</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #333;">${cutIndex + 1} / ${reportViewState.selectedFabric?.lichSuCat?.length || 1}</div>
+                    </div>
+                </div>
+                
+                <!-- Metrics -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                    <div style="background: #f0f8ff; padding: 16px; border-radius: 8px; border: 1px solid #cce5ff; text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Diện tích đã cắt</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #4facfe;">${(cut.dienTichDaCat || 0).toFixed(2)}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">m²</div>
+                    </div>
+                    <div style="background: #f0fff4; padding: 16px; border-radius: 8px; border: 1px solid #ccf0dd; text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Số m còn lại</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #22c55e;">${(cut.soMConLai || 0).toFixed(1)}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">m</div>
+                    </div>
+                    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; border: 1px solid #fecccc; text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Vải lỗi</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #ef4444;">${(vaiLoi || 0).toFixed(1)}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">m</div>
+                    </div>
+                    <div style="background: #fff7ed; padding: 16px; border-radius: 8px; border: 1px solid #fde8cc; text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Vải thiếu</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${(vaiThieu || 0).toFixed(1)}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">m</div>
+                    </div>
+                    <div style="background: #e9f7ef; padding: 16px; border-radius: 8px; border: 1px solid #d3eee5; text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Nhập lại kho</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #20c997;">${(nhapLaiKho || 0).toFixed(1)}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">m</div>
+                    </div>
+                </div>
+                
+                ${itemsHtml}
+            `;
+        }
+        
+        // Toggle chi tiết cây vải (cũ)
+        function toggleFabricDetails(detailsId) {
+            const element = document.getElementById(detailsId);
+            const cardId = detailsId.replace('cutting-history-', '');
+            const expandIcon = document.getElementById('expand-icon-' + cardId);
+            
+            if (element.style.display === 'none') {
+                element.style.display = 'block';
+                expandIcon.style.transform = 'rotate(180deg)';
+            } else {
+                element.style.display = 'none';
+                expandIcon.style.transform = 'rotate(0deg)';
             }
         }
+
+        // Hiển thị chi tiết lần cắt cụ thể
+        function showCutDetail(catVaiId, cutIndex, lichSuJson, maMau, tenMau) {
+            try {
+                // Parse lịch sử từ JSON string
+                const lichSu = JSON.parse(lichSuJson);
+                
+                // Cập nhật thông tin cơ bản
+                document.getElementById('cutDetailCatVaiId').textContent = catVaiId;
+                document.getElementById('cutDetailMauInfo').textContent = maMau + ' - ' + tenMau;
+                document.getElementById('cutDetailDate').textContent = new Date(lichSu.ngayCat).toLocaleDateString('vi-VN');
+                document.getElementById('cutDetailCreatedBy').textContent = lichSu.createdBy || 'N/A';
+                
+                // Cập nhật thống kê
+                document.getElementById('cutDetailDienTich').textContent = (lichSu.dienTichDaCat || 0).toFixed(2);
+                document.getElementById('cutDetailSoMConLai').textContent = (lichSu.soMConLai || 0).toFixed(1);
+                document.getElementById('cutDetailVaiLoi').textContent = (lichSu.vaiLoi && lichSu.vaiLoi.soM) ? lichSu.vaiLoi.soM.toFixed(1) : '0';
+                document.getElementById('cutDetailVaiThieu').textContent = (lichSu.vaiThieu && lichSu.vaiThieu.soM) ? lichSu.vaiThieu.soM.toFixed(1) : '0';
+                document.getElementById('cutDetailNhapLaiKho').textContent = (lichSu.nhapLaiKho && lichSu.nhapLaiKho.soM) ? lichSu.nhapLaiKho.soM.toFixed(1) : '0';
+                
+                // Hiển thị danh sách kích thước
+                const itemsBody = document.getElementById('cutDetailItemsBody');
+                if (lichSu.items && lichSu.items.length > 0) {
+                    itemsBody.innerHTML = lichSu.items.map(item => `
+                        <tr>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${item.cao || '-'} x ${item.ngang || '-'} cm</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.sku || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.sl || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${(item.dienTich || 0).toFixed(2)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    itemsBody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #999;">Không có dữ liệu kích thước</td></tr>';
+                }
+                
+                // Hiển thị May áo gối (nếu có)
+                const mayAoGoiContainer = document.getElementById('cutDetailMayAoGoiContainer');
+                if (lichSu.mayAoGoi && lichSu.mayAoGoi.length > 0) {
+                    mayAoGoiContainer.style.display = 'block';
+                    const mayAoGoiList = document.getElementById('cutDetailMayAoGoiList');
+                    mayAoGoiList.innerHTML = lichSu.mayAoGoi.map(m => `
+                        <div style="padding: 12px; background: white; border-radius: 6px; border: 1px solid #20c997;">
+                            <div style="color: #666; font-size: 0.9rem; margin-bottom: 4px;">${m.loaiMay || m.name || '-'}</div>
+                            <div style="font-weight: 600; font-size: 1.1rem; color: #20c997;">${(m.value || 0).toFixed(1)} m</div>
+                        </div>
+                    `).join('');
+                } else {
+                    mayAoGoiContainer.style.display = 'none';
+                }
+                
+                // Hiển thị modal
+                document.getElementById('cutDetailModal').style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            } catch (error) {
+                console.error('Lỗi hiển thị chi tiết lần cắt:', error);
+                alert('Lỗi khi tải chi tiết lần cắt');
+            }
+        }
+
+        // Ẩn chi tiết lần cắt
+        function hideCutDetail() {
+            document.getElementById('cutDetailModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Tab switching cho Statistics Section
+        function switchDetailTab(tab) {
+            const fabricGrid = document.getElementById('fabricObjectsGrid');
+            const cuttingGrid = document.getElementById('cuttingSessionsGrid');
+            const fabricBtn = document.getElementById('tabFabricBtn');
+            const cuttingBtn = document.getElementById('tabCuttingBtn');
+
+            if (tab === 'fabricObjects') {
+                fabricGrid.style.display = 'grid';
+                cuttingGrid.style.display = 'none';
+                fabricBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                fabricBtn.style.color = 'white';
+                cuttingBtn.style.background = '#f0f0f0';
+                cuttingBtn.style.color = '#333';
+            } else {
+                fabricGrid.style.display = 'none';
+                cuttingGrid.style.display = 'grid';
+                fabricBtn.style.background = '#f0f0f0';
+                fabricBtn.style.color = '#333';
+                cuttingBtn.style.background = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+                cuttingBtn.style.color = 'white';
+            }
+        }
+
+        // Populate Fabric Objects Grid
+        function populateFabricObjectsGrid(data) {
+            const grid = document.getElementById('fabricObjectsGrid');
+            if (!data || data.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #999;">Không có dữ liệu cây vải</div>';
+                return;
+            }
+
+            grid.innerHTML = data.map((item, idx) => {
+                const hasVaiThieu = item.vaiThieu && item.vaiThieu.soM > 0;
+                const statusColor = item.trangThai === 'active' ? '#22c55e' : item.trangThai === 'completed' ? '#3b82f6' : '#999';
+                const statusText = item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ';
+                
+                return `
+                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s; cursor: pointer;" onmouseover="this.style.boxShadow='0 6px 16px rgba(0,0,0,0.12)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'; this.style.transform='translateY(0)'">
+                        <!-- Header -->
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div>
+                                <h4 style="margin: 0 0 4px 0; color: var(--primary); font-size: 16px;">📦 ${item.catVaiId}</h4>
+                                <p style="margin: 0; color: #666; font-size: 12px;">${item.maMau} - ${item.tenMau}</p>
+                            </div>
+                            <span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                ${statusText}
+                            </span>
+                        </div>
+
+                        <!-- Metrics Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; font-size: 12px;">
+                            <div style="background: #f0f8ff; padding: 8px; border-radius: 6px; border-left: 3px solid #4facfe;">
+                                <div style="color: #666; font-size: 11px;">Chiều dài</div>
+                                <div style="font-weight: 700; color: #4facfe;">${(item.chieuDaiCayVai || 0).toFixed(1)} m</div>
+                            </div>
+                            <div style="background: #f0fff4; padding: 8px; border-radius: 6px; border-left: 3px solid #22c55e;">
+                                <div style="color: #666; font-size: 11px;">Diện tích ban đầu</div>
+                                <div style="font-weight: 700; color: #22c55e;">${(item.dienTichBanDau || 0).toFixed(2)} m²</div>
+                            </div>
+                            <div style="background: #f0f8ff; padding: 8px; border-radius: 6px; border-left: 3px solid #667eea;">
+                                <div style="color: #666; font-size: 11px;">Đã cắt</div>
+                                <div style="font-weight: 700; color: #667eea;">${(item.dienTichDaCat || 0).toFixed(2)} m²</div>
+                            </div>
+                            <div style="background: #fff7ed; padding: 8px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                                <div style="color: #666; font-size: 11px;">Còn lại</div>
+                                <div style="font-weight: 700; color: #f59e0b;">${(item.soMConLai || 0).toFixed(1)} m</div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Info -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 11px;">
+                            <div>
+                                <div style="color: #999;">Tiến độ</div>
+                                <div style="font-weight: 600; color: #333; margin-top: 2px;">${(item.tienDoPercent || 0)}%</div>
+                            </div>
+                            <div>
+                                <div style="color: #999;">Số lần cắt</div>
+                                <div style="font-weight: 600; color: #333; margin-top: 2px;">${item.lichSuCat ? item.lichSuCat.length : 0}</div>
+                            </div>
+                            <div>
+                                <div style="color: #999;">Vải thiếu</div>
+                                <div style="font-weight: 600; color: ${hasVaiThieu ? '#ef4444' : '#22c55e'}; margin-top: 2px;">${hasVaiThieu ? (item.vaiThieu.soM || 0).toFixed(1) : '0'} m</div>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="text-align: center; padding-top: 8px; border-top: 1px solid #f0f0f0;">
+                            <small style="color: #999;">Nhập: ${item.ngayNhap ? new Date(item.ngayNhap).toLocaleDateString('vi-VN') : 'N/A'}</small>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Populate Cutting Sessions Grid
+        function populateCuttingSessionsGrid(data) {
+            const grid = document.getElementById('cuttingSessionsGrid');
+            if (!data || data.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #999;">Không có dữ liệu lần cắt</div>';
+                return;
+            }
+
+            const allCutSessions = [];
+            data.forEach(item => {
+                if (item.lichSuCat && Array.isArray(item.lichSuCat)) {
+                    item.lichSuCat.forEach((cut, idx) => {
+                        allCutSessions.push({
+                            ...cut,
+                            catVaiId: item.catVaiId,
+                            maMau: item.maMau,
+                            tenMau: item.tenMau,
+                            cupIndex: idx
+                        });
+                    });
+                }
+            });
+
+            // Sort by date descending
+            allCutSessions.sort((a, b) => new Date(b.ngayCat) - new Date(a.ngayCat));
+
+            if (allCutSessions.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #999;">Không có dữ liệu lần cắt</div>';
+                return;
+            }
+
+            grid.innerHTML = allCutSessions.map((cut, idx) => {
+                const vaiLoi = (cut.vaiLoi && cut.vaiLoi.soM) ? cut.vaiLoi.soM : 0;
+                const vaiThieu = (cut.vaiThieu && cut.vaiThieu.soM) ? cut.vaiThieu.soM : 0;
+                const timeStr = cut.ngayCat ? new Date(cut.ngayCat).toLocaleString('vi-VN') : 'N/A';
+
+                return `
+                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s; cursor: pointer;" onmouseover="this.style.boxShadow='0 6px 16px rgba(0,0,0,0.12)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'; this.style.transform='translateY(0)'">
+                        <!-- Header -->
+                        <div style="margin-bottom: 12px;">
+                            <h4 style="margin: 0 0 4px 0; color: var(--primary); font-size: 15px;">✂️ Cây vải: ${cut.catVaiId}</h4>
+                            <p style="margin: 0; color: #666; font-size: 12px;">${cut.maMau} - ${cut.tenMau}</p>
+                            <p style="margin: 4px 0 0 0; color: #999; font-size: 11px;">📅 ${timeStr}</p>
+                        </div>
+
+                        <!-- Metrics Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; font-size: 12px;">
+                            <div style="background: #f0f8ff; padding: 8px; border-radius: 6px; border-left: 3px solid #4facfe;">
+                                <div style="color: #666; font-size: 11px;">Diện tích cắt</div>
+                                <div style="font-weight: 700; color: #4facfe;">${(cut.dienTichDaCat || 0).toFixed(2)} m²</div>
+                            </div>
+                            <div style="background: #f0fff4; padding: 8px; border-radius: 6px; border-left: 3px solid #22c55e;">
+                                <div style="color: #666; font-size: 11px;">Còn lại</div>
+                                <div style="font-weight: 700; color: #22c55e;">${(cut.soMConLai || 0).toFixed(1)} m</div>
+                            </div>
+                            <div style="background: #fef2f2; padding: 8px; border-radius: 6px; border-left: 3px solid #ef4444;">
+                                <div style="color: #666; font-size: 11px;">Vải lỗi</div>
+                                <div style="font-weight: 700; color: #ef4444;">${(vaiLoi || 0).toFixed(1)} m</div>
+                            </div>
+                            <div style="background: #fff7ed; padding: 8px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                                <div style="color: #666; font-size: 11px;">Vải thiếu</div>
+                                <div style="font-weight: 700; color: #f59e0b;">${(vaiThieu || 0).toFixed(1)} m</div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Info -->
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 11px;">
+                            <div>
+                                <div style="color: #999;">Nhân viên</div>
+                                <div style="font-weight: 600; color: #333; margin-top: 2px;">👤 ${cut.createdBy || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div style="color: #999;">Số kích thước</div>
+                                <div style="font-weight: 600; color: #333; margin-top: 2px;">${cut.items ? cut.items.length : 0}</div>
+                            </div>
+                        </div>
+
+                        <!-- Items Preview -->
+                        ${cut.items && cut.items.length > 0 ? `
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
+                                <div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 600;">Kích thước:</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                    ${cut.items.slice(0, 5).map(kt => `
+                                        <span style="background: #f0f0f0; padding: 3px 6px; border-radius: 3px; font-size: 10px; color: #666;">
+                                            ${kt.chieuRong || 'N/A'}×${kt.chieuDai || 'N/A'}
+                                        </span>
+                                    `).join('')}
+                                    ${cut.items.length > 5 ? `<span style="background: #f0f0f0; padding: 3px 6px; border-radius: 3px; font-size: 10px; color: #999;">+${cut.items.length - 5}</span>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Action Button -->
+                        <div style="margin-top: 12px; text-align: center;">
+                            <button class="btn btn-small" onclick="showCutDetail('${cut.catVaiId}', ${cut.cupIndex}, '${JSON.stringify(cut).replace(/'/g, "\\'")}', '${cut.maMau}', '${cut.tenMau}')" style="padding: 6px 12px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--primary)'">
+                                🔍 Chi tiết
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Đóng modal khi click vào overlay
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('cutDetailModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        hideCutDetail();
+                    }
+                });
+            }
+        });
 
         // Xuất báo cáo
         async function exportReport() {
@@ -1998,6 +2705,10 @@
                 showError('masterDataVai', 'Lỗi xóa dữ liệu: ' + error.message);
             }
         }
+
+        // ============ CatVai Statistics Functions ============
+        
+        // Tìm kiếm DoiTuongCatVai
 
         // Khởi tạo
         initializePage();
