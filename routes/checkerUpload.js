@@ -549,22 +549,36 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
             await Order.deleteMany({});
         }
 
-        // Luôn gọi đúng endpoint danh sách đơn hàng trên Sapo
-        const endpoint = '/admin/orders.json';
-
-        const sapoRes = await sapoAPI('GET', endpoint);
-        const payload = sapoRes ? sapoRes.data : null;
-
-        // Sapo có thể trả về nhiều shape khác nhau tùy phiên bản/endpoint
+        // Gọi endpoint danh sách đơn hàng trên Sapo với phân trang
+        const ORDERS_LIMIT_PER_PAGE = 250;
         let sapoOrders = [];
-        if (payload && Array.isArray(payload.orders)) {
-            sapoOrders = payload.orders;
-        } else if (payload && payload.data && Array.isArray(payload.data.orders)) {
-            sapoOrders = payload.data.orders;
-        } else if (payload && Array.isArray(payload.data)) {
-            sapoOrders = payload.data;
-        } else if (Array.isArray(payload)) {
-            sapoOrders = payload;
+        let ordersPage = 1;
+        let ordersHasMore = true;
+        let endpoint = `/admin/orders.json?limit=${ORDERS_LIMIT_PER_PAGE}&page=1`; // Giữ giá trị cuối cùng cho debug
+
+        while (ordersHasMore) {
+            endpoint = `/admin/orders.json?limit=${ORDERS_LIMIT_PER_PAGE}&page=${ordersPage}`;
+            const sapoRes = await sapoAPI('GET', endpoint);
+            const payload = sapoRes ? sapoRes.data : null;
+
+            let ordersChunk = [];
+            if (payload && Array.isArray(payload.orders)) {
+                ordersChunk = payload.orders;
+            } else if (payload && payload.data && Array.isArray(payload.data.orders)) {
+                ordersChunk = payload.data.orders;
+            } else if (payload && Array.isArray(payload.data)) {
+                ordersChunk = payload.data;
+            } else if (Array.isArray(payload)) {
+                ordersChunk = payload;
+            }
+
+            if (!ordersChunk.length) {
+                ordersHasMore = false;
+            } else {
+                sapoOrders = sapoOrders.concat(ordersChunk);
+                ordersHasMore = ordersChunk.length >= ORDERS_LIMIT_PER_PAGE;
+                ordersPage += 1;
+            }
         }
 
         if (!sapoOrders.length) {
