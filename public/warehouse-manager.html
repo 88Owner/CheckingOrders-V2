@@ -406,14 +406,14 @@
                         </div>
                         
                         <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
-                            <div style="font-size: 48px; color: var(--primary); margin-bottom: 16px;">📦</div>
+                            <div style="font-size: 48px; color: var(--primary); margin-bottom: 16px;"></div>
                             <h3 style="color: var(--primary); margin-bottom: 12px;">Load file MasterDataVai</h3>
                             <p style="color: #666; margin-bottom: 20px;">Upload file Excel chứa dữ liệu MasterDataVai với 5 cột: Sku, Tên, Mẫu, Ngang, Cao</p>
                             <button class="btn" onclick="showSection('masterDataVai')">Bắt đầu</button>
                         </div>
                         
                         <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
-                            <div style="font-size: 48px; color: var(--ok); margin-bottom: 16px;">📊</div>
+                            <div style="font-size: 48px; color: var(--ok); margin-bottom: 16px;"></div>
                             <h3 style="color: var(--ok); margin-bottom: 12px;">Xuất file nhập phôi</h3>
                             <p style="color: #666; margin-bottom: 20px;">Tạo và tải xuống file Excel chứa dữ liệu nhập phôi tổng hợp</p>
                             <button class="btn btn-secondary" onclick="showSection('export')">Bắt đầu</button>
@@ -797,6 +797,18 @@
                                         <option value="">Tất cả mẫu vải</option>
                                     </select>
                                 </div>
+
+                                <div>
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Đối tượng cắt (catVaiId):</label>
+                                    <input type="text" id="reportFilterCatVaiId" placeholder="VD: CV-1-1774496895261"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" oninput="debouncedLoadReport()">
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Nhân viên cắt:</label>
+                                    <input type="text" id="reportFilterCreatedBy" placeholder="username / tên nhân viên"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" oninput="debouncedLoadReport()">
+                                </div>
                                 
                                 <div>
                                     <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Loại lọc thời gian:</label>
@@ -860,26 +872,29 @@
 
                     <!-- Phần Thống kê chi tiết -->
                     <div id="reportStatistics" style="display: none; margin-bottom: 24px;">
-                        <h3 style="margin-bottom: 16px; color: #333;">📊 Thống kê chi tiết</h3>
+                        <h3 style="margin-bottom: 16px; color: #333;">Thống kê chi tiết</h3>
+
+                        <!-- Fabric Objects List (accordion) -->
+                        <div id="fabricObjectsGrid" style="display: block; margin-bottom: 16px;">
+                            <!-- Cards will be populated here -->
+                        </div>
                         
-                        <!-- Tab Navigation -->
-                        <div style="display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid #e0e0e0;">
-                            <button onclick="switchDetailTab('fabricObjects')" id="tabFabricBtn" style="padding: 12px 20px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; margin-right: 8px; transition: all 0.2s;">
-                                📦 Danh sách cây vải
-                            </button>
-                            <button onclick="switchDetailTab('cuttingSessions')" id="tabCuttingBtn" style="padding: 12px 20px; border: none; background: #f0f0f0; color: #333; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s;">
-                                ✂️ Danh sách lần cắt
-                            </button>
-                        </div>
-
-                        <!-- Fabric Objects Grid -->
-                        <div id="fabricObjectsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                            <!-- Cards will be populated here -->
-                        </div>
-
-                        <!-- Cutting Sessions Grid -->
-                        <div id="cuttingSessionsGrid" style="display: none; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                            <!-- Cards will be populated here -->
+                        <!-- Pagination -->
+                        <div id="reportStatsPagination" style="display:none; background:white; border:1px solid #e5e7eb; border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                <button class="btn btn-secondary" id="statsPrevBtn" onclick="changeStatsPage(-1)" style="padding:6px 12px; font-size:12px;">← Trước</button>
+                                <button class="btn btn-secondary" id="statsNextBtn" onclick="changeStatsPage(1)" style="padding:6px 12px; font-size:12px;">Sau →</button>
+                                <span style="color:#666; font-size:12px;" id="statsPageInfo">Trang -/-</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label style="color:#666; font-size:12px; font-weight:600;">Số dòng/trang</label>
+                                <select id="statsPageSize" onchange="resetStatsPaginationAndReload()" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:12px;">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -901,12 +916,12 @@
                             <!-- Level 1: Danh sách Cây vải -->
                             <div id="fabricListView" style="display: block;">
                                 <div style="margin-bottom: 16px;">
-                                    <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 18px;">📦 Danh sách cây vải</h3>
+                                    <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 18px;">Danh sách cây vải</h3>
                                     <p style="margin: 0; color: #666; font-size: 13px;">Click để xem chi tiết lịch sử cắt</p>
                                 </div>
                                 <div id="fabricListContainer" style="display: grid; gap: 12px;">
                                     <div style="text-align: center; padding: 40px; color: #999;">
-                                        <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                                        <div style="font-size: 48px; margin-bottom: 16px;"></div>
                                         <div>Đang tải danh sách...</div>
                                     </div>
                                 </div>
@@ -959,14 +974,14 @@
                                     </div>
                                 </div>
 
-                                <!-- Thống kê số m -->
-                                <div style="background: #e8f5e9; padding: 16px; border-radius: 8px; border-left: 4px solid var(--ok); margin-bottom: 20px;">
+                                <!-- Thống kê số m (ẩn theo yêu cầu) -->
+                                <div id="cutDetailStatsSection" style="background: #e8f5e9; padding: 16px; border-radius: 8px; border-left: 4px solid var(--ok); margin-bottom: 20px;">
                                     <h3 style="color: var(--ok); margin: 0 0 12px 0;">Thống kê</h3>
                                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
                                         <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #c8e6c9;">
-                                            <div style="color: #666; font-size: 0.85rem;">Diện tích đã cắt</div>
+                                        <div style="color: #666; font-size: 0.85rem;">Số m input</div>
                                             <div style="font-weight: 600; font-size: 1.2rem; color: var(--ok);" id="cutDetailDienTich">-</div>
-                                            <div style="color: #999; font-size: 0.8rem;">m²</div>
+                                        <div style="color: #999; font-size: 0.8rem;">m</div>
                                         </div>
                                         <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #c8e6c9;">
                                             <div style="color: #666; font-size: 0.85rem;">Số m còn lại</div>
@@ -991,22 +1006,21 @@
                                     </div>
                                 </div>
 
-                                <!-- Danh sách kích thước -->
+                                <!-- Drilldown SKU -->
                                 <div style="margin-bottom: 20px;">
-                                    <h3 style="color: var(--primary); margin-bottom: 12px;">Danh sách kích thước cắt</h3>
+                                    <h3 style="color: var(--primary); margin-bottom: 12px;">Danh sách SKU cắt</h3>
                                     <div style="overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">
                                         <table style="width: 100%; min-width: 400px; border-collapse: collapse;">
                                             <thead>
                                                 <tr style="background: #f0f0f0;">
-                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Kích thước</th>
-                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">SKU</th>
+                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">SKU</th>
                                                     <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">SL</th>
-                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Diện tích (m²)</th>
+                                                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">SL lỗi</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="cutDetailItemsBody">
                                                 <tr>
-                                                    <td colspan="4" style="padding: 20px; text-align: center; color: #999;">Đang tải...</td>
+                                                    <td colspan="3" style="padding: 20px; text-align: center; color: #999;">Đang tải...</td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -1636,15 +1650,77 @@
         }
 
         // Load báo cáo
+        let reportStatsState = {
+            page: 1,
+            pageSize: 20,
+            totalPages: 1,
+            totalItems: 0
+        };
+
+        let __loadReportDebounceTimer = null;
+        function debouncedLoadReport() {
+            clearTimeout(__loadReportDebounceTimer);
+            __loadReportDebounceTimer = setTimeout(() => {
+                resetStatsPaginationAndReload();
+            }, 250);
+        }
+
+        function resetStatsPaginationAndReload() {
+            reportStatsState.page = 1;
+            const ps = Number(document.getElementById('statsPageSize')?.value || 20);
+            reportStatsState.pageSize = Number.isFinite(ps) && ps > 0 ? ps : 20;
+            loadReport();
+        }
+
+        function changeStatsPage(delta) {
+            const next = reportStatsState.page + delta;
+            if (next < 1 || next > reportStatsState.totalPages) return;
+            reportStatsState.page = next;
+            loadReport();
+        }
+
+        function renderStatsPagination(pagination) {
+            const wrap = document.getElementById('reportStatsPagination');
+            if (!wrap) return;
+            if (!pagination || !pagination.totalItems || pagination.totalItems <= 0) {
+                wrap.style.display = 'none';
+                return;
+            }
+            wrap.style.display = 'flex';
+
+            reportStatsState.page = pagination.page || 1;
+            reportStatsState.pageSize = pagination.pageSize || reportStatsState.pageSize;
+            reportStatsState.totalPages = pagination.totalPages || 1;
+            reportStatsState.totalItems = pagination.totalItems || 0;
+
+            const info = document.getElementById('statsPageInfo');
+            if (info) info.textContent = `Trang ${reportStatsState.page}/${reportStatsState.totalPages} • Tổng ${reportStatsState.totalItems} đối tượng`;
+
+            const prevBtn = document.getElementById('statsPrevBtn');
+            const nextBtn = document.getElementById('statsNextBtn');
+            if (prevBtn) prevBtn.disabled = reportStatsState.page <= 1;
+            if (nextBtn) nextBtn.disabled = reportStatsState.page >= reportStatsState.totalPages;
+        }
+
         async function loadReport() {
             const filterMau = document.getElementById('reportFilterMau').value;
             const filterType = document.getElementById('reportFilterType').value;
+            const filterCatVaiId = document.getElementById('reportFilterCatVaiId')?.value || '';
+            const filterCreatedBy = document.getElementById('reportFilterCreatedBy')?.value || '';
             
             try {
                 const params = new URLSearchParams();
                 if (filterMau) params.append('maMau', filterMau);
+                if (filterCatVaiId && filterCatVaiId.trim()) params.append('catVaiId', filterCatVaiId.trim());
+                if (filterCreatedBy && filterCreatedBy.trim()) params.append('createdBy', filterCreatedBy.trim());
                 // Luôn gom nhóm theo catVaiId
                 params.append('groupByCatVaiId', 'true');
+                // Báo cáo theo lịch sử cắt (ngayCat)
+                params.append('timeField', 'cut');
+                // Pagination for statistics/detail list
+                params.append('page', String(reportStatsState.page || 1));
+                const ps = Number(document.getElementById('statsPageSize')?.value || reportStatsState.pageSize || 20);
+                params.append('pageSize', String(ps));
                 
                 // Xử lý filter thời gian
                 if (filterType !== 'all') {
@@ -1687,10 +1763,32 @@
                 
                 if (result.success) {
                     const data = result.data;
+                    const summary = data.summary || {};
+                    
+                    // Update summary cards
+                    const safeNum = (v, digits = 0) => {
+                        const n = Number(v);
+                        if (Number.isNaN(n) || !Number.isFinite(n)) return '-';
+                        return digits > 0 ? n.toFixed(digits) : String(Math.round(n));
+                    };
+                    if (document.getElementById('totalCatVai')) document.getElementById('totalCatVai').textContent = safeNum(summary.totalCatVai, 0);
+                    if (document.getElementById('totalItems')) document.getElementById('totalItems').textContent = safeNum(summary.totalItems, 0);
+                    if (document.getElementById('totalDienTich')) document.getElementById('totalDienTich').textContent = safeNum(summary.totalDienTich, 2);
+                    if (document.getElementById('totalSoM')) document.getElementById('totalSoM').textContent = safeNum(summary.totalSoM, 1);
+                    if (document.getElementById('totalVaiThieu')) document.getElementById('totalVaiThieu').textContent = safeNum(summary.totalVaiThieu, 1);
+                    if (document.getElementById('totalVaiLoi')) document.getElementById('totalVaiLoi').textContent = safeNum(summary.totalVaiLoi, 1);
                     
                     // Display report data
                     if (data.list && data.list.length > 0) {
                         displayReportTable(data.list, true);
+                        // Populate statistics section (fabric objects + cutting sessions)
+                        try {
+                            document.getElementById('reportStatistics').style.display = 'block';
+                            populateFabricObjectsGrid(data.list);
+                            renderStatsPagination(data.pagination || null);
+                        } catch (e) {
+                            console.warn('Không thể populate reportStatistics:', e.message);
+                        }
                     } else {
                         // Show empty message
                         const container = document.getElementById('fabricListContainer');
@@ -1701,6 +1799,10 @@
                                 <div style="font-size: 14px; margin-top: 8px;">Vui lòng kiểm tra bộ lọc hoặc dữ liệu hệ thống</div>
                             </div>
                         `;
+                        // Hide statistics when empty
+                        const statEl = document.getElementById('reportStatistics');
+                        if (statEl) statEl.style.display = 'none';
+                        renderStatsPagination(null);
                     }
                     
                     // Load danh sách mẫu vải vào filter
@@ -1865,7 +1967,7 @@
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                                 <div style="flex: 1;">
                                     <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">
-                                        <span style="color: #667eea;">📦 ${fabric.catVaiId}</span>
+                                        <span style="color: #667eea;">${fabric.catVaiId}</span>
                                     </h3>
                                     <p style="margin: 0; color: #666; font-size: 13px;">
                                         <span style="display: inline-block; background: #e8f1f5; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 12px;">
@@ -1914,7 +2016,7 @@
                             
                             <!-- Footer -->
                             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999;">
-                                <span>📅 ${new Date(fabric.ngayNhap).toLocaleDateString('vi-VN')}</span>
+                                <span>${new Date(fabric.ngayNhap).toLocaleDateString('vi-VN')}</span>
                                 <span style="color: #999; font-size: 11px;">
                                     Nhập bởi ${fabric.createdBy || 'N/A'}
                                 </span>
@@ -1950,7 +2052,7 @@
             reportViewState.selectedCutIndex = cutIndex;
             
             const title = document.getElementById('historyTitle');
-            title.textContent = `✂️ Lần cắt ${cutIndex + 1} / ${fabric.lichSuCat.length}`;
+            title.textContent = `lần cắt ${cutIndex + 1} / ${fabric.lichSuCat.length}`;
             
             const cut = fabric.lichSuCat[cutIndex];
             const timeStr = new Date(cut.ngayCat).toLocaleString('vi-VN');
@@ -1963,9 +2065,9 @@
                 <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <div>
-                            <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">✂️ Lần cắt ${cutIndex + 1}</h3>
+                            <h3 style="margin: 0 0 4px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">lần cắt ${cutIndex + 1}</h3>
                             <p style="margin: 0; color: #666; font-size: 12px;">
-                                📅 ${timeStr} | 👤 ${cut.createdBy || 'Unknown'}
+                                ${timeStr} | 👤 ${cut.createdBy || 'Unknown'}
                             </p>
                         </div>
                         <div style="display: flex; gap: 8px;">
@@ -2115,7 +2217,7 @@
                 <!-- Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e0e0e0;">
                     <div>
-                        <h2 style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 22px; font-weight: 700;">✂️ Chi tiết lần cắt ${cutIndex + 1}</h2>
+                        <h2 style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 22px; font-weight: 700;">Chi tiết lần cắt ${cutIndex + 1}</h2>
                         <p style="margin: 0; color: #666; font-size: 14px;">Cây vải: <strong>${fabric.catVaiId}</strong> - ${fabric.maMau} (${fabric.tenMau})</p>
                     </div>
                     <button onclick="showReportLevel(2)" style="padding: 10px 20px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: 600; color: #333; transition: all 0.2s;" onmouseover="this.style.background='white'" onmouseout="this.style.background='#f0f0f0';">
@@ -2198,43 +2300,39 @@
                 document.getElementById('cutDetailMauInfo').textContent = maMau + ' - ' + tenMau;
                 document.getElementById('cutDetailDate').textContent = new Date(lichSu.ngayCat).toLocaleDateString('vi-VN');
                 document.getElementById('cutDetailCreatedBy').textContent = lichSu.createdBy || 'N/A';
+
+                // Theo yêu cầu: chỉ giữ phần "Danh sách SKU cắt", ẩn các khối khác trong modal
+                const statsSection = document.getElementById('cutDetailStatsSection');
+                if (statsSection) statsSection.style.display = 'none';
+                const mayAoGoiContainer = document.getElementById('cutDetailMayAoGoiContainer');
+                if (mayAoGoiContainer) {
+                    mayAoGoiContainer.style.display = 'none';
+                    const mayAoGoiList = document.getElementById('cutDetailMayAoGoiList');
+                    if (mayAoGoiList) mayAoGoiList.innerHTML = '';
+                }
                 
                 // Cập nhật thống kê
-                document.getElementById('cutDetailDienTich').textContent = (lichSu.dienTichDaCat || 0).toFixed(2);
-                document.getElementById('cutDetailSoMConLai').textContent = (lichSu.soMConLai || 0).toFixed(1);
-                document.getElementById('cutDetailVaiLoi').textContent = (lichSu.vaiLoi && lichSu.vaiLoi.soM) ? lichSu.vaiLoi.soM.toFixed(1) : '0';
-                document.getElementById('cutDetailVaiThieu').textContent = (lichSu.vaiThieu && lichSu.vaiThieu.soM) ? lichSu.vaiThieu.soM.toFixed(1) : '0';
-                document.getElementById('cutDetailNhapLaiKho').textContent = (lichSu.nhapLaiKho && lichSu.nhapLaiKho.soM) ? lichSu.nhapLaiKho.soM.toFixed(1) : '0';
+                document.getElementById('cutDetailDienTich').textContent = (Number(lichSu.__soMInput) || 0).toFixed(2);
+                document.getElementById('cutDetailSoMConLai').textContent = (Number(lichSu.soMConLai) || 0).toFixed(2);
+                document.getElementById('cutDetailVaiLoi').textContent = (lichSu.vaiLoi && lichSu.vaiLoi.soM) ? Number(lichSu.vaiLoi.soM).toFixed(2) : '0.00';
+                document.getElementById('cutDetailVaiThieu').textContent = (lichSu.vaiThieu && lichSu.vaiThieu.soM) ? Number(lichSu.vaiThieu.soM).toFixed(2) : '0.00';
+                document.getElementById('cutDetailNhapLaiKho').textContent = (lichSu.nhapLaiKho && lichSu.nhapLaiKho.soM) ? Number(lichSu.nhapLaiKho.soM).toFixed(2) : '0.00';
                 
-                // Hiển thị danh sách kích thước
+                // Hiển thị drilldown SKU
                 const itemsBody = document.getElementById('cutDetailItemsBody');
                 if (lichSu.items && lichSu.items.length > 0) {
                     itemsBody.innerHTML = lichSu.items.map(item => `
                         <tr>
-                            <td style="padding: 10px; border: 1px solid #ddd;">${item.cao || '-'} x ${item.ngang || '-'} cm</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.sku || '-'}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.sl || '-'}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${(item.dienTich || 0).toFixed(2)}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${item.szSku || item.sku || '-'}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.soLuong ?? item.sl ?? 0}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.slLoi ?? 0}</td>
                         </tr>
                     `).join('');
                 } else {
-                    itemsBody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #999;">Không có dữ liệu kích thước</td></tr>';
+                    itemsBody.innerHTML = '<tr><td colspan="3" style="padding: 15px; text-align: center; color: #999;">Không có dữ liệu SKU</td></tr>';
                 }
                 
-                // Hiển thị May áo gối (nếu có)
-                const mayAoGoiContainer = document.getElementById('cutDetailMayAoGoiContainer');
-                if (lichSu.mayAoGoi && lichSu.mayAoGoi.length > 0) {
-                    mayAoGoiContainer.style.display = 'block';
-                    const mayAoGoiList = document.getElementById('cutDetailMayAoGoiList');
-                    mayAoGoiList.innerHTML = lichSu.mayAoGoi.map(m => `
-                        <div style="padding: 12px; background: white; border-radius: 6px; border: 1px solid #20c997;">
-                            <div style="color: #666; font-size: 0.9rem; margin-bottom: 4px;">${m.loaiMay || m.name || '-'}</div>
-                            <div style="font-weight: 600; font-size: 1.1rem; color: #20c997;">${(m.value || 0).toFixed(1)} m</div>
-                        </div>
-                    `).join('');
-                } else {
-                    mayAoGoiContainer.style.display = 'none';
-                }
+                // May áo gối đã bị ẩn theo yêu cầu (không hiển thị trong modal)
                 
                 // Hiển thị modal
                 document.getElementById('cutDetailModal').style.display = 'flex';
@@ -2251,95 +2349,232 @@
             document.body.style.overflow = 'auto';
         }
 
-        // Tab switching cho Statistics Section
-        function switchDetailTab(tab) {
-            const fabricGrid = document.getElementById('fabricObjectsGrid');
-            const cuttingGrid = document.getElementById('cuttingSessionsGrid');
-            const fabricBtn = document.getElementById('tabFabricBtn');
-            const cuttingBtn = document.getElementById('tabCuttingBtn');
+        // (Đã bỏ tab "Danh sách lần cắt" theo yêu cầu)
 
-            if (tab === 'fabricObjects') {
-                fabricGrid.style.display = 'grid';
-                cuttingGrid.style.display = 'none';
-                fabricBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-                fabricBtn.style.color = 'white';
-                cuttingBtn.style.background = '#f0f0f0';
-                cuttingBtn.style.color = '#333';
+        // ============ THỐNG KÊ CHI TIẾT (Rollup/Drilldown dạng danh sách) ============
+        // Lưu dữ liệu thống kê để mở chi tiết không cần stringify trong HTML
+        window.__reportStatsFabricData = window.__reportStatsFabricData || [];
+
+        function toggleFabricAccordionRow(rowId, iconId) {
+            const row = document.getElementById(rowId);
+            const icon = document.getElementById(iconId);
+            if (!row) return;
+            const isOpen = row.getAttribute('data-open') === 'true';
+            if (isOpen) {
+                row.style.display = 'none';
+                row.setAttribute('data-open', 'false');
+                if (icon) icon.style.transform = 'rotate(0deg)';
             } else {
-                fabricGrid.style.display = 'none';
-                cuttingGrid.style.display = 'grid';
-                fabricBtn.style.background = '#f0f0f0';
-                fabricBtn.style.color = '#333';
-                cuttingBtn.style.background = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
-                cuttingBtn.style.color = 'white';
+                row.style.display = 'block';
+                row.setAttribute('data-open', 'true');
+                if (icon) icon.style.transform = 'rotate(180deg)';
             }
         }
 
-        // Populate Fabric Objects Grid
+        function openCutDetailFromStats(fabricIndex, cutIndex) {
+            try {
+                const fabric = window.__reportStatsFabricData?.[fabricIndex];
+                if (!fabric) return;
+                const cuts = Array.isArray(fabric.lichSuCat) ? fabric.lichSuCat : [];
+                const cut = cuts[cutIndex];
+                if (!cut) return;
+                const soMInput = cutIndex === 0
+                    ? (Number(fabric.chieuDaiCayVai) || 0)
+                    : (Number(cuts[cutIndex - 1]?.soMConLai) || 0);
+                showCutDetail(
+                    fabric.catVaiId,
+                    cutIndex,
+                    JSON.stringify({ ...cut, __soMInput: soMInput }),
+                    fabric.maMau || '',
+                    fabric.tenMau || ''
+                );
+            } catch (e) {
+                console.error('openCutDetailFromStats error:', e);
+                alert('Không thể mở chi tiết lần cắt');
+            }
+        }
+
+        // Drilldown inline: mở rộng ngay dưới dòng lần cắt
+        function toggleCutDetailInline(fabricIndex, cutIndex) {
+            try {
+                const fabric = window.__reportStatsFabricData?.[fabricIndex];
+                if (!fabric) return;
+                const cuts = Array.isArray(fabric.lichSuCat) ? fabric.lichSuCat : [];
+                const cut = cuts[cutIndex];
+                if (!cut) return;
+
+                const detailRow = document.getElementById(`cut-inline-detail-${fabricIndex}-${cutIndex}`);
+                const itemsBody = document.getElementById(`cut-inline-items-${fabricIndex}-${cutIndex}`);
+                if (!detailRow || !itemsBody) return;
+
+                const isOpen = detailRow.getAttribute('data-open') === 'true';
+                if (isOpen) {
+                    detailRow.style.display = 'none';
+                    detailRow.setAttribute('data-open', 'false');
+                    return;
+                }
+
+                // Render dữ liệu SKU vào bảng con
+                const items = Array.isArray(cut.items) ? cut.items : [];
+                if (items.length > 0) {
+                    itemsBody.innerHTML = items.map(item => {
+                        const sku = item.szSku || item.sku || '-';
+                        const soLuong = item.soLuong ?? item.sl ?? 0;
+                        const slLoi = item.slLoi ?? 0;
+                        return `
+                            <tr>
+                                <td style="padding:10px; border: 1px solid #ddd;">${sku}</td>
+                                <td style="padding:10px; border: 1px solid #ddd; text-align:center;">${soLuong}</td>
+                                <td style="padding:10px; border: 1px solid #ddd; text-align:center;">${slLoi}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    itemsBody.innerHTML = `
+                        <tr>
+                            <td colspan="3" style="padding: 15px; text-align:center; color:#999;">Không có dữ liệu SKU</td>
+                        </tr>
+                    `;
+                }
+
+                detailRow.style.display = 'table-row';
+                detailRow.setAttribute('data-open', 'true');
+            } catch (e) {
+                console.error('toggleCutDetailInline error:', e);
+                alert('Không thể mở chi tiết SKU');
+            }
+        }
+
+        // Populate Fabric Objects (danh sách accordion)
         function populateFabricObjectsGrid(data) {
             const grid = document.getElementById('fabricObjectsGrid');
             if (!data || data.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #999;">Không có dữ liệu cây vải</div>';
+                grid.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Không có dữ liệu cây vải</div>';
                 return;
             }
 
+            window.__reportStatsFabricData = Array.isArray(data) ? data : [];
+
+            const statusMeta = (trangThai) => {
+                if (trangThai === 'active') return { color: '#22c55e', text: 'Đang cắt' };
+                if (trangThai === 'completed') return { color: '#3b82f6', text: 'Hoàn thành' };
+                return { color: '#999', text: 'Lưu trữ' };
+            };
+
             grid.innerHTML = data.map((item, idx) => {
-                const hasVaiThieu = item.vaiThieu && item.vaiThieu.soM > 0;
-                const statusColor = item.trangThai === 'active' ? '#22c55e' : item.trangThai === 'completed' ? '#3b82f6' : '#999';
-                const statusText = item.trangThai === 'active' ? 'Đang cắt' : item.trangThai === 'completed' ? 'Hoàn thành' : 'Lưu trữ';
-                
+                const cuts = Array.isArray(item.lichSuCat) ? item.lichSuCat : [];
+                const st = statusMeta(item.trangThai);
+                const rowId = `fabric-accordion-body-${idx}`;
+                const iconId = `fabric-accordion-icon-${idx}`;
+
+                const headerRight = `
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <span style="background:${st.color}; color:white; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700;">${st.text}</span>
+                        <span style="background:#f3f4f6; color:#111827; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700;">${cuts.length} lần cắt</span>
+                        <span id="${iconId}" style="display:inline-block; transition: transform .2s ease; color:#6b7280;">▾</span>
+                    </div>
+                `;
+
+                const cutsHtml = cuts.length
+                    ? `
+                        <div style="margin-top:12px; overflow-x:auto;">
+                            <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                                <thead>
+                                    <tr style="background:#f8fafc; border-bottom:1px solid #e5e7eb;">
+                                        <th style="padding:10px; text-align:left; color:#64748b; font-weight:700;">Lần</th>
+                                        <th style="padding:10px; text-align:left; color:#64748b; font-weight:700;">Ngày cắt</th>
+                                        <th style="padding:10px; text-align:left; color:#64748b; font-weight:700;">Nhân viên</th>
+                                        <th style="padding:10px; text-align:right; color:#64748b; font-weight:700;">Số m input</th>
+                                        <th style="padding:10px; text-align:right; color:#64748b; font-weight:700;">Nhập kho (m)</th>
+                                        <th style="padding:10px; text-align:right; color:#64748b; font-weight:700;">Vải lỗi (m)</th>
+                                        <th style="padding:10px; text-align:right; color:#64748b; font-weight:700;">Vải thiếu (m)</th>
+                                        <th style="padding:10px; text-align:center; color:#64748b; font-weight:700;">SKU</th>
+                                        <th style="padding:10px; text-align:center; color:#64748b; font-weight:700;">SL</th>
+                                        <th style="padding:10px; text-align:center; color:#64748b; font-weight:700;">SL lỗi</th>
+                                        <th style="padding:10px; text-align:center; color:#64748b; font-weight:700;">Chi tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${cuts.map((cut, cIdx) => {
+                                        const timeStr = cut.ngayCat ? new Date(cut.ngayCat).toLocaleString('vi-VN') : 'N/A';
+                                        const vaiLoi = (cut.vaiLoi && cut.vaiLoi.soM) ? cut.vaiLoi.soM : 0;
+                                        const vaiThieu = (cut.vaiThieu && cut.vaiThieu.soM) ? cut.vaiThieu.soM : 0;
+                                        const nhapKho = (cut.nhapLaiKho && cut.nhapLaiKho.soM) ? cut.nhapLaiKho.soM : 0;
+                                        const items = Array.isArray(cut.items) ? cut.items : [];
+                                        const soMInput = cIdx === 0
+                                            ? (Number(item.chieuDaiCayVai) || 0)
+                                            : (Number(cuts[cIdx - 1]?.soMConLai) || 0);
+                                        const skuCount = new Set(items.map(x => String(x?.szSku || '').trim()).filter(Boolean)).size;
+                                        const tongSL = items.reduce((sum, x) => sum + (Number(x?.soLuong) || 0), 0);
+                                        const tongSLLoi = items.reduce((sum, x) => sum + (Number(x?.slLoi) || 0), 0);
+                                        return `
+                                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                                <td style="padding:10px; font-weight:800; color:#111827;">${cIdx + 1}</td>
+                                                <td style="padding:10px; color:#334155;">${timeStr}</td>
+                                                <td style="padding:10px; color:#334155;">${cut.createdBy || item.createdBy || 'N/A'}</td>
+                                                <td style="padding:10px; text-align:right; font-weight:700; color:#1d4ed8;">${(soMInput || 0).toFixed(2)}</td>
+                                                <td style="padding:10px; text-align:right; font-weight:700; color:#16a34a;">${(nhapKho || 0).toFixed(2)}</td>
+                                                <td style="padding:10px; text-align:right; font-weight:700; color:#ef4444;">${(vaiLoi || 0).toFixed(2)}</td>
+                                                <td style="padding:10px; text-align:right; font-weight:700; color:#f59e0b;">${(vaiThieu || 0).toFixed(2)}</td>
+                                                <td style="padding:10px; text-align:center; color:#334155;">${skuCount}</td>
+                                                <td style="padding:10px; text-align:center; color:#334155;">${tongSL}</td>
+                                                <td style="padding:10px; text-align:center; color:#334155;">${tongSLLoi}</td>
+                                                <td style="padding:10px; text-align:center;">
+                                                    <button
+                                                        class="btn btn-small"
+                                                        onclick="toggleCutDetailInline(${idx}, ${cIdx})"
+                                                        style="padding:6px 10px; font-size:11px; background: var(--primary); color:white; border:none; border-radius:6px; cursor:pointer;">
+                                                        Xem chi tiết
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <tr
+                                                id="cut-inline-detail-${idx}-${cIdx}"
+                                                data-open="false"
+                                                style="display:none; background:#f8fafc;">
+                                                <td colspan="11" style="padding: 12px 10px;">
+                                                    <div style="font-weight:800; color: var(--primary); margin-bottom: 10px;">
+                                                        Danh sách SKU cắt
+                                                    </div>
+                                                    <div style="overflow-x:auto; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">
+                                                        <table style="width:100%; border-collapse: collapse; font-size: 12px;">
+                                                            <thead>
+                                                                <tr style="background:#f0f0f0;">
+                                                                    <th style="padding:10px; border:1px solid #ddd; text-align:left;">SKU</th>
+                                                                    <th style="padding:10px; border:1px solid #ddd; text-align:center;">SL</th>
+                                                                    <th style="padding:10px; border:1px solid #ddd; text-align:center;">SL lỗi</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="cut-inline-items-${idx}-${cIdx}">
+                                                                <tr>
+                                                                    <td colspan="3" style="padding: 15px; text-align:center; color:#999;">
+                                                                        Đang tải...
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `
+                    : `<div style="margin-top:12px; padding:14px; background:#f8fafc; border:1px dashed #e5e7eb; border-radius:10px; color:#64748b;">Chưa có lịch sử cắt trong kỳ lọc.</div>`;
+
                 return `
-                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s; cursor: pointer;" onmouseover="this.style.boxShadow='0 6px 16px rgba(0,0,0,0.12)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'; this.style.transform='translateY(0)'">
-                        <!-- Header -->
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div style="background:white; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+                        <div onclick="toggleFabricAccordionRow('${rowId}','${iconId}')" style="padding:14px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#f8fafc 0%,#ffffff 100%);">
                             <div>
-                                <h4 style="margin: 0 0 4px 0; color: var(--primary); font-size: 16px;">📦 ${item.catVaiId}</h4>
-                                <p style="margin: 0; color: #666; font-size: 12px;">${item.maMau} - ${item.tenMau}</p>
+                                <div style="font-weight:900; color: var(--primary); font-size:15px;">${item.catVaiId}</div>
+                                <div style="margin-top:2px; color:#64748b; font-size:12px;">${item.maMau || ''} - ${item.tenMau || ''} • Nhập: ${item.ngayNhap ? new Date(item.ngayNhap).toLocaleDateString('vi-VN') : 'N/A'} • Nhập bởi: ${item.createdBy || 'N/A'}</div>
                             </div>
-                            <span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-                                ${statusText}
-                            </span>
+                            ${headerRight}
                         </div>
-
-                        <!-- Metrics Grid -->
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; font-size: 12px;">
-                            <div style="background: #f0f8ff; padding: 8px; border-radius: 6px; border-left: 3px solid #4facfe;">
-                                <div style="color: #666; font-size: 11px;">Chiều dài</div>
-                                <div style="font-weight: 700; color: #4facfe;">${(item.chieuDaiCayVai || 0).toFixed(1)} m</div>
-                            </div>
-                            <div style="background: #f0fff4; padding: 8px; border-radius: 6px; border-left: 3px solid #22c55e;">
-                                <div style="color: #666; font-size: 11px;">Diện tích ban đầu</div>
-                                <div style="font-weight: 700; color: #22c55e;">${(item.dienTichBanDau || 0).toFixed(2)} m²</div>
-                            </div>
-                            <div style="background: #f0f8ff; padding: 8px; border-radius: 6px; border-left: 3px solid #667eea;">
-                                <div style="color: #666; font-size: 11px;">Đã cắt</div>
-                                <div style="font-weight: 700; color: #667eea;">${(item.dienTichDaCat || 0).toFixed(2)} m²</div>
-                            </div>
-                            <div style="background: #fff7ed; padding: 8px; border-radius: 6px; border-left: 3px solid #f59e0b;">
-                                <div style="color: #666; font-size: 11px;">Còn lại</div>
-                                <div style="font-weight: 700; color: #f59e0b;">${(item.soMConLai || 0).toFixed(1)} m</div>
-                            </div>
-                        </div>
-
-                        <!-- Additional Info -->
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 11px;">
-                            <div>
-                                <div style="color: #999;">Tiến độ</div>
-                                <div style="font-weight: 600; color: #333; margin-top: 2px;">${(item.tienDoPercent || 0)}%</div>
-                            </div>
-                            <div>
-                                <div style="color: #999;">Số lần cắt</div>
-                                <div style="font-weight: 600; color: #333; margin-top: 2px;">${item.lichSuCat ? item.lichSuCat.length : 0}</div>
-                            </div>
-                            <div>
-                                <div style="color: #999;">Vải thiếu</div>
-                                <div style="font-weight: 600; color: ${hasVaiThieu ? '#ef4444' : '#22c55e'}; margin-top: 2px;">${hasVaiThieu ? (item.vaiThieu.soM || 0).toFixed(1) : '0'} m</div>
-                            </div>
-                        </div>
-
-                        <!-- Footer -->
-                        <div style="text-align: center; padding-top: 8px; border-top: 1px solid #f0f0f0;">
-                            <small style="color: #999;">Nhập: ${item.ngayNhap ? new Date(item.ngayNhap).toLocaleDateString('vi-VN') : 'N/A'}</small>
+                        <div id="${rowId}" data-open="false" style="display:none; padding:14px 16px; border-top:1px solid #e5e7eb;">
+                            ${cutsHtml}
                         </div>
                     </div>
                 `;
@@ -2441,7 +2676,7 @@
                         <!-- Action Button -->
                         <div style="margin-top: 12px; text-align: center;">
                             <button class="btn btn-small" onclick="showCutDetail('${cut.catVaiId}', ${cut.cupIndex}, '${JSON.stringify(cut).replace(/'/g, "\\'")}', '${cut.maMau}', '${cut.tenMau}')" style="padding: 6px 12px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--primary)'">
-                                🔍 Chi tiết
+                                Chi tiết
                             </button>
                         </div>
                     </div>
@@ -2471,6 +2706,8 @@
                 if (filterMau) params.append('maMau', filterMau);
                 // Luôn gom nhóm theo catVaiId khi xuất
                 params.append('groupByCatVaiId', 'true');
+                // Xuất theo lịch sử cắt (ngayCat)
+                params.append('timeField', 'cut');
                 params.append('export', 'true');
                 
                 // Xử lý filter thời gian
@@ -2539,7 +2776,7 @@
             const tableHead = document.getElementById(prefix + 'TableHead');
             const tableBody = document.getElementById(prefix + 'TableBody');
 
-            title.textContent = `📋 Dữ liệu ${type} đã import (${data.length} bản ghi)`;
+            title.textContent = `Dữ liệu ${type} đã import (${data.length} bản ghi)`;
 
             if (type === 'Mẫu vải') {
                 tableHead.innerHTML = `

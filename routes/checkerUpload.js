@@ -24,11 +24,33 @@ async function computeMissingOrdersFromSapo() {
         return { rows: [], stats: { totalOrders: 0, totalLines: 0, totalDistinctSku: 0, totalMissing: 0 } };
     }
 
-    // Gom theo MaVanDon + SKU để tính tổng số lượng mỗi SKU trong từng đơn
+    // ===== BƯỚC 1: TÁCH ĐƠN CŨ VÀ ĐƠN MỚI DỒN LẠI =====
+    // - Đơn cũ: importDate <= lastExportTime (đã xuất file trước)
+    // - Đơn mới: importDate > lastExportTime (load sau lần xuất file, cần ghi nhận hàng thiếu thêm)
+    const normalizeSku = (s) => String(s || '').trim().toLowerCase();
+    const previousOrders = [];
+    const newOrders = [];
+    
+    if (missingOrdersExportState.lastExportTime) {
+        const lastExportTimeMs = missingOrdersExportState.lastExportTime.getTime();
+        for (const o of todayOrders) {
+            const orderTime = o.importDate ? new Date(o.importDate).getTime() : 0;
+            if (orderTime <= lastExportTimeMs) {
+                previousOrders.push(o);
+            } else {
+                newOrders.push(o);
+            }
+        }
+    } else {
+        // Nếu chưa có lần xuất nào, coi tất cả là đơn cũ
+        previousOrders.push(...todayOrders);
+    }
+
+    // ===== BƯỚC 2: GOM THEO MaVanDon + SKU (CHỈ TỪ ĐƠN CŨ) =====
     const aggregated = new Map(); // key: maVanDon|sku
     const skuSet = new Set();
 
-    for (const o of todayOrders) {
+    for (const o of previousOrders) {
         if (!o.maVanDon || !o.maHang || !o.soLuong) continue;
         const key = `${o.maVanDon}|${o.maHang}`;
         const current = aggregated.get(key) || {
@@ -41,6 +63,43 @@ async function computeMissingOrdersFromSapo() {
         current.soLuong += Number(o.soLuong) || 0;
         aggregated.set(key, current);
         skuSet.add(o.maHang);
+    }
+
+    // ===== BƯỚC 3: TỪ ĐƠN MỚI, CỘI THÊM SL VÀO CÁC SKU TRONG FILE THIẾU TRƯỚC =====
+    // Nếu newOrder có SKU nào trong lastExportedSkuMissing
+    const newOrdersNotInPrevious = [];  // Danh sách newOrders không nằm trong lastExportedSkuMissing
+    
+    if (newOrders.length > 0) {
+        for (const o of newOrders) {
+            if (!o.maVanDon || !o.maHang || !o.soLuong) continue;
+            
+            const skuKey = normalizeSku(o.maHang);
+            // Nếu SKU này có trong file thiếu trước → cộng thêm SL yêu cầu của đơn mới vào
+            if (missingOrdersExportState.lastExportedSkuMissing.has(skuKey)) {
+                const key = `${o.maVanDon}|${o.maHang}`;
+                const current = aggregated.get(key) || {
+                    maVanDon: o.maVanDon,
+                    sku: o.maHang,
+                    soLuong: 0,
+                    tenPhienBan: o.tenPhienBan || '',
+                    mauVai: o.mauVai || '',
+                    isNewOrder: true  // Đánh dấu là đơn mới dồn lại
+                };
+                current.soLuong += Number(o.soLuong) || 0;
+                aggregated.set(key, current);
+                skuSet.add(o.maHang);
+            }
+            // Nếu SKU này KHÔNG có trong file thiếu trước → lưu để kiểm tra inventory âm sau
+            else if (missingOrdersExportState.lastExportedSkuMissing.size > 0) {
+                newOrdersNotInPrevious.push({
+                    maVanDon: o.maVanDon,
+                    sku: o.maHang,
+                    soLuong: Number(o.soLuong) || 0,
+                    tenPhienBan: o.tenPhienBan || '',
+                    mauVai: o.mauVai || ''
+                });
+            }
+        }
     }
 
     const aggregatedRows = Array.from(aggregated.values());
@@ -77,8 +136,6 @@ async function computeMissingOrdersFromSapo() {
             }
         }
     }
-
-    const normalizeSku = (s) => String(s || '').trim().toLowerCase();
 
     // Load MasterData để fallback tên SP (key chuẩn hóa)
     const masterDatas = await MasterData.find({ sku: { $in: Array.from(skuSet) } }).lean();
@@ -234,15 +291,16 @@ async function computeMissingOrdersFromSapo() {
 
     const missingRows = [];
 
+    // ===== BƯỚC 5A: TÍNH HÀNG THIẾU TỪ AGGREGATED ROWS (ĐƠN CŨ + ĐƠN MỚI TRONG FILE THIẾU TRƯỚC) =====
     for (const row of aggregatedRows) {
         const skuKey = normalizeSku(row.sku);
         const inventoryQty = skuInventoryMap.get(skuKey);
         const soLuong = row.soLuong || 0;
 
-        // Chỉ coi là thiếu khi: đã tìm thấy SKU trên Sapo VÀ tồn kho <= số lượng đơn
+        // Chỉ coi là thiếu khi: đã tìm thấy SKU trên Sapo VÀ tồn kho < số lượng đơn
         // SKU không có trong Sapo (undefined) -> không liệt vào hàng thiếu
         if (inventoryQty === undefined || inventoryQty === null) continue;
-        if (Number(inventoryQty) > soLuong) continue;
+        if (Number(inventoryQty) >= soLuong) continue; // Chỉ thiếu khi inventory < soLuong
 
         const master = masterMap.get(skuKey);
         const nameFromMaster = master && typeof master.tenPhienBan === 'string' ? master.tenPhienBan : null;
@@ -253,17 +311,62 @@ async function computeMissingOrdersFromSapo() {
         const parsedFromSku = parseFromSkuForMissingOrder(row.sku, mauVaiMap);
         const parsedFromName = parseFromName(tenSp);
 
-        // inventoryQuantity = inventory_quantity của variant tương ứng SKU (từ Sapo variants[])
+        // Tính số lượng thiếu = soLuong - inventory (nếu inventory âm, thiếu sẽ tăng)
+        const inventoryQtyNum = Number(inventoryQty) || 0;
+        const soLuongThieu = soLuong - inventoryQtyNum;
+
         missingRows.push({
             maVanDon: row.maVanDon,
             sku: row.sku,
             tenSp,
             soLuong,
-            inventoryQuantity: Number(inventoryQty) || 0,
+            soLuongThieu, // Số lượng thiếu thực tế = soLuong - inventory
+            inventoryQuantity: inventoryQtyNum,
             mau: parsedFromSku.mau || parsedFromName.mau,
             loai: parsedFromSku.loai || parsedFromName.loai,
             ngang: parsedFromSku.ngang || parsedFromName.ngang,
             cao: parsedFromSku.cao || parsedFromName.cao
+        });
+    }
+
+    // ===== BƯỚC 5B: TỪ ĐƠN MỚI KHÔNG TRONG FILE THIẾU TRƯỚC, KIỂM TRA INVENTORY ÂM =====
+    // Nếu SKU này không nằm trong lastExportedSkuMissing nhưng tồn kho < 0 → thêm vào hàng thiếu
+    for (const row of newOrdersNotInPrevious) {
+        const skuKey = normalizeSku(row.sku);
+        const inventoryQty = skuInventoryMap.get(skuKey);
+        const soLuong = row.soLuong || 0;
+
+        // Skip nếu SKU không tìm thấy trong Sapo
+        if (inventoryQty === undefined || inventoryQty === null) continue;
+        
+        const inventoryQtyNum = Number(inventoryQty) || 0;
+        // Chỉ thêm vào hàng thiếu nếu tồn kho < 0 (âm)
+        if (inventoryQtyNum >= 0) continue;
+
+        const master = masterMap.get(skuKey);
+        const nameFromMaster = master && typeof master.tenPhienBan === 'string' ? master.tenPhienBan : null;
+        const nameFromOrder = row.tenPhienBan && typeof row.tenPhienBan === 'string' ? row.tenPhienBan : null;
+        const nameFromSapo = skuNameMap.get(skuKey);
+        const tenSp = nameFromOrder || nameFromMaster || nameFromSapo || '';
+
+        const parsedFromSku = parseFromSkuForMissingOrder(row.sku, mauVaiMap);
+        const parsedFromName = parseFromName(tenSp);
+
+        // Tính số lượng thiếu = soLuong - inventory (có thể lớn hơn soLuong nếu inventory âm)
+        const soLuongThieu = soLuong - inventoryQtyNum;
+
+        missingRows.push({
+            maVanDon: row.maVanDon,
+            sku: row.sku,
+            tenSp,
+            soLuong,
+            soLuongThieu, // Số lượng thiếu = soLuong - inventory (inventory âm nên thiếu tăng)
+            inventoryQuantity: inventoryQtyNum,
+            mau: parsedFromSku.mau || parsedFromName.mau,
+            loai: parsedFromSku.loai || parsedFromName.loai,
+            ngang: parsedFromSku.ngang || parsedFromName.ngang,
+            cao: parsedFromSku.cao || parsedFromName.cao,
+            isFromNewOrderWithNegativeInventory: true  // Đánh dấu nguồn
         });
     }
 
@@ -284,7 +387,9 @@ async function computeMissingOrdersFromSapo() {
 // State dùng để đặt tên file xuất đơn hàng thiếu trong ngày
 let missingOrdersExportState = {
     dateKey: null,
-    index: 0
+    index: 0,
+    lastExportTime: null,           // Timestamp lần xuất file cuối cùng
+    lastExportedSkuMissing: new Map() // key: sku (normalized), value: { soLuongThieu, mau, loai, ngang, cao }
 };
 
 // Cấu hình multer cho upload file
@@ -1258,28 +1363,91 @@ router.get('/api/checker/missing-orders/export', requireChecker, async (req, res
     try {
         const { rows } = await computeMissingOrdersFromSapo();
 
-        // Chuẩn bị dữ liệu cho Excel - SL = trị tuyệt đối của số lượng thiếu
-        const sortedRows = Array.isArray(rows)
-            ? [...rows].sort((a, b) => String(a?.maVanDon || '').localeCompare(String(b?.maVanDon || ''), 'vi', { numeric: true }))
-            : [];
-        const aoa = [];
-        aoa.push(['MaVanDon', 'SKU', 'SL', 'Loai', 'Mau', 'Ngang', 'Cao']);
-        for (const r of sortedRows) {
-            const soLuongThieu = Math.abs((r.inventoryQuantity || 0));
-            aoa.push([
-                r.maVanDon || '',
-                r.sku || '',
-                soLuongThieu,
-                r.loai || '',
-                r.mau || '',
-                r.ngang || '',
-                r.cao || ''
+        // Hàm convert ngang/cao từ cm sang mét (chia 100)
+        // Ví dụ: 150 -> 1.5, 225 -> 2.25
+        const convertToMeter = (value) => {
+            if (!value) return '';
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            return (num / 100).toFixed(2).replace(/\.?0+$/, '');
+        };
+
+        // ===== SHEET 1: Chi tiết từng SKU thiếu (UNIQUE SKU) =====
+        // Lấy unique SKU từ rows (lần xuất hiện đầu tiên)
+        const skuMap = new Map(); // key: sku, value: { sku, mau, loai, ngang, cao, inventory }
+        for (const r of rows) {
+            const sku = r.sku || '';
+            if (!skuMap.has(sku)) {
+                skuMap.set(sku, {
+                    sku,
+                    mau: r.mau || '',
+                    loai: r.loai || '',
+                    ngang: r.ngang || '',
+                    cao: r.cao || '',
+                    inventory: Number(r.inventoryQuantity) || 0 // Lấy inventory từ lần đầu tiên (cố định từ SAPO)
+                });
+            }
+        }
+
+        // Sắp xếp theo SKU
+        const uniqueSkus = Array.from(skuMap.values()).sort((a, b) => 
+            String(a.sku).localeCompare(String(b.sku), 'vi', { numeric: true })
+        );
+
+        const sheet1 = [];
+        sheet1.push(['SKU', 'Tên mẫu', 'Loại', 'Ngang', 'Cao', 'Số lượng']);
+        for (const item of uniqueSkus) {
+            // Nếu tồn kho = 0, hiển thị trống; ngược lại lấy giá trị tuyệt đối
+            const tonKhoDisplay = item.inventory === 0 ? '' : Math.abs(item.inventory);
+            
+            sheet1.push([
+                item.sku,
+                item.mau,
+                item.loai,
+                convertToMeter(item.ngang) || '',
+                convertToMeter(item.cao) || '',
+                tonKhoDisplay
             ]);
         }
 
+        // ===== SHEET 2: Ghi nhận hàng thiếu theo MaVanDon =====
+        // Nhóm các row theo maVanDon
+        const groupByMaVanDon = new Map();
+        for (const r of rows) {
+            const maVanDon = r.maVanDon || '';
+            if (!groupByMaVanDon.has(maVanDon)) {
+                groupByMaVanDon.set(maVanDon, []);
+            }
+            groupByMaVanDon.get(maVanDon).push(r);
+        }
+
+        const sheet2 = [];
+        sheet2.push(['MaVanDon', 'Số SKU thiếu', 'Danh sách SKU', 'Tổng số lượng thiếu']);
+        
+        const sortedMaVanDon = Array.from(groupByMaVanDon.keys()).sort((a, b) => 
+            String(a).localeCompare(String(b), 'vi', { numeric: true })
+        );
+        
+        for (const maVanDon of sortedMaVanDon) {
+            const items = groupByMaVanDon.get(maVanDon);
+            const skuList = items.map(item => item.sku || '').join('; ');
+            const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.soLuongThieu) || 0), 0);
+            
+            sheet2.push([
+                maVanDon,
+                items.length,
+                skuList,
+                totalQty
+            ]);
+        }
+
+        // Tạo workbook với 2 sheets
         const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Don hang thieu');
+        const worksheet1 = XLSX.utils.aoa_to_sheet(sheet1);
+        const worksheet2 = XLSX.utils.aoa_to_sheet(sheet2);
+        
+        XLSX.utils.book_append_sheet(workbook, worksheet1, 'Chi tiet SKU');
+        XLSX.utils.book_append_sheet(workbook, worksheet2, 'Theo MaVanDon');
 
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
@@ -1295,6 +1463,27 @@ router.get('/api/checker/missing-orders/export', requireChecker, async (req, res
         }
         missingOrdersExportState.index += 1;
 
+        // ===== LƯU TRẠNG THÁI FILE XUẤT: Timestamp + Danh sách SKU thiếu =====
+        // Cập nhật timestamp lần xuất cuối cùng
+        missingOrdersExportState.lastExportTime = now;
+        
+        // Cập nhật danh sách SKU + tồn kho từ file này (lưu unique SKU)
+        missingOrdersExportState.lastExportedSkuMissing.clear();
+        const normalizeSku = (s) => String(s || '').trim().toLowerCase();
+        
+        // Lưu từ skuMap (unique SKU)
+        for (const [sku, item] of skuMap.entries()) {
+            const skuKey = normalizeSku(sku);
+            
+            missingOrdersExportState.lastExportedSkuMissing.set(skuKey, {
+                inventory: item.inventory,
+                mau: item.mau,
+                loai: item.loai,
+                ngang: item.ngang,
+                cao: item.cao
+            });
+        }
+
         const caIndex = missingOrdersExportState.index;
         const fileName = `Don-hang-thieu-${mm}-${dd}-ca-${caIndex}.xlsx`;
 
@@ -1306,6 +1495,76 @@ router.get('/api/checker/missing-orders/export', requireChecker, async (req, res
         res.status(500).json({
             success: false,
             message: 'Lỗi xuất file đơn hàng thiếu: ' + error.message
+        });
+    }
+});
+
+// API debug: Xem dữ liệu hàng thiếu đang được tính
+router.get('/api/checker/missing-orders/debug', requireChecker, async (req, res) => {
+    try {
+        const { rows, stats } = await computeMissingOrdersFromSapo();
+        
+        // Nhóm theo SKU để check unique
+        const skuMap = new Map();
+        for (const r of rows) {
+            const sku = r.sku || '';
+            if (!skuMap.has(sku)) {
+                skuMap.set(sku, {
+                    sku,
+                    soLuong: 0,
+                    inventory: 0,
+                    soLuongThieu: 0,
+                    count: 0
+                });
+            }
+            const item = skuMap.get(sku);
+            item.soLuong += Number(r.soLuong) || 0;
+            item.inventory += Number(r.inventoryQuantity) || 0;
+            item.soLuongThieu += Number(r.soLuongThieu) || 0;
+            item.count += 1;
+        }
+        
+        const uniqueSkus = Array.from(skuMap.values()).sort((a, b) => 
+            String(a.sku).localeCompare(String(b.sku), 'vi', { numeric: true })
+        );
+        
+        res.json({
+            success: true,
+            stats,
+            allRows: rows.slice(0, 5), // Lấy 5 dòng đầu để debug
+            uniqueSkus: uniqueSkus.slice(0, 10), // Lấy 10 SKU đầu
+            totalUniqueSkus: uniqueSkus.length,
+            state: {
+                lastExportTime: missingOrdersExportState.lastExportTime,
+                lastExportedSkuCount: missingOrdersExportState.lastExportedSkuMissing.size
+            }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi debug:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi debug: ' + error.message
+        });
+    }
+});
+
+// API reset trạng thái hàng thiếu (để lần đầu xuất không bị ảnh hưởng từ dữ liệu cũ)
+router.post('/api/checker/missing-orders/reset-state', requireChecker, (req, res) => {
+    try {
+        missingOrdersExportState.dateKey = null;
+        missingOrdersExportState.index = 0;
+        missingOrdersExportState.lastExportTime = null;
+        missingOrdersExportState.lastExportedSkuMissing.clear();
+        
+        res.json({
+            success: true,
+            message: 'Đã reset trạng thái hàng thiếu. Lần xuất tiếp theo sẽ tính mới từ đầu.'
+        });
+    } catch (error) {
+        console.error('❌ Lỗi reset state:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi reset trạng thái: ' + error.message
         });
     }
 });

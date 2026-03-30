@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cập nhật trạng thái sản xuất</title>
+  <link rel="stylesheet" href="/operations-role-base.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Cập nhật trạng thái đơn - Nhân viên sản xuất</h1>
+      <p>Quét mã đơn để xem thông tin và ghi nhận số lượng theo công đoạn</p>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="logoutBtn">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="panel">
+      <h2>Quét mã đơn</h2>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <input id="scanOrderCode" placeholder="Nhập/Quét mã đơn" style="padding:10px; border:1px solid #ddd; border-radius:8px; min-width:280px;" />
+        <button class="btn secondary" id="scanBtn">Tìm đơn</button>
+      </div>
+      <div id="scanMessage" class="helper"></div>
+    </section>
+
+    <section class="panel" id="orderInfoPanel" style="margin-top:12px; display:none;">
+      <h2>Thông tin đơn</h2>
+      <div id="orderInfo" class="helper"></div>
+      <div style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:12px;">
+        <input id="stageInput" placeholder="Khâu/Công đoạn (vd: Cắt vải)" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+        <input id="completedQtyInput" type="number" min="0" placeholder="Số lượng hoàn thành" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+        <input id="defectQtyInput" type="number" min="0" placeholder="Số lượng lỗi" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+        <input id="noteInput" placeholder="Ghi chú" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+      </div>
+      <div style="margin-top:10px;">
+        <button class="btn secondary" id="updateBtn">Ghi nhận cập nhật trạng thái</button>
+      </div>
+      <div id="updateMessage" class="helper"></div>
+    </section>
+  </main>
+
+  <script>
+    let currentOrder = null;
+    const scanMessage = document.getElementById('scanMessage');
+    const updateMessage = document.getElementById('updateMessage');
+    const orderInfoPanel = document.getElementById('orderInfoPanel');
+
+    function setText(el, msg, isError = false) {
+      el.textContent = msg || '';
+      el.style.color = isError ? '#b91c1c' : '#6b7280';
+    }
+
+    async function scanOrder() {
+      const orderCode = document.getElementById('scanOrderCode').value.trim();
+      if (!orderCode) return setText(scanMessage, 'Vui lòng nhập mã đơn', true);
+      try {
+        const res = await fetch('/api/production/orders/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderCode })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Không tìm thấy đơn');
+        currentOrder = data.item;
+        orderInfoPanel.style.display = '';
+        document.getElementById('orderInfo').innerHTML =
+          `<b>Mã đơn:</b> ${currentOrder.orderCode} | <b>SKU:</b> ${currentOrder.sku} | <b>Tên SP:</b> ${currentOrder.productName} | <b>Số lượng:</b> ${currentOrder.quantity}`;
+        document.getElementById('stageInput').value = currentOrder.currentStage || '';
+        setText(scanMessage, `Đã tải đơn ${currentOrder.orderCode}`);
+      } catch (error) {
+        setText(scanMessage, error.message, true);
+      }
+    }
+
+    async function updateStatus() {
+      if (!currentOrder) return setText(updateMessage, 'Vui lòng quét đơn trước', true);
+      const payload = {
+        orderCode: currentOrder.orderCode,
+        stage: document.getElementById('stageInput').value.trim(),
+        completedQty: Number(document.getElementById('completedQtyInput').value || 0),
+        defectQty: Number(document.getElementById('defectQtyInput').value || 0),
+        note: document.getElementById('noteInput').value.trim()
+      };
+      try {
+        const res = await fetch('/api/production/orders/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Cập nhật thất bại');
+        setText(updateMessage, 'Đã cập nhật trạng thái đơn thành công');
+      } catch (error) {
+        setText(updateMessage, error.message, true);
+      }
+    }
+
+    document.getElementById('scanBtn').addEventListener('click', scanOrder);
+    document.getElementById('updateBtn').addEventListener('click', updateStatus);
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
+      window.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đội cắt vải</title>
+  <link rel="stylesheet" href="/operations-role-base.css" />
+</head>
+<body>
+  <header class="topbar"><div><h1 id="roleTitle"></h1><p id="roleSubtitle"></p></div><div class="actions"><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div></header>
+  <main class="page">
+    <section class="kpi-grid" id="kpiGrid"></section>
+    <section class="content-grid">
+      <div class="panel"><h2>Lệnh cắt đang xử lý</h2><table><thead><tr><th>Mã đơn</th><th>Công đoạn</th><th>Phụ trách</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody id="taskTableBody"></tbody></table></div>
+      <div class="panel"><h2>Việc tại chuyền</h2><ul id="todoList" class="todo-list"></ul><h2 style="margin-top:16px;">Nhật ký thao tác</h2><ul id="activityList" class="activity-list"></ul></div>
+    </section>
+  </main>
+  <script>
+    window.ROLE_SCREEN_CONFIG = {
+      title: "Đội cắt vải",
+      subtitle: "Theo dõi lệnh cắt, định mức và bàn giao bán thành phẩm",
+      kpis: [{ label: "Lệnh đang cắt", value: "26", note: "Theo ca sáng" }, { label: "Hoàn tất hôm nay", value: "18", note: "Đơn đã bàn giao" }, { label: "Thiếu nguyên liệu", value: "3", note: "Cần xin kho" }, { label: "Sai định mức", value: "1", note: "Đang xác minh" }],
+      tasks: [{ orderCode: "OD-240501", step: "Cắt vải", owner: "Tổ Cắt 1", due: "10:15", status: "Đang cắt", badgeClass: "info" }, { orderCode: "OD-240502", step: "Cắt vải", owner: "Tổ Cắt 2", due: "11:20", status: "Đúng tiến độ", badgeClass: "ok" }, { orderCode: "OD-240503", step: "Cắt vải", owner: "Tổ Cắt 1", due: "12:00", status: "Cần vật tư", badgeClass: "warn" }],
+      todos: ["Xác nhận định mức OD-240503", "Bàn giao lô cắt OD-240499 cho đội ép bông", "Đối chiếu tồn kho vải cuối ca"],
+      activities: ["08:35 - Hoàn tất OD-240498", "09:05 - Báo thiếu vải màu navy", "09:30 - Đã bàn giao 240 kiện cho ép bông"]
+    };
+  </script>
+  <script src="/operations-role-base.js"></script>
+</body>
+</html>

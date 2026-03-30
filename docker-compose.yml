@@ -1,4 +1,49 @@
 services:
+  operations-db:
+    image: postgres:16-alpine
+    container_name: ordercheck-operations-db
+    environment:
+      POSTGRES_DB: operations_db
+      POSTGRES_USER: operations_user
+      POSTGRES_PASSWORD: operations_password
+    ports:
+      - "0.0.0.0:5434:5432"
+    volumes:
+      - operations_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U operations_user -d operations_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ordercheck-network
+
+  operations-service:
+    build:
+      context: ./operations-service
+    container_name: ordercheck-operations-service
+    environment:
+      OPERATIONS_PORT: 3010
+      OPERATIONS_DATABASE_URL: postgresql://operations_user:operations_password@operations-db:5432/operations_db
+      OPERATIONS_SHARED_AUTH_SECRET: change_this_session_secret_in_production
+      MAIN_APP_URL: https://spice-investigated-allowed-dom.trycloudflare.com
+      NODE_ENV: production
+    ports:
+      - "3010:3010"
+    depends_on:
+      operations-db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - ordercheck-network
+
   mongodb:
     image: mongo:7.0
     container_name: ordercheck-mongodb-v2
@@ -20,6 +65,7 @@ services:
     environment:
       MONGODB_URI: mongodb://mongodb:27017/OrderDetailing
       SESSION_SECRET: change_this_session_secret_in_production
+      OPERATIONS_APP_URL: https://roots-harvey-transform-meant.trycloudflare.com
       PORT: 3001
       NODE_ENV: production
       # ERPNext Configuration
@@ -55,6 +101,7 @@ services:
 
 volumes:
   mongodb_data:
+  operations_postgres_data:
 
 networks:
   ordercheck-network:

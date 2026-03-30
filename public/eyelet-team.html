@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đội đóng khoen</title>
+  <link rel="stylesheet" href="/operations-role-base.css" />
+</head>
+<body>
+  <header class="topbar"><div><h1 id="roleTitle"></h1><p id="roleSubtitle"></p></div><div class="actions"><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div></header>
+  <main class="page">
+    <section class="kpi-grid" id="kpiGrid"></section>
+    <section class="content-grid">
+      <div class="panel"><h2>Lệnh đóng khoen</h2><table><thead><tr><th>Mã đơn</th><th>Công đoạn</th><th>Phụ trách</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody id="taskTableBody"></tbody></table></div>
+      <div class="panel"><h2>Nhắc việc</h2><ul id="todoList" class="todo-list"></ul><h2 style="margin-top:16px;">Ghi nhận lỗi</h2><ul id="activityList" class="activity-list"></ul></div>
+    </section>
+  </main>
+  <script>
+    window.ROLE_SCREEN_CONFIG = {
+      title: "Đội đóng khoen",
+      subtitle: "Giám sát năng suất đóng khoen và lỗi kỹ thuật",
+      kpis: [{ label: "Lệnh đang xử lý", value: "22", note: "Trong 2 ca" }, { label: "Lỗi khoen", value: "1.8%", note: "Mục tiêu < 1.5%" }, { label: "Chờ QA xác nhận", value: "7", note: "Sau hoàn tất" }, { label: "Đã bàn giao", value: "16", note: "Sang đội may" }],
+      tasks: [{ orderCode: "OD-240701", step: "Đóng khoen", owner: "Tổ Khoen 1", due: "10:40", status: "Đang xử lý", badgeClass: "info" }, { orderCode: "OD-240702", step: "Đóng khoen", owner: "Tổ Khoen 2", due: "12:00", status: "Đạt", badgeClass: "ok" }, { orderCode: "OD-240703", step: "Đóng khoen", owner: "Tổ Khoen 1", due: "13:20", status: "Lỗi tăng", badgeClass: "warn" }],
+      todos: ["Rà soát khuôn đóng khoen line 1", "Kiểm lô OD-240703 trước bàn giao", "Báo QA kiểm tra ngẫu nhiên 5 đơn"],
+      activities: ["08:30 - Tăng tốc độ line 2 +8%", "09:12 - Phát hiện lỗi khoen lệch tâm", "09:50 - OD-240699 bàn giao qua đội may"]
+    };
+  </script>
+  <script src="/operations-role-base.js"></script>
+</body>
+</html>

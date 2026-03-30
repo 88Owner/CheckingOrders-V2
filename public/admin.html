@@ -681,14 +681,21 @@
                         <label for="role">Quyền</label>
                         <select id="role" name="role" required>
                             <option value="">Chọn quyền</option>
-                            <option value="admin">Admin</option>
-                            <option value="checker">Checker</option>
-                            <option value="packer">Packer</option>
+                            <option value="admin">Quản trị viên</option>
+                            <option value="checker">Kiểm hàng</option>
+                            <option value="packer">Đóng gói</option>
                             <option value="warehouse_manager">Quản lý kho phôi</option>
                             <option value="warehouse_staff">Nhân viên kho phôi</option>
                             <option value="production_worker">Nhân viên sản xuất</option>
                             <option value="reconciler">Đối soát</option>
-                            <option value="user">User</option>
+                            <option value="production_manager">Quản lý sản xuất</option>
+                            <option value="qa">QA</option>
+                            <option value="fabric_cutting_team">Đội cắt vải</option>
+                            <option value="cotton_press_team">Đội ép bông</option>
+                            <option value="eyelet_team">Đội đóng khoen</option>
+                            <option value="sewing_team">Đội may</option>
+                            <option value="assembly_team">Đội tổ hợp</option>
+                            <option value="user">Người dùng</option>
                         </select>
                 </div>
                     <button type="submit" class="btn btn-success">Tạo tài khoản</button>
@@ -1027,6 +1034,27 @@
         let totalOrders = 0;
         let allOrders = [];
         let filteredOrders = [];
+        const roleDisplayNames = {
+            admin: 'Quản trị viên',
+            checker: 'Kiểm hàng',
+            packer: 'Đóng gói',
+            user: 'Người dùng',
+            warehouse_manager: 'Quản lý kho phôi',
+            warehouse_staff: 'Nhân viên kho phôi',
+            production_worker: 'Nhân viên sản xuất',
+            reconciler: 'Đối soát',
+            production_manager: 'Quản lý sản xuất',
+            qa: 'QA',
+            fabric_cutting_team: 'Đội cắt vải',
+            cotton_press_team: 'Đội ép bông',
+            eyelet_team: 'Đội đóng khoen',
+            sewing_team: 'Đội may',
+            assembly_team: 'Đội tổ hợp'
+        };
+
+        function getRoleDisplayName(role) {
+            return roleDisplayNames[role] || role || 'Không xác định';
+        }
 
         // Load data when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -1299,7 +1327,7 @@
                 
                 row.innerHTML = `
                     <td>${username}</td>
-                    <td><span class="role-badge ${role}">${role.toUpperCase()}</span></td>
+                    <td><span class="role-badge ${role}">${getRoleDisplayName(role)}</span></td>
                     <td>
                         ${role === 'production_worker' ? `
                             <select id="employeeSelect_${accountId}" style="padding: 8px; border-radius: 6px; border: 2px solid ${erpnextEmployeeId ? '#28a745' : '#dc3545'}; width: 200px;" onchange="saveEmployeeMapping('${accountId}')" title="${erpnextEmployeeId ? 'Đã mapping' : 'BẮT BUỘC: Phải mapping Employee để login'}">
@@ -1319,14 +1347,21 @@
                     <td>
                         ${username !== 'admin' ? `
                             <select id="roleSelect_${accountId}" style="padding: 8px; border-radius: 6px; border: 2px solid #ddd;">
-                                <option value="admin" ${role === 'admin' ? 'selected' : ''}>Admin</option>
-                                <option value="checker" ${role === 'checker' ? 'selected' : ''}>Checker</option>
-                                <option value="packer" ${role === 'packer' ? 'selected' : ''}>Packer</option>
+                                <option value="admin" ${role === 'admin' ? 'selected' : ''}>Quản trị viên</option>
+                                <option value="checker" ${role === 'checker' ? 'selected' : ''}>Kiểm hàng</option>
+                                <option value="packer" ${role === 'packer' ? 'selected' : ''}>Đóng gói</option>
                                 <option value="warehouse_manager" ${role === 'warehouse_manager' ? 'selected' : ''}>Quản lý kho phôi</option>
                                 <option value="warehouse_staff" ${role === 'warehouse_staff' ? 'selected' : ''}>Nhân viên kho phôi</option>
                                 <option value="production_worker" ${role === 'production_worker' ? 'selected' : ''}>Nhân viên sản xuất</option>
                                 <option value="reconciler" ${role === 'reconciler' ? 'selected' : ''}>Đối soát</option>
-                                <option value="user" ${role === 'user' ? 'selected' : ''}>User</option>
+                                <option value="production_manager" ${role === 'production_manager' ? 'selected' : ''}>Quản lý sản xuất</option>
+                                <option value="qa" ${role === 'qa' ? 'selected' : ''}>QA</option>
+                                <option value="fabric_cutting_team" ${role === 'fabric_cutting_team' ? 'selected' : ''}>Đội cắt vải</option>
+                                <option value="cotton_press_team" ${role === 'cotton_press_team' ? 'selected' : ''}>Đội ép bông</option>
+                                <option value="eyelet_team" ${role === 'eyelet_team' ? 'selected' : ''}>Đội đóng khoen</option>
+                                <option value="sewing_team" ${role === 'sewing_team' ? 'selected' : ''}>Đội may</option>
+                                <option value="assembly_team" ${role === 'assembly_team' ? 'selected' : ''}>Đội tổ hợp</option>
+                                <option value="user" ${role === 'user' ? 'selected' : ''}>Người dùng</option>
                             </select>
                             <button class="btn-small btn-success" onclick="saveRole('${accountId}')">💾 Save</button>
                             <button class="btn-small btn-warning" onclick="showChangePasswordModal('${accountId}', '${username}')">🔑 Đổi MK</button>
@@ -1508,7 +1543,7 @@
                 if (user.username !== 'admin') { // Skip admin
                     const option = document.createElement('option');
                     option.value = user.username;
-                    option.textContent = `${user.username} (${user.role})`;
+                    option.textContent = `${user.username} (${getRoleDisplayName(user.role)})`;
                     select.appendChild(option);
                 }
             });
@@ -1659,7 +1694,7 @@
                         <div style="font-size: 12px; color: #666;">ID: ${user._id}</div>
                     </td>
                     <td>
-                        <span class="role-badge ${user.role}">${user.role.toUpperCase()}</span>
+                        <span class="role-badge ${user.role}">${getRoleDisplayName(user.role)}</span>
                     </td>
                     <td>
                         <div style="font-weight: 600; color: ${currentCom !== 'Chưa có' ? '#28a745' : '#dc3545'};">
@@ -2278,7 +2313,7 @@
 Máy tính: ${machine.machineInfo.hostname}
 IP: ${machine.machineInfo.ipAddress}
 Platform: ${machine.machineInfo.platform}
-User: ${machine.username} (${machine.role})
+User: ${machine.username} (${getRoleDisplayName(machine.role)})
 Trạng thái: ${new Date() - new Date(machine.machineInfo.lastSeen) < 5 * 60 * 1000 ? 'ONLINE' : 'OFFLINE'}
 Tổng COM: ${machine.totalPorts}
 Khả dụng: ${machine.availablePorts}

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA - Quản lý đơn</title>
+  <link rel="stylesheet" href="/operations-role-base.css" />
+  <style>
+    .form-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; }
+    .form-grid input { padding:10px; border:1px solid var(--border); border-radius:8px; }
+    .form-grid button { grid-column: span 4; max-width: 220px; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .toolbar input[type="file"] { max-width: 280px; }
+    .msg { margin-top:10px; font-size:14px; color:var(--muted); }
+    .table-actions { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .w-auto { width:auto; }
+    @media (max-width: 1100px) { .form-grid { grid-template-columns:1fr; } .form-grid button { grid-column: auto; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>QA - Quản lý đơn</h1>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="logoutBtn">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="table-actions" style="margin-bottom:12px;">
+      <button class="btn secondary w-auto" id="menuCreateBtn">Tạo đơn</button>
+      <button class="btn secondary w-auto" id="menuManageBtn">Quản lý đơn</button>
+      <button class="btn secondary w-auto" onclick="window.location.href='/production-status'">Màn hình cập nhật sản xuất</button>
+    </div>
+
+    <section id="createSection">
+    <section class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-title">Tổng đơn QA</div><div class="kpi-value" id="kpiTotal">0</div></div>
+      <div class="kpi-card"><div class="kpi-title">Đã chọn để in</div><div class="kpi-value" id="kpiSelected">0</div></div>
+    </section>
+
+    <section class="content-grid">
+      <div class="panel">
+        <h2>Tạo đơn thủ công</h2>
+        <form id="manualForm" class="form-grid">
+          <input id="orderCode" placeholder="Mã đơn" required />
+          <input id="sku" placeholder="SKU" required />
+          <input id="productName" placeholder="Tên SP (tự động theo SKU, không bắt buộc)" />
+          <input id="quantity" type="number" min="1" placeholder="Số lượng" required />
+          <button class="btn secondary w-auto" type="submit">Tạo đơn</button>
+        </form>
+        <div class="helper">Dữ liệu bắt buộc: Mã đơn, SKU, Số lượng. Tên SP có thể để trống và sẽ tự lấy từ master data theo SKU.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Import file</h2>
+        <div class="toolbar">
+          <input id="importFile" type="file" accept=".xlsx,.xls" />
+          <button id="importBtn" class="btn secondary w-auto">Import</button>
+        </div>
+        <div class="helper">Template cột khuyến nghị: Mã đơn | SKU | Tên SP | Số lượng (cột Tên SP có thể để trống).</div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:14px;">
+      <h2>Danh sách đơn QA</h2>
+      <div class="table-actions">
+        <button id="refreshBtn" class="btn secondary w-auto">Làm mới</button>
+        <button id="printSelectedBtn" class="btn secondary w-auto">In đơn đã chọn</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAll" /></th>
+            <th>Mã đơn</th>
+            <th>SKU</th>
+            <th>Tên SP</th>
+            <th>Số lượng</th>
+            <th>Tạo lúc</th>
+            <th>In</th>
+          </tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+      <div id="message" class="msg"></div>
+    </section>
+    </section>
+
+    <section id="manageSection" class="panel" style="display:none; margin-top:14px;">
+      <h2>Quản lý trạng thái đơn qua các khâu</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Mã đơn</th>
+            <th>SKU</th>
+            <th>Tên SP</th>
+            <th>SL đơn</th>
+            <th>Công đoạn hiện tại</th>
+            <th>Trạng thái</th>
+            <th>SL hoàn thành</th>
+            <th>SL lỗi</th>
+            <th>Lịch sử</th>
+          </tr>
+        </thead>
+        <tbody id="manageOrdersBody"></tbody>
+      </table>
+      <div id="manageMessage" class="msg"></div>
+    </section>
+  </main>
+
+  <script>
+    const ordersBody = document.getElementById('ordersBody');
+    const messageEl = document.getElementById('message');
+    const selectedIds = new Set();
+    const manageOrdersBody = document.getElementById('manageOrdersBody');
+    const manageMessageEl = document.getElementById('manageMessage');
+    let orders = [];
+
+    function setMessage(text, isError = false) {
+      messageEl.textContent = text || '';
+      messageEl.style.color = isError ? '#b91c1c' : '#6b7280';
+    }
+
+    function updateKpi() {
+      document.getElementById('kpiTotal').textContent = String(orders.length);
+      document.getElementById('kpiSelected').textContent = String(selectedIds.size);
+    }
+
+    function setManageMessage(text, isError = false) {
+      manageMessageEl.textContent = text || '';
+      manageMessageEl.style.color = isError ? '#b91c1c' : '#6b7280';
+    }
+
+    async function logout() {
+      try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
+      window.location.href = '/login';
+    }
+
+    function formatDate(value) {
+      try { return new Date(value).toLocaleString('vi-VN'); } catch (_) { return value || ''; }
+    }
+
+    function openPrintWindow(items) {
+      if (!items.length) {
+        setMessage('Vui lòng chọn ít nhất 1 đơn để in', true);
+        return;
+      }
+
+      const html = `
+        <html><head><title>In đơn QA</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 10px; }
+          .label { width: 360px; border: 1px solid #ddd; padding: 10px; margin: 0 0 10px; page-break-inside: avoid; }
+          .row { margin: 4px 0; font-size: 13px; }
+          img { width: 100%; height: 90px; object-fit: contain; }
+        </style></head><body>
+        ${items.map(item => `
+          <div class="label">
+            <div class="row"><strong>Mã đơn:</strong> ${item.orderCode}</div>
+            <div class="row"><strong>SKU:</strong> ${item.sku}</div>
+            <div class="row"><strong>Tên SP:</strong> ${item.productName}</div>
+            <div class="row"><strong>Số lượng:</strong> ${item.quantity}</div>
+            <img src="/api/qa/orders/${item._id}/barcode" alt="barcode" />
+          </div>
+        `).join('')}
+        <script>window.onload = () => { window.print(); }<\/script>
+        </body></html>
+      `;
+
+      const printWin = window.open('', '_blank', 'width=900,height=700');
+      printWin.document.write(html);
+      printWin.document.close();
+    }
+
+    function renderRows() {
+      ordersBody.innerHTML = orders.map(item => `
+        <tr>
+          <td><input type="checkbox" data-id="${item._id}" ${selectedIds.has(item._id) ? 'checked' : ''} /></td>
+          <td>${item.orderCode}</td>
+          <td>${item.sku}</td>
+          <td>${item.productName}</td>
+          <td>${item.quantity}</td>
+          <td>${formatDate(item.createdAt)}</td>
+          <td><button class="btn secondary w-auto" data-print-id="${item._id}">In</button></td>
+        </tr>
+      `).join('');
+      updateKpi();
+    }
+
+    function renderManageRows() {
+      manageOrdersBody.innerHTML = orders.map(item => `
+        <tr>
+          <td>${item.orderCode}</td>
+          <td>${item.sku}</td>
+          <td>${item.productName}</td>
+          <td>${item.quantity}</td>
+          <td>${item.currentStage || 'Tạo đơn'}</td>
+          <td>${item.currentStatus || 'pending'}</td>
+          <td>${item.totalCompleted || 0}</td>
+          <td>${item.totalDefect || 0}</td>
+          <td><button class="btn secondary w-auto" data-history-order="${item.orderCode}">Xem</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/qa/orders');
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Không thể tải đơn');
+        orders = data.items || [];
+        renderRows();
+        renderManageRows();
+        setMessage(`Đã tải ${orders.length} đơn`);
+        setManageMessage(`Đã tải ${orders.length} đơn`);
+      } catch (error) {
+        setMessage(error.message, true);
+        setManageMessage(error.message, true);
+      }
+    }
+
+    document.getElementById('manualForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        orderCode: document.getElementById('orderCode').value.trim(),
+        sku: document.getElementById('sku').value.trim(),
+        productName: document.getElementById('productName').value.trim(),
+        quantity: Number(document.getElementById('quantity').value)
+      };
+
+      try {
+        const res = await fetch('/api/qa/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Tạo đơn thất bại');
+        e.target.reset();
+        setMessage('Tạo đơn thành công');
+        await loadOrders();
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    });
+
+    document.getElementById('sku').addEventListener('blur', async () => {
+      const sku = document.getElementById('sku').value.trim();
+      const productNameEl = document.getElementById('productName');
+      if (!sku || productNameEl.value.trim()) return;
+      try {
+        const res = await fetch(`/api/master-data/sku/${encodeURIComponent(sku)}`);
+        const data = await res.json();
+        if (data.success && data.data?.productName) {
+          productNameEl.value = data.data.productName;
+          setMessage(`Đã tự điền Tên SP theo SKU: ${sku}`);
+        }
+      } catch (_) {}
+    });
+
+    document.getElementById('importBtn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('importFile');
+      const file = fileInput.files[0];
+      if (!file) return setMessage('Vui lòng chọn file để import', true);
+
+      const formData = new FormData();
+      formData.append('xlsxFile', file);
+
+      try {
+        const res = await fetch('/api/qa/orders/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Import thất bại');
+        setMessage(`${data.message}. Thêm mới: ${data.summary.inserted}, cập nhật: ${data.summary.updated}, tự điền tên: ${data.summary.autoFilled || 0}, thiếu tên (bỏ qua): ${data.summary.missingProductName || 0}`);
+        fileInput.value = '';
+        await loadOrders();
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', loadOrders);
+    document.getElementById('menuCreateBtn').addEventListener('click', () => {
+      document.getElementById('createSection').style.display = '';
+      document.getElementById('manageSection').style.display = 'none';
+    });
+    document.getElementById('menuManageBtn').addEventListener('click', () => {
+      document.getElementById('createSection').style.display = 'none';
+      document.getElementById('manageSection').style.display = '';
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+
+    document.getElementById('selectAll').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        orders.forEach(o => selectedIds.add(o._id));
+      } else {
+        selectedIds.clear();
+      }
+      renderRows();
+    });
+
+    document.getElementById('printSelectedBtn').addEventListener('click', () => {
+      const items = orders.filter(o => selectedIds.has(o._id));
+      openPrintWindow(items);
+    });
+
+    ordersBody.addEventListener('change', (e) => {
+      if (e.target.matches('input[type="checkbox"][data-id]')) {
+        const id = e.target.getAttribute('data-id');
+        if (e.target.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateKpi();
+      }
+    });
+
+    ordersBody.addEventListener('click', (e) => {
+      if (e.target.matches('button[data-print-id]')) {
+        const id = e.target.getAttribute('data-print-id');
+        const found = orders.find(o => o._id === id);
+        if (found) openPrintWindow([found]);
+      }
+    });
+
+    manageOrdersBody.addEventListener('click', async (e) => {
+      if (!e.target.matches('button[data-history-order]')) return;
+      const orderCode = e.target.getAttribute('data-history-order');
+      try {
+        const res = await fetch(`/api/qa/orders/${encodeURIComponent(orderCode)}/progress`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Không tải được lịch sử');
+        if (!data.items?.length) {
+          alert(`Đơn ${orderCode} chưa có lịch sử cập nhật công đoạn.`);
+          return;
+        }
+        const content = data.items
+          .map((x) => `${new Date(x.createdAt).toLocaleString('vi-VN')} | ${x.stage} | Hoàn thành: ${x.completedQty} | Lỗi: ${x.defectQty} | User: ${x.updatedBy}`)
+          .join('\n');
+        alert(`Lịch sử đơn ${orderCode}:\n\n${content}`);
+      } catch (error) {
+        setManageMessage(error.message, true);
+      }
+    });
+
+    loadOrders();
+  </script>
+</body>
+</html>

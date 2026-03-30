@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QA</title>
+  <link rel="stylesheet" href="/role-base.css">
+  <style>
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .toolbar input, .toolbar button { padding:9px 10px; border-radius:8px; border:1px solid #d1d5db; }
+    .toolbar button { background:#1d4ed8; color:#fff; border:0; cursor:pointer; }
+    .msg { font-size:13px; color:#6b7280; margin-top:8px; }
+    .btn-small { padding:6px 9px; font-size:12px; border-radius:7px; border:0; background:#1d4ed8; color:#fff; cursor:pointer; }
+    .kpi-sm { font-size:24px; font-weight:700; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div><h1>QA</h1><p>QA - Quản lý đơn</p></div>
+    <button class="btn" id="logoutBtn">Đăng xuất</button>
+  </header>
+
+  <main class="container">
+    <section class="grid">
+      <div class="card"><div>Tổng đơn QA</div><div class="kpi-sm" id="kpiTotal">0</div></div>
+      <div class="card"><div>Đã chọn để in</div><div class="kpi-sm" id="kpiSelected">0</div></div>
+    </section>
+
+    <section class="card section">
+      <h3>Tạo đơn thủ công</h3>
+      <div class="toolbar">
+        <input id="orderCode" placeholder="Mã đơn">
+        <input id="sku" placeholder="SKU">
+        <input id="productName" placeholder="Tên SP">
+        <input id="quantity" type="number" min="1" placeholder="Số lượng">
+        <button id="createBtn">Tạo đơn</button>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h3>Import file Excel</h3>
+      <div class="toolbar">
+        <input id="importFile" type="file" accept=".xlsx,.xls">
+        <button id="importBtn">Import</button>
+      </div>
+      <div class="msg">File gồm 4 cột: Mã đơn, SKU, Tên SP, Số lượng</div>
+    </section>
+
+    <section class="card section">
+      <h3>Danh sách đơn QA</h3>
+      <div class="toolbar">
+        <button id="refreshBtn">Làm mới</button>
+        <button id="printSelectedBtn">In đơn đã chọn</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAll"></th>
+            <th>Mã đơn</th>
+            <th>SKU</th>
+            <th>Tên SP</th>
+            <th>Số lượng</th>
+            <th>Tạo lúc</th>
+            <th>In</th>
+          </tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+      <div id="message" class="msg"></div>
+    </section>
+  </main>
+
+  <script src="/role-base.js"></script>
+  <script>
+    const ordersBody = document.getElementById('ordersBody');
+    const messageEl = document.getElementById('message');
+    const selectedIds = new Set();
+    let orders = [];
+
+    function setMessage(text, error) {
+      messageEl.textContent = text || '';
+      messageEl.style.color = error ? '#b91c1c' : '#6b7280';
+    }
+
+    function updateKpis() {
+      document.getElementById('kpiTotal').textContent = String(orders.length);
+      document.getElementById('kpiSelected').textContent = String(selectedIds.size);
+    }
+
+    function formatDate(v) {
+      try { return new Date(v).toLocaleString('vi-VN'); } catch (_) { return v || ''; }
+    }
+
+    function openPrintWindow(items) {
+      if (!items.length) {
+        setMessage('Vui lòng chọn ít nhất 1 đơn để in', true);
+        return;
+      }
+      const html = `
+        <html><head><title>In đơn QA</title>
+        <style>
+          body{font-family:Arial,sans-serif;margin:10px;}
+          .label{width:360px;border:1px solid #ddd;padding:10px;margin-bottom:10px;page-break-inside:avoid;}
+          .line{font-size:13px;margin:4px 0;}
+          img{width:100%;height:90px;object-fit:contain;}
+        </style></head><body>
+        ${items.map(item => `
+          <div class="label">
+            <div class="line"><strong>Mã đơn:</strong> ${item.order_code}</div>
+            <div class="line"><strong>SKU:</strong> ${item.sku}</div>
+            <div class="line"><strong>Tên SP:</strong> ${item.product_name}</div>
+            <div class="line"><strong>Số lượng:</strong> ${item.quantity}</div>
+            <img src="/api/qa/orders/${item.id}/barcode" alt="barcode" />
+          </div>
+        `).join('')}
+        <script>window.onload=function(){window.print();}<\/script>
+        </body></html>
+      `;
+      const w = window.open('', '_blank', 'width=900,height=700');
+      w.document.write(html);
+      w.document.close();
+    }
+
+    function renderRows() {
+      ordersBody.innerHTML = orders.map(item => `
+        <tr>
+          <td><input type="checkbox" data-id="${item.id}" ${selectedIds.has(String(item.id)) ? 'checked' : ''}></td>
+          <td>${item.order_code}</td>
+          <td>${item.sku}</td>
+          <td>${item.product_name}</td>
+          <td>${item.quantity}</td>
+          <td>${formatDate(item.created_at)}</td>
+          <td><button class="btn-small" data-print-id="${item.id}">In</button></td>
+        </tr>
+      `).join('');
+      updateKpis();
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/qa/orders');
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Không tải được dữ liệu');
+        orders = data.items || [];
+        renderRows();
+        setMessage(`Đã tải ${orders.length} đơn`);
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    }
+
+    document.getElementById('createBtn').addEventListener('click', async function () {
+      const payload = {
+        orderCode: document.getElementById('orderCode').value.trim(),
+        sku: document.getElementById('sku').value.trim(),
+        productName: document.getElementById('productName').value.trim(),
+        quantity: Number(document.getElementById('quantity').value)
+      };
+      try {
+        const res = await fetch('/api/qa/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Tạo đơn thất bại');
+        document.getElementById('orderCode').value = '';
+        document.getElementById('sku').value = '';
+        document.getElementById('productName').value = '';
+        document.getElementById('quantity').value = '';
+        setMessage('Tạo đơn thành công');
+        loadOrders();
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    });
+
+    document.getElementById('sku').addEventListener('blur', async function () {
+      const sku = this.value.trim();
+      if (!sku) return;
+      try {
+        const res = await fetch(`/api/qa/masterdata-by-sku/${encodeURIComponent(sku)}`);
+        const data = await res.json();
+        if (!data.ok || !data.data?.productName) return;
+        const productNameInput = document.getElementById('productName');
+        if (!productNameInput.value.trim()) {
+          productNameInput.value = data.data.productName;
+          setMessage(`Đã tự điền tên SP theo SKU: ${sku}`);
+        }
+      } catch (_) {
+      }
+    });
+
+    document.getElementById('importBtn').addEventListener('click', async function () {
+      const fileInput = document.getElementById('importFile');
+      if (!fileInput.files[0]) {
+        return setMessage('Vui lòng chọn file để import', true);
+      }
+      const formData = new FormData();
+      formData.append('xlsxFile', fileInput.files[0]);
+      try {
+        const res = await fetch('/api/qa/orders/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Import thất bại');
+        fileInput.value = '';
+        setMessage(
+          `${data.message}. Thêm mới: ${data.summary.inserted}, cập nhật: ${data.summary.updated}, tự điền tên: ${data.summary.autoFilled}, thiếu tên (không import): ${data.summary.missingProductName}`
+        );
+        loadOrders();
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', loadOrders);
+    document.getElementById('printSelectedBtn').addEventListener('click', function () {
+      openPrintWindow(orders.filter(item => selectedIds.has(String(item.id))));
+    });
+    document.getElementById('selectAll').addEventListener('change', function (e) {
+      if (e.target.checked) orders.forEach(item => selectedIds.add(String(item.id)));
+      else selectedIds.clear();
+      renderRows();
+    });
+
+    ordersBody.addEventListener('change', function (e) {
+      if (!e.target.matches('input[type="checkbox"][data-id]')) return;
+      const id = e.target.getAttribute('data-id');
+      if (e.target.checked) selectedIds.add(id);
+      else selectedIds.delete(id);
+      updateKpis();
+    });
+
+    ordersBody.addEventListener('click', function (e) {
+      if (!e.target.matches('button[data-print-id]')) return;
+      const id = e.target.getAttribute('data-print-id');
+      const item = orders.find(o => String(o.id) === String(id));
+      if (item) openPrintWindow([item]);
+    });
+
+    loadOrders();
+  </script>
+</body>
+</html>

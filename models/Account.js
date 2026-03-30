@@ -13,7 +13,14 @@ const accountSchema = new mongoose.Schema({
             'warehouse_manager',
             'warehouse_staff',
             'production_worker',
-            'reconciler' // Đối soát
+            'reconciler', // Đối soát
+            'production_manager',
+            'qa',
+            'fabric_cutting_team',
+            'cotton_press_team',
+            'eyelet_team',
+            'sewing_team',
+            'assembly_team'
         ],
         default: 'user'
     },

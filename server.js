@@ -14,6 +14,7 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const { URL } = require('url');
+const bwipjs = require('bwip-js');
 const config = require('./config');
 
 // Import models
@@ -32,6 +33,8 @@ const NhapPhoi = require('./models/NhapPhoi');
 const DoiTuongCatVai = require('./models/DoiTuongCatVai');
 const DatabaseConfig = require('./models/DatabaseConfig');
 const Template = require('./models/Template');
+const QAOrder = require('./models/QAOrder');
+const QAOrderProgress = require('./models/QAOrderProgress');
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -252,8 +255,15 @@ app.post('/api/login', async (req, res) => {
                      (account.role === 'checker' || account.role === 'packer') ? '/checker-home' :
                      account.role === 'warehouse_manager' ? '/warehouse-manager' :
                      account.role === 'warehouse_staff' ? '/warehouse-staff' :
-                     account.role === 'production_worker' ? '/production-worker' :
+                     account.role === 'production_worker' ? '/production-status' :
                      account.role === 'reconciler' ? '/reconciler-home' :
+                     account.role === 'production_manager' ? '/production-manager' :
+                     account.role === 'qa' ? '/qa-dashboard' :
+                     account.role === 'fabric_cutting_team' ? '/fabric-cutting-team' :
+                     account.role === 'cotton_press_team' ? '/cotton-press-team' :
+                     account.role === 'eyelet_team' ? '/eyelet-team' :
+                     account.role === 'sewing_team' ? '/sewing-team' :
+                     account.role === 'assembly_team' ? '/assembly-team' :
                      '/'
         });
 
@@ -272,7 +282,7 @@ app.post('/api/register', requireLogin, requireAdmin, async (req, res) => {
             return res.json({ success: false, message: 'Vui lòng nhập đầy đủ thông tin' });
         }
 
-        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker', 'reconciler'].includes(role)) {
+        if (!['user', 'admin', 'packer', 'checker', 'warehouse_manager', 'warehouse_staff', 'production_worker', 'reconciler', 'production_manager', 'qa', 'fabric_cutting_team', 'cotton_press_team', 'eyelet_team', 'sewing_team', 'assembly_team'].includes(role)) {
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
 
@@ -495,7 +505,7 @@ app.put('/api/accounts/:id/role', requireLogin, requireAdmin, async (req, res) =
 
         console.log(`[UPDATE ROLE] Admin ${req.session.user.username} yêu cầu đổi role cho account ID: ${accountId} -> ${role}`);
 
-        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker','reconciler'].includes(role)) {
+        if (!role || !['user','admin','packer','checker','warehouse_manager','warehouse_staff','production_worker','reconciler','production_manager','qa','fabric_cutting_team','cotton_press_team','eyelet_team','sewing_team','assembly_team'].includes(role)) {
             console.log(`[UPDATE ROLE] Quyền không hợp lệ: ${role}`);
             return res.json({ success: false, message: 'Quyền không hợp lệ' });
         }
@@ -1607,10 +1617,74 @@ function requireProductionWorker(req, res, next) {
     next();
 }
 
+function requireRole(requiredRole) {
+    return (req, res, next) => {
+        if (!req.session.user) {
+            return res.redirect('/login');
+        }
+        if (req.session.user.role !== requiredRole) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        next();
+    };
+}
+
+function requireAnyRole(roles) {
+    return (req, res, next) => {
+        if (!req.session.user) {
+            return res.redirect('/login');
+        }
+        if (!roles.includes(req.session.user.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        next();
+    };
+}
+
 // Route trang production worker
 app.get('/production-worker', requireProductionWorker, (req, res) => {
     console.log('🔍 Production Worker Access - Session user:', req.session.user);
     res.sendFile(path.join(__dirname, 'public', 'production-worker.html'));
+});
+
+app.get('/production-status', requireAnyRole([
+    'production_worker',
+    'production_manager',
+    'fabric_cutting_team',
+    'cotton_press_team',
+    'eyelet_team',
+    'sewing_team',
+    'assembly_team'
+]), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'production-status.html'));
+});
+
+app.get('/production-manager', requireRole('production_manager'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'production-manager.html'));
+});
+
+app.get('/qa-dashboard', requireRole('qa'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'qa-dashboard.html'));
+});
+
+app.get('/fabric-cutting-team', requireRole('fabric_cutting_team'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'fabric-cutting-team.html'));
+});
+
+app.get('/cotton-press-team', requireRole('cotton_press_team'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'cotton-press-team.html'));
+});
+
+app.get('/eyelet-team', requireRole('eyelet_team'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'eyelet-team.html'));
+});
+
+app.get('/sewing-team', requireRole('sewing_team'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'sewing-team.html'));
+});
+
+app.get('/assembly-team', requireRole('assembly_team'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'assembly-team.html'));
 });
 
 // Route debug session
@@ -1641,7 +1715,28 @@ app.get('/', (req, res) => {
         return res.redirect('/warehouse-staff');
     }
     if (role === 'production_worker') {
-        return res.redirect('/production-worker');
+        return res.redirect('/production-status');
+    }
+    if (role === 'production_manager') {
+        return res.redirect('/production-manager');
+    }
+    if (role === 'qa') {
+        return res.redirect('/qa-dashboard');
+    }
+    if (role === 'fabric_cutting_team') {
+        return res.redirect('/fabric-cutting-team');
+    }
+    if (role === 'cotton_press_team') {
+        return res.redirect('/cotton-press-team');
+    }
+    if (role === 'eyelet_team') {
+        return res.redirect('/eyelet-team');
+    }
+    if (role === 'sewing_team') {
+        return res.redirect('/sewing-team');
+    }
+    if (role === 'assembly_team') {
+        return res.redirect('/assembly-team');
     }
     return res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -1683,6 +1778,322 @@ const upload = multer({
     },
     limits: {
         fileSize: 10 * 1024 * 1024 // Giới hạn 10MB
+    }
+});
+
+function parseQAImportSheet(filePath) {
+    const workbook = XLSX.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+        throw new Error('File import không có sheet dữ liệu');
+    }
+
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+    if (!rows.length) {
+        return [];
+    }
+
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+    const resolveKey = (row, keys) => {
+        const entries = Object.keys(row);
+        return entries.find((key) => keys.includes(normalize(key)));
+    };
+
+    const firstRow = rows[0];
+    const orderCodeKey = resolveKey(firstRow, ['mã đơn', 'ma don', 'madon', 'order code', 'ordercode']);
+    const skuKey = resolveKey(firstRow, ['sku', 'mã sku', 'ma sku']);
+    const productNameKey = resolveKey(firstRow, ['tên sp', 'ten sp', 'tên sản phẩm', 'ten san pham', 'product name', 'productname']);
+    const quantityKey = resolveKey(firstRow, ['số lượng', 'so luong', 'quantity']);
+
+    if (!orderCodeKey || !skuKey || !quantityKey) {
+        throw new Error('File phải có cột: Mã đơn, SKU, Số lượng');
+    }
+
+    const mapped = [];
+    for (const row of rows) {
+        const orderCode = String(row[orderCodeKey] || '').trim();
+        const sku = String(row[skuKey] || '').trim();
+        const productName = productNameKey ? String(row[productNameKey] || '').trim() : '';
+        const quantity = Number(row[quantityKey]);
+
+        if (!orderCode || !sku || !Number.isFinite(quantity) || quantity <= 0) {
+            continue;
+        }
+
+        mapped.push({
+            orderCode,
+            sku,
+            productName,
+            quantity: Math.floor(quantity)
+        });
+    }
+
+    return mapped;
+}
+
+async function lookupProductNameFromMasterDataBySku(sku) {
+    const skuInput = String(sku || '').trim();
+    if (!skuInput) return '';
+
+    const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const normalizeSku = (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+    const skuNormalized = normalizeSku(skuInput);
+    const exactRegex = new RegExp(`^${escapeRegExp(skuInput)}$`, 'i');
+
+    const [masterData, masterDataVai] = await Promise.all([
+        MasterData.findOne({ $or: [{ sku: skuInput }, { sku: exactRegex }] }).lean(),
+        MasterDataVai.findOne({ $or: [{ sku: skuInput }, { sku: exactRegex }] }).lean()
+    ]);
+
+    let finalMasterData = masterData;
+    let finalMasterDataVai = masterDataVai;
+
+    if (!finalMasterData || !finalMasterDataVai) {
+        const [masterDataCandidates, masterDataVaiCandidates] = await Promise.all([
+            MasterData.find({ sku: { $regex: escapeRegExp(skuInput), $options: 'i' } }).limit(50).lean(),
+            MasterDataVai.find({ sku: { $regex: escapeRegExp(skuInput), $options: 'i' } }).limit(50).lean()
+        ]);
+
+        if (!finalMasterData) {
+            finalMasterData =
+                masterDataCandidates.find((item) => normalizeSku(item.sku) === skuNormalized) ||
+                masterDataCandidates[0] ||
+                null;
+        }
+        if (!finalMasterDataVai) {
+            finalMasterDataVai =
+                masterDataVaiCandidates.find((item) => normalizeSku(item.sku) === skuNormalized) ||
+                masterDataVaiCandidates[0] ||
+                null;
+        }
+    }
+
+    return (
+        (finalMasterDataVai && typeof finalMasterDataVai.ten === 'string' && finalMasterDataVai.ten.trim()) ||
+        (finalMasterData && typeof finalMasterData.tenPhienBan === 'string' && finalMasterData.tenPhienBan.trim()) ||
+        ''
+    );
+}
+
+app.get('/api/qa/orders', requireRole('qa'), async (req, res) => {
+    try {
+        const orders = await QAOrder.find({}, { __v: 0 }).sort({ createdAt: -1 }).lean();
+        res.json({ success: true, items: orders });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/qa/orders', requireRole('qa'), async (req, res) => {
+    try {
+        const { orderCode, sku, productName, quantity } = req.body;
+        if (!orderCode || !sku || !quantity) {
+            return res.status(400).json({ success: false, message: 'Thiếu dữ liệu bắt buộc' });
+        }
+
+        const parsedQuantity = Number(quantity);
+        if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+            return res.status(400).json({ success: false, message: 'Số lượng không hợp lệ' });
+        }
+
+        let finalProductName = String(productName || '').trim();
+        if (!finalProductName) {
+            finalProductName = await lookupProductNameFromMasterDataBySku(sku);
+        }
+        if (!finalProductName) {
+            return res.status(400).json({ success: false, message: 'Không tìm thấy Tên SP từ master data cho SKU đã nhập' });
+        }
+
+        const created = await QAOrder.create({
+            orderCode: String(orderCode).trim(),
+            sku: String(sku).trim(),
+            productName: finalProductName,
+            quantity: Math.floor(parsedQuantity),
+            createdBy: req.session.user?.username || null
+        });
+
+        res.json({ success: true, item: created });
+    } catch (error) {
+        if (error?.code === 11000) {
+            return res.status(409).json({ success: false, message: 'Mã đơn đã tồn tại' });
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/qa/orders/import', requireRole('qa'), upload.single('xlsxFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Vui lòng chọn file import' });
+    }
+
+    try {
+        const rows = parseQAImportSheet(req.file.path);
+        if (!rows.length) {
+            return res.status(400).json({ success: false, message: 'Không có dòng hợp lệ để import' });
+        }
+
+        let inserted = 0;
+        let updated = 0;
+        let autoFilled = 0;
+        let missingProductName = 0;
+
+        for (const row of rows) {
+            let finalProductName = String(row.productName || '').trim();
+            if (!finalProductName) {
+                finalProductName = await lookupProductNameFromMasterDataBySku(row.sku);
+                if (finalProductName) {
+                    autoFilled += 1;
+                }
+            }
+
+            if (!finalProductName) {
+                missingProductName += 1;
+                continue;
+            }
+
+            const writeResult = await QAOrder.updateOne(
+                { orderCode: row.orderCode },
+                {
+                    $set: {
+                        sku: row.sku,
+                        productName: finalProductName,
+                        quantity: row.quantity,
+                        createdBy: req.session.user?.username || null
+                    }
+                },
+                { upsert: true }
+            );
+
+            if (writeResult?.upsertedCount) inserted += writeResult.upsertedCount;
+            else if (writeResult?.modifiedCount || writeResult?.matchedCount) updated += 1;
+        }
+
+        res.json({
+            success: true,
+            message: `Import thành công ${rows.length} dòng`,
+            summary: { total: rows.length, inserted, updated, autoFilled, missingProductName }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        fs.unlink(req.file.path, () => {});
+    }
+});
+
+app.get('/api/qa/orders/:id/barcode', requireRole('qa'), async (req, res) => {
+    try {
+        const order = await QAOrder.findById(req.params.id).lean();
+        if (!order) {
+            return res.status(404).send('Order not found');
+        }
+
+        const png = await bwipjs.toBuffer({
+            bcid: 'code128',
+            text: order.orderCode,
+            scale: 3,
+            height: 12,
+            includetext: true,
+            textxalign: 'center'
+        });
+
+        res.set('Content-Type', 'image/png');
+        res.send(png);
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
+
+app.get('/api/qa/orders/:orderCode/progress', requireRole('qa'), async (req, res) => {
+    try {
+        const orderCode = String(req.params.orderCode || '').trim();
+        if (!orderCode) {
+            return res.status(400).json({ success: false, message: 'Mã đơn không hợp lệ' });
+        }
+        const logs = await QAOrderProgress.find({ orderCode }, { __v: 0 }).sort({ createdAt: -1 }).lean();
+        res.json({ success: true, items: logs });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/production/orders/scan', requireAnyRole([
+    'production_worker',
+    'production_manager',
+    'fabric_cutting_team',
+    'cotton_press_team',
+    'eyelet_team',
+    'sewing_team',
+    'assembly_team'
+]), async (req, res) => {
+    try {
+        const { orderCode } = req.body;
+        const normalized = String(orderCode || '').trim();
+        if (!normalized) {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập mã đơn' });
+        }
+
+        const order = await QAOrder.findOne({ orderCode: normalized }).lean();
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn QA theo mã đơn' });
+        }
+
+        res.json({ success: true, item: order });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/production/orders/update-status', requireAnyRole([
+    'production_worker',
+    'production_manager',
+    'fabric_cutting_team',
+    'cotton_press_team',
+    'eyelet_team',
+    'sewing_team',
+    'assembly_team'
+]), async (req, res) => {
+    try {
+        const { orderCode, stage, completedQty, defectQty, note } = req.body;
+        const normalizedOrderCode = String(orderCode || '').trim();
+        const normalizedStage = String(stage || '').trim();
+        const done = Number(completedQty);
+        const defect = Number(defectQty);
+
+        if (!normalizedOrderCode || !normalizedStage) {
+            return res.status(400).json({ success: false, message: 'Thiếu mã đơn hoặc công đoạn' });
+        }
+        if (!Number.isFinite(done) || done < 0 || !Number.isFinite(defect) || defect < 0) {
+            return res.status(400).json({ success: false, message: 'Số lượng hoàn thành/lỗi không hợp lệ' });
+        }
+
+        const order = await QAOrder.findOne({ orderCode: normalizedOrderCode });
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn QA theo mã đơn' });
+        }
+
+        order.currentStage = normalizedStage;
+        order.currentStatus = done + defect >= Number(order.quantity || 0) ? 'completed' : 'in_progress';
+        order.totalCompleted = (Number(order.totalCompleted) || 0) + Math.floor(done);
+        order.totalDefect = (Number(order.totalDefect) || 0) + Math.floor(defect);
+        order.lastUpdatedBy = req.session.user?.username || null;
+        await order.save();
+
+        await QAOrderProgress.create({
+            orderCode: order.orderCode,
+            sku: order.sku,
+            productName: order.productName,
+            quantity: order.quantity,
+            stage: normalizedStage,
+            completedQty: Math.floor(done),
+            defectQty: Math.floor(defect),
+            note: String(note || '').trim(),
+            updatedBy: req.session.user?.username || 'unknown',
+            updatedByRole: req.session.user?.role || 'unknown'
+        });
+
+        res.json({ success: true, item: order, message: 'Đã cập nhật trạng thái đơn thành công' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -2784,19 +3195,33 @@ app.delete('/api/delete-all/master-data-vai', requireLogin, requireWarehouseMana
 // Route báo cáo data cắt vải
 app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req, res) => {
     try {
-        const { maMau, filterType, date, month, quarter, year, dateFrom, dateTo, groupByCatVaiId, export: isExport } = req.query;
+        const {
+            catVaiId,
+            createdBy,
+            maMau,
+            filterType,
+            date,
+            month,
+            quarter,
+            year,
+            dateFrom,
+            dateTo,
+            groupByCatVaiId,
+            export: isExport,
+            timeField,
+            page,
+            pageSize
+        } = req.query;
         
-        // Xây dựng query filter
-        const query = {};
-        if (maMau) {
-            query.maMau = maMau;
-        }
+        // timeField:
+        // - 'cut'  : lọc theo lịch sử cắt (lichSuCat.ngayCat) (mặc định)
+        // - 'import': lọc theo ngày nhập đối tượng (ngayNhap) (giữ hành vi cũ nếu cần)
+        const resolvedTimeField = (timeField || 'cut').toLowerCase() === 'import' ? 'import' : 'cut';
         
-        // Xử lý filter thời gian
+        // Tính time range từ filterType
+        let startDate = null;
+        let endDate = null;
         if (filterType && filterType !== 'all') {
-            let startDate, endDate;
-            const now = new Date();
-            
             switch (filterType) {
                 case 'date':
                     if (date) {
@@ -2804,7 +3229,6 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                         startDate.setHours(0, 0, 0, 0);
                         endDate = new Date(date);
                         endDate.setHours(23, 59, 59, 999);
-                        query.ngayNhap = { $gte: startDate, $lte: endDate };
                     }
                     break;
                 case 'month':
@@ -2812,7 +3236,6 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                         const [yearStr, monthStr] = month.split('-');
                         startDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1);
                         endDate = new Date(parseInt(yearStr), parseInt(monthStr), 0, 23, 59, 59, 999);
-                        query.ngayNhap = { $gte: startDate, $lte: endDate };
                     }
                     break;
                 case 'quarter':
@@ -2825,7 +3248,6 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                         else if (quarter === 'Q4') startMonth = 9;
                         startDate = new Date(yearNum, startMonth, 1);
                         endDate = new Date(yearNum, startMonth + 3, 0, 23, 59, 59, 999);
-                        query.ngayNhap = { $gte: startDate, $lte: endDate };
                     }
                     break;
                 case 'year':
@@ -2833,33 +3255,72 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                         const yearNum = parseInt(year);
                         startDate = new Date(yearNum, 0, 1);
                         endDate = new Date(yearNum, 11, 31, 23, 59, 59, 999);
-                        query.ngayNhap = { $gte: startDate, $lte: endDate };
                     }
                     break;
                 case 'range':
-                    if (dateFrom && dateTo) {
+                    if (dateFrom) {
                         startDate = new Date(dateFrom);
                         startDate.setHours(0, 0, 0, 0);
+                    }
+                    if (dateTo) {
                         endDate = new Date(dateTo);
                         endDate.setHours(23, 59, 59, 999);
-                        query.ngayNhap = { $gte: startDate, $lte: endDate };
-                    } else if (dateFrom) {
-                        startDate = new Date(dateFrom);
-                        startDate.setHours(0, 0, 0, 0);
-                        query.ngayNhap = { $gte: startDate };
-                    } else if (dateTo) {
-                        endDate = new Date(dateTo);
-                        endDate.setHours(23, 59, 59, 999);
-                        query.ngayNhap = { $lte: endDate };
                     }
                     break;
             }
         }
+        
+        // Xây dựng query filter
+        const query = {};
+        if (maMau) {
+            query.maMau = maMau;
+        }
+        if (catVaiId) {
+            query.catVaiId = String(catVaiId).trim();
+        }
+        
+        // Lấy dữ liệu:
+        // - Nếu lọc theo ngayNhap: dùng query ngayNhap như trước
+        // - Nếu lọc theo lichSuCat.ngayCat: lọc theo phần tử lịch sử (elemMatch) và TRIM lịch sử theo range
+        if (startDate || endDate) {
+            if (resolvedTimeField === 'import') {
+                const ngayNhapCond = {};
+                if (startDate) ngayNhapCond.$gte = startDate;
+                if (endDate) ngayNhapCond.$lte = endDate;
+                query.ngayNhap = ngayNhapCond;
+            } else {
+                const ngayCatCond = {};
+                if (startDate) ngayCatCond.$gte = startDate;
+                if (endDate) ngayCatCond.$lte = endDate;
+                const elemMatch = { ngayCat: ngayCatCond };
+                if (createdBy) elemMatch.createdBy = String(createdBy).trim();
+                query.lichSuCat = { $elemMatch: elemMatch };
+            }
+        } else if (resolvedTimeField === 'cut' && createdBy) {
+            // Lọc theo nhân viên cắt dù không chọn thời gian
+            query.lichSuCat = { $elemMatch: { createdBy: String(createdBy).trim() } };
+        } else if (resolvedTimeField === 'import' && createdBy) {
+            // Lọc theo người tạo đối tượng (ngày nhập)
+            query.createdBy = String(createdBy).trim();
+        }
 
-        // Lấy dữ liệu
-        let list = await DoiTuongCatVai.find(query)
-            .sort({ ngayNhap: -1, catVaiId: 1 })
-            .lean();
+        let list = await DoiTuongCatVai.find(query).sort({ ngayNhap: -1, catVaiId: 1 }).lean();
+        
+        // Nếu đang lọc theo lịch sử cắt, trim lichSuCat theo range để UI/Excel phản ánh đúng "lịch sử trong kỳ"
+        if (resolvedTimeField === 'cut' && (startDate || endDate || createdBy)) {
+            list = list.map(item => {
+                const lichSuCat = Array.isArray(item.lichSuCat) ? item.lichSuCat : [];
+                const filtered = lichSuCat.filter(cut => {
+                    if (!cut || !cut.ngayCat) return false;
+                    if (createdBy && String(cut.createdBy || '').trim() !== String(createdBy).trim()) return false;
+                    const t = new Date(cut.ngayCat).getTime();
+                    if (startDate && t < startDate.getTime()) return false;
+                    if (endDate && t > endDate.getTime()) return false;
+                    return true;
+                });
+                return { ...item, lichSuCat: filtered };
+            });
+        }
         
         // Gom nhóm theo catVaiId nếu được yêu cầu
         if (groupByCatVaiId === 'true') {
@@ -2872,7 +3333,7 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                     // Cộng dồn (thường không xảy ra vì catVaiId là unique, nhưng phòng hờ)
                     grouped[key].dienTichDaCat += (item.dienTichDaCat || 0);
                     grouped[key].dienTichConLai = Math.max(0, grouped[key].dienTichBanDau - grouped[key].dienTichDaCat);
-                    grouped[key].soMConLai = Math.round((grouped[key].dienTichConLai / 2.3) * 10) / 10;
+                    grouped[key].soMConLai = Math.round((grouped[key].dienTichConLai / 2.3) * 100) / 100;
                     grouped[key].tienDoPercent = grouped[key].chieuDaiCayVai > 0 ? 
                         Math.round(((grouped[key].chieuDaiCayVai - grouped[key].soMConLai) / grouped[key].chieuDaiCayVai) * 100) : 0;
                 }
@@ -2880,19 +3341,57 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
             list = Object.values(grouped);
         }
 
-        // Tính toán thống kê
-        const summary = {
-            totalCatVai: list.length,
-            totalItems: list.reduce((sum, item) => sum + (item.items ? item.items.length : 0), 0),
-            totalDienTich: list.reduce((sum, item) => sum + (item.dienTichDaCat || 0), 0),
-            totalSoM: list.reduce((sum, item) => sum + (item.chieuDaiCayVai - (item.soMConLai || 0)), 0),
-            totalVaiThieu: list.reduce((sum, item) => sum + ((item.vaiThieu && item.vaiThieu.soM) ? item.vaiThieu.soM : 0), 0),
-            totalVaiLoi: list.reduce((sum, item) => sum + ((item.vaiLoi && item.vaiLoi.soM) ? item.vaiLoi.soM : 0), 0),
-            totalNhapLaiKho: list.reduce((sum, item) => sum + ((item.nhapLaiKho && item.nhapLaiKho.soM) ? item.nhapLaiKho.soM : 0), 0)
-        };
+        // Snapshot trước phân trang để summary phản ánh TOÀN BỘ dữ liệu theo filter
+        const fullList = Array.isArray(list) ? list : [];
+
+        // Tính toán thống kê:
+        // - Nếu lọc theo lịch sử cắt: tổng hợp theo các entry lichSuCat (đúng "theo lịch sử cắt")
+        // - Nếu lọc theo ngày nhập: giữ cách tính cũ theo aggregate của đối tượng
+        const summary = (() => {
+            if (resolvedTimeField === 'cut') {
+                const allCuts = [];
+                for (const item of fullList) {
+                    const cuts = Array.isArray(item.lichSuCat) ? item.lichSuCat : [];
+                    cuts.forEach((cut, idx) => {
+                        allCuts.push({ cut, idx, item });
+                    });
+                }
+                return {
+                    totalCatVai: fullList.length,
+                    totalCuts: allCuts.length,
+                    totalItems: allCuts.reduce((sum, x) => sum + (Array.isArray(x.cut.items) ? x.cut.items.length : 0), 0),
+                    totalDienTich: allCuts.reduce((sum, x) => sum + (Number(x.cut.dienTichDaCat) || 0), 0),
+                    totalSoM: allCuts.reduce((sum, x) => sum + (Number(x.cut.dienTichDaCat) || 0) / 2.3, 0),
+                    totalVaiThieu: allCuts.reduce((sum, x) => sum + (Number(x.cut.vaiThieu && x.cut.vaiThieu.soM) || 0), 0),
+                    totalVaiLoi: allCuts.reduce((sum, x) => sum + (Number(x.cut.vaiLoi && x.cut.vaiLoi.soM) || 0), 0),
+                    totalNhapLaiKho: allCuts.reduce((sum, x) => sum + (Number(x.cut.nhapLaiKho && x.cut.nhapLaiKho.soM) || 0), 0)
+                };
+            }
+            return {
+                totalCatVai: fullList.length,
+                totalItems: fullList.reduce((sum, item) => sum + (item.items ? item.items.length : 0), 0),
+                totalDienTich: fullList.reduce((sum, item) => sum + (item.dienTichDaCat || 0), 0),
+                totalSoM: fullList.reduce((sum, item) => sum + (item.chieuDaiCayVai - (item.soMConLai || 0)), 0),
+                totalVaiThieu: fullList.reduce((sum, item) => sum + ((item.vaiThieu && item.vaiThieu.soM) ? item.vaiThieu.soM : 0), 0),
+                totalVaiLoi: fullList.reduce((sum, item) => sum + ((item.vaiLoi && item.vaiLoi.soM) ? item.vaiLoi.soM : 0), 0),
+                totalNhapLaiKho: fullList.reduce((sum, item) => sum + ((item.nhapLaiKho && item.nhapLaiKho.soM) ? item.nhapLaiKho.soM : 0), 0)
+            };
+        })();
 
         // Lấy danh sách mẫu vải để filter
         const mauVaiList = await MauVai.find({}).sort({ maMau: 1 }).lean();
+
+        // Phân trang (chỉ áp dụng cho JSON response, không áp dụng cho export)
+        const resolvedPageSizeRaw = Number(pageSize);
+        const resolvedPageRaw = Number(page);
+        const resolvedPageSize = Number.isFinite(resolvedPageSizeRaw) && resolvedPageSizeRaw > 0 ? Math.min(200, Math.max(5, resolvedPageSizeRaw)) : 20;
+        const resolvedPage = Number.isFinite(resolvedPageRaw) && resolvedPageRaw > 0 ? Math.floor(resolvedPageRaw) : 1;
+        const totalItems = fullList.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / resolvedPageSize));
+        const safePage = Math.min(totalPages, Math.max(1, resolvedPage));
+        const startIdx = (safePage - 1) * resolvedPageSize;
+        const endIdx = startIdx + resolvedPageSize;
+        list = fullList.slice(startIdx, endIdx);
 
         // Nếu là export, tạo file Excel
         if (isExport === 'true') {
@@ -2906,10 +3405,10 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
                 ['Tổng đối tượng cắt vải:', summary.totalCatVai],
                 ['Tổng số kích thước đã cắt:', summary.totalItems],
                 ['Tổng diện tích đã cắt (m²):', summary.totalDienTich.toFixed(2)],
-                ['Tổng số m đã cắt:', summary.totalSoM.toFixed(1)],
-                ['Tổng vải thiếu (m):', summary.totalVaiThieu.toFixed(1)],
-                ['Tổng vải lỗi (m):', summary.totalVaiLoi.toFixed(1)],
-                ['Tổng nhập lại kho (m):', summary.totalNhapLaiKho.toFixed(1)],
+                ['Tổng số m đã cắt:', summary.totalSoM.toFixed(2)],
+                ['Tổng vải thiếu (m):', summary.totalVaiThieu.toFixed(2)],
+                ['Tổng vải lỗi (m):', summary.totalVaiLoi.toFixed(2)],
+                ['Tổng nhập lại kho (m):', summary.totalNhapLaiKho.toFixed(2)],
                 ['']
             ];
             const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
@@ -2936,6 +3435,31 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
             const detailSheet = XLSX.utils.json_to_sheet(detailData);
             XLSX.utils.book_append_sheet(workbook, detailSheet, 'Chi tiết');
             
+            // Sheet 3: Lịch sử cắt (theo từng lần cắt)
+            const allCuts = [];
+            list.forEach(item => {
+                const cuts = Array.isArray(item.lichSuCat) ? item.lichSuCat : [];
+                cuts.forEach((cut, idx) => {
+                    allCuts.push({
+                        'ID': item.catVaiId,
+                        'Mẫu vải': `${item.maMau} - ${item.tenMau}`,
+                        'Lần cắt': idx + 1,
+                        'Ngày cắt': cut.ngayCat ? new Date(cut.ngayCat).toLocaleString('vi-VN') : '',
+                        'Nhân viên cắt': cut.createdBy || item.createdBy || '',
+                        'Số kích thước': Array.isArray(cut.items) ? cut.items.length : 0,
+                        'Diện tích cắt (m²)': Number(cut.dienTichDaCat) || 0,
+                        'Số m còn lại': Number(cut.soMConLai) || 0,
+                        'Vải thiếu (m)': Number(cut.vaiThieu && cut.vaiThieu.soM) || 0,
+                        'Vải lỗi (m)': Number(cut.vaiLoi && cut.vaiLoi.soM) || 0,
+                        'Nhập lại kho (m)': Number(cut.nhapLaiKho && cut.nhapLaiKho.soM) || 0
+                    });
+                });
+            });
+            if (allCuts.length) {
+                const cutsSheet = XLSX.utils.json_to_sheet(allCuts);
+                XLSX.utils.book_append_sheet(workbook, cutsSheet, 'Lich su cat');
+            }
+            
             const outputBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
             const filename = `BaoCaoCatVai_${new Date().toISOString().split('T')[0]}.xlsx`;
             
@@ -2950,7 +3474,18 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
             data: {
                 list,
                 summary,
-                mauVaiList
+                mauVaiList,
+                meta: {
+                    timeField: resolvedTimeField,
+                    startDate,
+                    endDate
+                },
+                pagination: {
+                    page: safePage,
+                    pageSize: resolvedPageSize,
+                    totalItems,
+                    totalPages
+                }
             }
         });
 
@@ -3356,7 +3891,20 @@ function calculateMayAoGoi(items, maMau) {
 // Tính tổng số mét đã cắt dựa trên (ngang + 5) * SL / 100
 // Bỏ qua phôi phát sinh/lưu trữ và áp dụng hệ số cho cao 110 (1/2) và 70 (1/3) cho mẫu không đặc biệt
 // QUAN TRỌNG: Với bộ kích thước đặc biệt (isSpecialSet), chỉ tính 1 lần cho kích thước đầu tiên
-function calculateSoMDaCat(items, maMau) {
+function shouldApplyCao110CeilRule(tenMau) {
+    // Ngoại lệ: mẫu "sương đêm corgi mùa đông" (match theo keyword)
+    const t = String(tenMau || '').toLowerCase();
+    if (!t) return true;
+    const isException =
+        t.includes('sương đêm') ||
+        t.includes('suong dem') ||
+        t.includes('corgi') ||
+        t.includes('mùa đông') ||
+        t.includes('mua dong');
+    return !isException;
+}
+
+function calculateSoMDaCat(items, maMau, tenMau) {
     const maMauStr = String(maMau || '');
     const isMauDacBiet = maMauStr === '2' || maMauStr === '43' || maMauStr === '4' || maMauStr === '14';
     let totalMeters = 0;
@@ -3384,12 +3932,14 @@ function calculateSoMDaCat(items, maMau) {
 
         let soLuongThucTe = parseFloat(item.soLuong || 0) || 0;
 
-        if (!isMauDacBiet) {
+            if (!isMauDacBiet) {
             const hasCao110 = parts.slice(1).some(p => parseInt(p) === 110);
             const hasCao70 = !hasCao110 && parts.slice(1).some(p => parseInt(p) === 70);
 
             if (hasCao110) {
-                soLuongThucTe = soLuongThucTe / 2;
+                    const applyCao110Ceil = shouldApplyCao110CeilRule(tenMau);
+                    // Cao 110: chia 2 làm tròn lên (ceil), trừ ngoại lệ
+                    soLuongThucTe = applyCao110Ceil ? Math.ceil(soLuongThucTe / 2) : (soLuongThucTe / 2);
             } else if (hasCao70) {
                 // Với cao 70: làm tròn lên đến bội của 3 gần nhất, rồi chia 3
                 // Ví dụ: 16 → làm tròn lên 18 → 18/3 = 6
@@ -3401,7 +3951,7 @@ function calculateSoMDaCat(items, maMau) {
         totalMeters += (soLuongThucTe * ngangThucTe) / 100; // đổi cm sang m
     });
 
-    return Math.round(totalMeters * 10) / 10;
+    return Math.round(totalMeters * 100) / 100;
 }
 
 // API lưu/cập nhật nhập phôi
@@ -3431,7 +3981,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
         const firstItem = items[0];
 
         for (const item of items) {
-            const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
+            const { maMau, tenMau, kichThuoc, szSku, soLuong, slLoi } = item;
             
             if (!maMau || !tenMau || !kichThuoc || !szSku || soLuong === undefined || soLuong < 0) {
                 continue;
@@ -3447,6 +3997,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                 kichThuoc,
                 szSku,
                 soLuong,
+                slLoi: slLoi !== undefined && slLoi !== null ? Number(slLoi) : 0,
                 dienTich,
                 dienTichCat
             });
@@ -3481,16 +4032,16 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
 
         const dienTichConLai = Math.max(0, dienTichBanDau - dienTichDaCat);
         const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - (vaiLoiData.chieuDai || 0));
-        const soMDaCat = calculateSoMDaCat(items, firstItem.maMau);
+        const soMDaCat = calculateSoMDaCat(items, firstItem.maMau, firstItem.tenMau);
 
         if (soMDaCat > chieuDaiHuuDung) {
             return res.status(400).json({
                 success: false,
-                message: `Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(1)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`
+                message: `Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(2)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(2)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`
             });
         }
 
-        const soMConLai = Math.max(0, Math.round((chieuDaiHuuDung - soMDaCat) * 10) / 10);
+        const soMConLai = Math.max(0, Math.round((chieuDaiHuuDung - soMDaCat) * 100) / 100);
         const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
 
         // Tính toán may áo gối từ items có chiều cao 180
@@ -3569,15 +4120,15 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                 }
 
                 // Tính lại số m còn lại theo chiều dài hữu dụng sau khi cộng dồn
-                const totalSoMDaCat = calculateSoMDaCat(doiTuongCatVai.items, doiTuongCatVai.maMau);
+                const totalSoMDaCat = calculateSoMDaCat(doiTuongCatVai.items, doiTuongCatVai.maMau, doiTuongCatVai.tenMau);
                 const chieuDaiHuuDungUpdate = Math.max(0, doiTuongCatVai.chieuDaiCayVai - (doiTuongCatVai.vaiLoi?.chieuDai || 0));
                 if (totalSoMDaCat > chieuDaiHuuDungUpdate) {
                     return res.status(400).json({
                         success: false,
-                        message: `Tổng (ngang + 5) * SL tích lũy = ${totalSoMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDungUpdate.toFixed(1)}m. Vui lòng giảm số lượng phôi.`
+                        message: `Tổng (ngang + 5) * SL tích lũy = ${totalSoMDaCat.toFixed(2)}m vượt Số m hữu dụng ${chieuDaiHuuDungUpdate.toFixed(2)}m. Vui lòng giảm số lượng phôi.`
                     });
                 }
-                doiTuongCatVai.soMConLai = Math.max(0, Math.round((chieuDaiHuuDungUpdate - totalSoMDaCat) * 10) / 10);
+                doiTuongCatVai.soMConLai = Math.max(0, Math.round((chieuDaiHuuDungUpdate - totalSoMDaCat) * 100) / 100);
                 doiTuongCatVai.tienDoPercent = doiTuongCatVai.chieuDaiCayVai > 0 ? 
                     Math.round(((doiTuongCatVai.chieuDaiCayVai - doiTuongCatVai.soMConLai) / doiTuongCatVai.chieuDaiCayVai) * 100) : 0;
                 
@@ -3686,7 +4237,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             
             // Tính toán các thông tin cho linkedCayVai
             // Với linkedItems, không có chieuDaiCayVai riêng, tính từ diện tích
-            const linkedChieuDaiCayVai = linkedDienTichDaCat > 0 ? Math.round((linkedDienTichDaCat / 2.3) * 10) / 10 : 0;
+            const linkedChieuDaiCayVai = linkedDienTichDaCat > 0 ? Math.round((linkedDienTichDaCat / 2.3) * 100) / 100 : 0;
             const linkedDienTichBanDau = linkedDienTichDaCat; // Diện tích ban đầu = diện tích đã cắt (vì là phát sinh)
             const linkedDienTichConLai = 0; // Không còn lại vì là phát sinh
             const linkedSoMConLai = 0;
@@ -4206,6 +4757,32 @@ app.get('/api/orders', authFromToken, async (req, res) => {
         res.json({ success: true, data: { orders: mappedOrders } });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi lấy đơn hàng: ' + error.message });
+    }
+});
+
+// Route tra cứu tên sản phẩm theo SKU từ master data
+app.get('/api/master-data/sku/:sku', authFromToken, async (req, res) => {
+    try {
+        const sku = String(req.params.sku || '').trim();
+        if (!sku) {
+            return res.status(400).json({ success: false, message: 'SKU không hợp lệ' });
+        }
+        const productName = await lookupProductNameFromMasterDataBySku(sku);
+
+        if (!productName) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy tên sản phẩm theo SKU' });
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                sku,
+                productName,
+                source: 'MasterData'
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi tra cứu SKU: ' + error.message });
     }
 });
 

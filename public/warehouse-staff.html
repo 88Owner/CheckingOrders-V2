@@ -642,7 +642,7 @@
 
         .kich-thuoc-item-enhanced {
             display: grid;
-            grid-template-columns: 1.5fr 2fr 1fr 1fr auto;
+            grid-template-columns: 2fr 2fr 1.2fr auto;
             gap: 15px;
             align-items: center;
             padding: 18px;
@@ -748,6 +748,63 @@
             justify-content: flex-end;
         }
 
+        .kich-thuoc-item-enhanced {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1.2fr 1.2fr 1.3fr;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .kich-thuoc-item-enhanced:first-child {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            font-weight: 700;
+            border: none;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .kich-thuoc-item-enhanced:not(:first-child):hover {
+            background: #f0f8f5;
+            border-color: #28a745;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.15);
+        }
+
+        .kich-thuoc-item-enhanced div:nth-child(3),
+        .kich-thuoc-item-enhanced div:nth-child(4),
+        .kich-thuoc-item-enhanced div:nth-child(5) {
+            justify-self: center;
+        }
+
+        .kich-thuoc-item-enhanced button.btn-remove {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 60px;
+            font-weight: 500;
+        }
+
+        .kich-thuoc-item-enhanced button.btn-remove:hover {
+            background: #bb2d3b;
+            box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .kich-thuoc-item-enhanced button.btn-remove:active {
+            transform: translateY(0);
+        }
+
         @media (max-width: 1024px) {
             .container {
                 flex-direction: column;
@@ -756,6 +813,13 @@
             .left-panel {
                 width: 100%;
                 max-height: 400px;
+            }
+
+            .kich-thuoc-item-enhanced {
+                grid-template-columns: 1fr 1fr 0.8fr 0.8fr 1fr;
+                gap: 8px;
+                padding: 10px 12px;
+                font-size: 0.95rem;
             }
         }
     </style>
@@ -779,7 +843,7 @@
             
             <ul class="saved-list" id="savedList">
                 <li class="empty-state">
-                    <div class="empty-state-icon">📦</div>
+                    <div class="empty-state-icon"></div>
                     <p>Chưa có dữ liệu nhập phôi</p>
                 </li>
             </ul>
@@ -823,16 +887,16 @@
                                placeholder="Nhập ID từ lần cắt trước (VD: CV-MAUM001-1234567890)" 
                                style="flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;">
                         <button type="button" class="btn btn-secondary" onclick="loadCatVaiById()" style="width: auto; padding: 12px 20px;">
-                            🔍 Tải thông tin
+                            Tải thông tin
                         </button>
                     </div>
                     <div style="margin-top: 5px; font-size: 0.85rem; color: #666;">
-                        💡 Để trống nếu đây là lần cắt đầu tiên. Sau khi lưu, ID sẽ được hiển thị để dùng cho lần cắt sau.
+                        Để trống nếu đây là lần cắt đầu tiên. Sau khi lưu, ID sẽ được hiển thị để dùng cho lần cắt sau.
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Thêm kích thước và số lượng *</label>
+                    <label>Thêm kích thước, số lượng, và số tấm lỗi *</label>
                     <div class="kich-thuoc-input-group">
                         <div class="kich-thuoc-autocomplete">
                             <input type="text" id="kichThuocInput" 
@@ -840,7 +904,7 @@
                                    autocomplete="off">
                             <div class="kich-thuoc-dropdown" id="kichThuocDropdown"></div>
                         </div>
-                        <div style="position: relative; flex: 0 0 140px;">
+                        <div style="position: relative; flex: 0 0 110px;">
                             <input type="number" id="soLuongInput" min="0" step="1" 
                                    placeholder="SL"
                                    oninput="validateSLPhoi(this); checkValidationBeforeAdd();"
@@ -848,10 +912,11 @@
                                    style="width: 100%;">
                             <div class="input-error" id="soLuongInputError"></div>
                         </div>
-                        <div style="position: relative; flex: 0 0 140px;">
+                        <div style="position: relative; flex: 0 0 110px;">
                             <input type="number" id="slLoiInput" min="0" step="1" 
-                                   placeholder="SL Lỗi"
-                                   style="width: 100%;">
+                                   placeholder="Lỗi"
+                                   title="Số tấm lỗi cho kích thước này"
+                                   style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;">
                             <div class="input-error" id="slLoiInputError"></div>
                         </div>
                         <button type="button" class="btn btn-secondary" onclick="themKichThuoc()" title="Thêm kích thước">
@@ -959,7 +1024,7 @@
 
                 <div class="quick-actions">
                     <button type="button" class="btn" id="themMauBtn" onclick="themMau()">
-                        Xác nhận hoàn thành thông tin cắt
+                        Xác nhận hoàn thành
                     </button>
                     <button type="button" class="btn btn-secondary btn-quick" id="pasteSizesBtn" onclick="pasteCopiedSizes()" title="Dán kích thước đã sao chép">
                         Dán kích thước
@@ -984,6 +1049,9 @@
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     <div style="font-size:0.95rem; color:#333;">
                         ID: <strong id="barcodeTextLabel"></strong>
+                    </div>
+                    <div style="font-size:0.9rem; color:#475569;">
+                        Mẫu: <span id="barcodeMauTextLabel" style="font-weight:700;"></span>
                     </div>
                     <div style="background:#f8f9fa; border:2px dashed #e0e0e0; border-radius:10px; padding:14px; display:flex; justify-content:center;">
                         <img id="barcodeImage" alt="Barcode" style="max-width:100%; height:auto; image-rendering: pixelated;" />
@@ -1045,7 +1113,7 @@
                 .replace(/'/g, '&#39;');
         }
 
-        function openBarcodeModal(catVaiId) {
+        function openBarcodeModal(catVaiId, tenMauText) {
             const text = String(catVaiId || '').trim();
             if (!text) {
                 showError('Mẫu này chưa có ID đối tượng cắt vải để tạo mã vạch');
@@ -1054,11 +1122,13 @@
 
             const modal = document.getElementById('barcodeModal');
             const label = document.getElementById('barcodeTextLabel');
+            const mauLabel = document.getElementById('barcodeMauTextLabel');
             const img = document.getElementById('barcodeImage');
             const link = document.getElementById('barcodeDownloadLink');
 
             const src = `/api/barcode?text=${encodeURIComponent(text)}`;
             if (label) label.textContent = text;
+            if (mauLabel) mauLabel.textContent = String(tenMauText || '').trim();
             if (img) img.src = src;
             if (link) link.href = src;
             if (modal) modal.style.display = 'flex';
@@ -1099,8 +1169,10 @@
 
         function printBarcode() {
             const label = document.getElementById('barcodeTextLabel');
+            const mauLabel = document.getElementById('barcodeMauTextLabel');
             const img = document.getElementById('barcodeImage');
             const text = (label?.textContent || '').trim();
+            const tenMauText = (mauLabel?.textContent || '').trim();
             const src = img?.src || '';
             if (!src) return;
 
@@ -1120,6 +1192,7 @@
                         body{font-family:Segoe UI, Arial, sans-serif; padding:24px;}
                         .wrap{display:flex; flex-direction:column; gap:12px; align-items:center;}
                         .id{font-size:16px; font-weight:700;}
+                        .mau{font-size:13px; font-weight:600; color:#334155;}
                         img{max-width:100%; height:auto;}
                         @media print { body{padding:0;} }
                     </style>
@@ -1127,6 +1200,7 @@
                 <body>
                     <div class="wrap">
                         <div class="id">${escapeAttr(text)}</div>
+                        ${tenMauText ? `<div class="mau">${escapeAttr(tenMauText)}</div>` : ''}
                         <img src="${escapeAttr(src)}" alt="Barcode" />
                     </div>
                     <script>
@@ -1188,40 +1262,7 @@
             await exportFileInternal({ includeBarcodePdf: true, barcodeIds: ids });
         }
 
-// Load danh sách đã lưu khi khởi tạo
-async function loadSavedItems() {
-    try {
-        const response = await fetch('/api/nhap-phoi?limit=50', { credentials: 'include' });
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-            // Ưu tiên DoiTuongCatVai vì chứa đầy đủ thông tin đã tính toán
-            savedCayVaiList = (result.data.doiTuongCatVaiList || []).map(item => ({
-                _id: item._id,
-                maMau: item.maMau,
-                tenMau: item.tenMau,
-                chieuDaiCayVai: item.chieuDaiCayVai,  // số m đầu vào
-                dienTichBanDau: item.dienTichBanDau,
-                dienTichDaCat: item.dienTichDaCat,   // số m đã cắt (backend computed)
-                dienTichConLai: item.dienTichConLai,
-                soMConLai: item.soMConLai,           // số m còn lại
-                tienDoPercent: item.tienDoPercent,
-                vaiLoi: item.vaiLoi,                 // số m lỗi
-                vaiThieu: item.vaiThieu,             // số m thiếu
-                nhapLaiKho: item.nhapLaiKho,         // số m nhập kho
-                items: item.items || [],             // kích thước + SL + slLoi
-                createdBy: item.createdBy,
-                ngayNhap: item.ngayNhap,
-                catVaiId: item.catVaiId
-            }));
-            renderSavedList();
-        }
-    } catch (error) {
-        console.error('Error loading saved items:', error);
-    
-}
-
-// Khởi tạo trang
+        // Khởi tạo trang
         async function initializePage() {
             try {
                 const token = sessionStorage.getItem('auth_token') || sessionStorage.getItem('checkerAuthToken');
@@ -1253,7 +1294,7 @@ async function loadSavedItems() {
                         if (!btn) return;
                         e.preventDefault();
                         e.stopPropagation();
-                        openBarcodeModal(btn.dataset.catvaiid);
+                        openBarcodeModal(btn.dataset.catvaiid, btn.dataset.tenmau);
                     });
                 }
 
@@ -1456,12 +1497,6 @@ async function loadSavedItems() {
             soLuongInput.style.borderColor = '#e0e0e0';
             document.getElementById('soLuongInputError').style.display = 'none';
             
-            // Reset SL Lỗi
-            const slLoiInput = document.getElementById('slLoiInput');
-            slLoiInput.value = '';
-            slLoiInput.style.borderColor = '#e0e0e0';
-            document.getElementById('slLoiInputError').style.display = 'none';
-            
             // Reset Số m lỗi và clear errors
             const vaiLoiInput = document.getElementById('vaiLoiInput');
             vaiLoiInput.value = '';
@@ -1513,7 +1548,6 @@ async function loadSavedItems() {
             // Enable input
             document.getElementById('kichThuocInput').disabled = false;
             document.getElementById('soLuongInput').disabled = false;
-            document.getElementById('slLoiInput').disabled = false;
 
             // Setup filter cho input kích thước
             setupKichThuocFilter();
@@ -1675,6 +1709,20 @@ async function loadSavedItems() {
         // Định nghĩa các bộ kích thước đặc biệt
         const SPECIAL_SIZE_SETS = [
             {
+                name: 'Bộ 1mx1m - 1mx1m2',
+                items: [
+                    { szSku: '100-100' }, // 1mx1m
+                    { szSku: '100-120' }  // 1mx1m2
+                ]
+            },
+            {
+                name: 'Bộ 1m2x1m - 1m2x1m2',
+                items: [
+                    { szSku: '120-100' }, // 1m2x1m
+                    { szSku: '120-120' }  // 1m2x1m2
+                ]
+            },
+            {
                 name: 'Bộ 70-70-70 (cắt chia 3 chiều cao)',
                 items: [
                     { 
@@ -1740,6 +1788,7 @@ async function loadSavedItems() {
 
             const kichThuocInput = document.getElementById('kichThuocInput');
             const soLuongInput = document.getElementById('soLuongInput');
+            const slLoiInput = document.getElementById('slLoiInput');
             
             const inputValue = kichThuocInput.value.trim();
             
@@ -1750,6 +1799,7 @@ async function loadSavedItems() {
             }
             
             const soLuong = parseInt(soLuongInput.value) || 0;
+            const slLoi = parseInt(slLoiInput.value) || 0;
 
             if (!inputValue) {
                 showError('Vui lòng chọn kích thước');
@@ -1811,10 +1861,6 @@ async function loadSavedItems() {
                 return;
             }
             
-            // Lấy SL Lỗi
-            const slLoiInput = document.getElementById('slLoiInput');
-            const slLoi = parseInt(slLoiInput.value) || 0;
-            
             // Kiểm tra validation: số m đã cắt không được vượt số m hữu dụng
             // (Sau khi đã tìm được selectedKichThuoc)
             const chieuDaiCayVai = parseFloat(document.getElementById('chieuDaiCayVaiInput').value) || 0;
@@ -1843,6 +1889,7 @@ async function loadSavedItems() {
                             };
                         } else {
                             testKichThuocData[item.szSku].soLuong += soLuong;
+                            testKichThuocData[item.szSku].slLoi = (testKichThuocData[item.szSku].slLoi || 0) + slLoi;
                             // Đảm bảo đánh dấu isSpecialSet nếu chưa có
                             if (!testKichThuocData[item.szSku].isSpecialSet) {
                                 testKichThuocData[item.szSku].isSpecialSet = true;
@@ -1856,17 +1903,18 @@ async function loadSavedItems() {
                         szSku: selectedKichThuoc.szSku,
                         kichThuoc: selectedKichThuoc.kichThuoc,
                         soLuong: soLuong,
+                        slLoi: slLoi,
                         dienTich: selectedKichThuoc.dienTich || 0
                     };
                 }
                 
                 // Tính số m đã cắt với dữ liệu mới
                 const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
-                const soMDaCat = calculateSoMDaCatFromData(testKichThuocData, maMau);
+                const soMDaCat = calculateSoMDaCatFromData(testKichThuocData, maMau, currentMauVai?.tenMau);
                 
                 // Kiểm tra validation: chỉ chặn khi thực sự vượt quá
                 if (soMDaCat > chieuDaiHuuDung) {
-                    showError(`Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(1)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`);
+                    showError(`Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(2)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(2)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`);
                     soLuongInput.focus();
                     return;
                 }
@@ -1908,6 +1956,23 @@ async function loadSavedItems() {
                                 specialSetName: specialSet.name
                             };
                             addedCount++;
+                        } else {
+                            // Nếu item đã tồn tại (do special set khác/đã thêm trước đó),
+                            // cần cộng dồn để ghi nhận đúng sl lỗi theo logic.
+                            currentKichThuocData[item.szSku].soLuong =
+                                (Number(currentKichThuocData[item.szSku].soLuong) || 0) + soLuong;
+                            currentKichThuocData[item.szSku].slLoi =
+                                (Number(currentKichThuocData[item.szSku].slLoi) || 0) + slLoi;
+                            // Cập nhật dienTich nếu thiếu
+                            if (!currentKichThuocData[item.szSku].dienTich && dienTich) {
+                                currentKichThuocData[item.szSku].dienTich = dienTich;
+                            }
+                            // Đảm bảo kichThuoc/special metadata
+                            currentKichThuocData[item.szSku].kichThuoc =
+                                currentKichThuocData[item.szSku].kichThuoc || kt.kichThuoc;
+                            currentKichThuocData[item.szSku].isSpecialSet = true;
+                            currentKichThuocData[item.szSku].specialSetName =
+                                currentKichThuocData[item.szSku].specialSetName || specialSet.name;
                         }
                     } else {
                         // Nếu không tìm thấy trong danh sách, tạo mới từ szSku
@@ -1940,6 +2005,19 @@ async function loadSavedItems() {
                                     specialSetName: specialSet.name
                                 };
                                 addedCount++;
+                            } else {
+                                currentKichThuocData[item.szSku].soLuong =
+                                    (Number(currentKichThuocData[item.szSku].soLuong) || 0) + soLuong;
+                                currentKichThuocData[item.szSku].slLoi =
+                                    (Number(currentKichThuocData[item.szSku].slLoi) || 0) + slLoi;
+                                if (!currentKichThuocData[item.szSku].dienTich && dienTich) {
+                                    currentKichThuocData[item.szSku].dienTich = dienTich;
+                                }
+                                currentKichThuocData[item.szSku].kichThuoc =
+                                    currentKichThuocData[item.szSku].kichThuoc || kichThuoc;
+                                currentKichThuocData[item.szSku].isSpecialSet = true;
+                                currentKichThuocData[item.szSku].specialSetName =
+                                    currentKichThuocData[item.szSku].specialSetName || specialSet.name;
                             }
                         }
                     }
@@ -2001,21 +2079,13 @@ async function loadSavedItems() {
             // Header
             const headerDiv = document.createElement('div');
             headerDiv.className = 'kich-thuoc-item-enhanced';
-            headerDiv.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
-            headerDiv.style.color = 'white';
-            headerDiv.style.fontWeight = '700';
-            headerDiv.style.marginBottom = '15px';
-            headerDiv.style.fontSize = '1rem';
-            headerDiv.style.border = 'none';
-            headerDiv.style.boxShadow = '0 4px 8px rgba(40, 167, 69, 0.3)';
-            headerDiv.style.cursor = 'default';
             const tenMau = currentMauVai ? `${currentMauVai.maMau} - ${currentMauVai.tenMau}` : 'Chưa chọn mẫu';
             headerDiv.innerHTML = `
-                <div style="font-size: 1.1rem;">Tên mẫu</div>
-                <div style="font-size: 1.1rem;">Tên kích thước</div>
-                <div style="text-align: center; font-size: 1.1rem;">SL</div>
-                <div style="text-align: center; font-size: 1.1rem;">SL Lỗi</div>
-                <div style="text-align: center; font-size: 1.1rem;">Thao tác</div>
+                <div style="font-size: 1rem;">Tên mẫu</div>
+                <div style="font-size: 1rem;">Tên kích thước</div>
+                <div style="font-size: 1rem;">Số lượng</div>
+                <div style="font-size: 1rem;">Lỗi</div>
+                <div style="font-size: 1rem;">Thao tác</div>
             `;
             listDiv.appendChild(headerDiv);
             
@@ -2030,13 +2100,11 @@ async function loadSavedItems() {
                 itemDiv.className = 'kich-thuoc-item-enhanced';
                 
                 itemDiv.innerHTML = `
-                    <div class="kt-label" style="font-size: 1rem; color: #333; font-weight: 500;">${tenMauHienThi}</div>
-                    <div class="kt-label" style="font-size: 1.05rem; color: #28a745; font-weight: 600;">${data.kichThuoc}</div>
-                    <div class="kt-value" style="text-align: center; font-size: 1.1rem; font-weight: 700; color: #333;"><strong>${data.soLuong}</strong></div>
-                    <div class="kt-value" style="text-align: center; font-size: 1.1rem; font-weight: 700; color: #666;"><strong>${data.slLoi || 0}</strong></div>
-                    <div style="text-align: center;">
-                        <button type="button" class="btn-remove" onclick="deleteKichThuoc('${szSku}')" style="padding: 8px 16px; font-size: 0.9rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;">✕ Xóa</button>
-                    </div>
+                    <div style="color: #333; font-weight: 500;">${escapeAttr(tenMauHienThi)}</div>
+                    <div style="color: #28a745; font-weight: 600;">${escapeAttr(data.kichThuoc)}</div>
+                    <div style="font-weight: 700; color: #333;"><strong>${data.soLuong}</strong></div>
+                    <div style="font-weight: 700; color: #dc3545;"><strong>${data.slLoi || 0}</strong></div>
+                    <button type="button" class="btn-remove" onclick="deleteKichThuoc('${escapeAttr(szSku)}')" style="padding: 6px 12px; font-size: 0.85rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s; min-width: 60px;">✕ Xóa</button>
                 `;
                 
                 listDiv.appendChild(itemDiv);
@@ -2175,7 +2243,7 @@ async function loadSavedItems() {
             
             // Tính số m đã cắt với dữ liệu mới (hàm này đã xử lý đúng cao 110 và 70)
             const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
-            const soMDaCat = calculateSoMDaCatFromData(testKichThuocData, maMau);
+            const soMDaCat = calculateSoMDaCatFromData(testKichThuocData, maMau, currentMauVai?.tenMau);
             
             // Đảm bảo calculationInfo được hiển thị để validationWarning có thể hiển thị
             // Hiển thị ngay cả khi chưa có phôi nào (để có thể hiển thị cảnh báo)
@@ -2198,7 +2266,7 @@ async function loadSavedItems() {
                 // Hiển thị cảnh báo và disable nút thêm
                 if (validationWarning && validationWarningText) {
                     validationWarning.style.display = 'block';
-                    validationWarningText.textContent = `Số m đã cắt: ${soMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(1)}m. Vui lòng giảm số lượng phôi.`;
+                    validationWarningText.textContent = `Số m đã cắt: ${soMDaCat.toFixed(2)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(2)}m. Vui lòng giảm số lượng phôi.`;
                 }
                 if (addButton) {
                     addButton.disabled = true;
@@ -2223,10 +2291,24 @@ async function loadSavedItems() {
         // Tính tổng số mét đã cắt dựa trên (ngang + 5) * SL / 100
         // Bỏ qua phôi phát sinh/lưu trữ và áp dụng hệ số cho cao 110 (1/2) và 70 (1/3)
         // QUAN TRỌNG: Với bộ kích thước đặc biệt (isSpecialSet), chỉ tính 1 lần cho kích thước đầu tiên
-        function calculateSoMDaCatFromData(kichThuocData, maMau) {
+        function shouldApplyCao110CeilRule(tenMau) {
+            // Ngoại lệ: mẫu "sương đêm corgi mùa đông" (chỉ cần match theo keyword)
+            const t = String(tenMau || '').toLowerCase();
+            if (!t) return true;
+            const isException =
+                t.includes('sương đêm') ||
+                t.includes('suong dem') ||
+                t.includes('corgi') ||
+                t.includes('mùa đông') ||
+                t.includes('mua dong');
+            return !isException;
+        }
+
+        function calculateSoMDaCatFromData(kichThuocData, maMau, tenMau) {
             const maMauStr = String(maMau || '');
             const isMauDacBiet = maMauStr === '2' || maMauStr === '43' || maMauStr === '4' || maMauStr === '14';
             let totalMeters = 0;
+            const applyCao110Ceil = shouldApplyCao110CeilRule(tenMau);
             
             // Theo dõi các bộ kích thước đặc biệt đã tính để tránh tính trùng
             const processedSpecialSets = new Set();
@@ -2256,9 +2338,9 @@ async function loadSavedItems() {
                     const hasCao70 = !hasCao110 && parts.slice(1).some(p => parseInt(p) === 70);
 
                     if (hasCao110) {
-                        // Với cao 110: làm tròn lên, chia 2
-                        // Ví dụ: 16 → = 8, 17 → = 9
-                        soLuongThucTe = Math.ceil(soLuongThucTe / 2);
+                        // Cao 110: chia 2 và làm tròn lên (theo nghiệp vụ mới),
+                        // ngoại trừ các mẫu "sương đêm/corgi/mùa đông"
+                        soLuongThucTe = applyCao110Ceil ? Math.ceil(soLuongThucTe / 2) : (soLuongThucTe / 2);
                     } else if (hasCao70) {
                         // Với cao 70: làm tròn lên đến bội của 3 gần nhất, rồi chia 3
                         // Ví dụ: 16 → làm tròn lên 18 → 18/3 = 6
@@ -2287,7 +2369,7 @@ async function loadSavedItems() {
                 const soLuong = data.soLuong || 0;
                 total += (ngangThucTe * soLuong) / 100;
             }
-            return Math.round(total * 10) / 10;
+            return Math.round(total * 100) / 100;
         }
 
         // Tính toán diện tích
@@ -2360,9 +2442,8 @@ async function loadSavedItems() {
                     
                     // Áp dụng hệ số giảm cho số lượng tính vào processing cắt
                     if (hasCao110) {
-                        // Với cao 110: làm tròn lên, chia 2
-                        // Ví dụ: 16 → = 8, 17 → = 9
-                        soLuongThucTe = Math.ceil(data.soLuong / 2);
+                        const applyCao110Ceil = shouldApplyCao110CeilRule(currentMauVai?.tenMau);
+                        soLuongThucTe = applyCao110Ceil ? Math.ceil(data.soLuong / 2) : (data.soLuong / 2);
                     } else if (hasCao70) {
                         // Với cao 70: làm tròn lên đến bội của 3 gần nhất, rồi chia 3
                         // Ví dụ: 16 → làm tròn lên 18 → 18/3 = 6
@@ -2379,7 +2460,7 @@ async function loadSavedItems() {
             // Số m ban đầu = chiều dài cây vải
             const soMBanDau = chieuDaiCayVai;
             // Số m đã cắt dựa trên chiều dài (ngang + 5)
-            const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, maMau);
+            const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, maMau, currentMauVai?.tenMau);
             const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - chieuDaiLoi);
             
             // Kiểm tra validation: số m đã cắt không được vượt số m hữu dụng
@@ -2398,7 +2479,7 @@ async function loadSavedItems() {
                 // Hiển thị cảnh báo
                 if (validationWarning && validationWarningText) {
                     validationWarning.style.display = 'block';
-                    validationWarningText.textContent = `Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(1)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(1)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`;
+                    validationWarningText.textContent = `Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(2)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(2)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`;
                 }
                 
                 // Highlight màu đỏ cho số m đã cắt và số m còn lại
@@ -2434,7 +2515,7 @@ async function loadSavedItems() {
             // Nếu số m còn lại âm, tiến độ sẽ > 100%
             const tienDoPercent = chieuDaiCayVai > 0 ? Math.round(((chieuDaiCayVai - soMConLai) / chieuDaiCayVai) * 100) : 0;
 
-            // Cập nhật UI - hiển thị số m thay vì diện tích (2 chữ số thập phân)
+            // Cập nhật UI - hiển thị số m thay vì diện tích
             document.getElementById('soMBanDau').textContent = soMBanDau.toFixed(2) + ' m';
             soMDaCatElement.textContent = soMDaCat.toFixed(2) + ' m';
             soMConLaiElement.textContent = soMConLai.toFixed(2) + ' m';
@@ -2451,7 +2532,7 @@ async function loadSavedItems() {
                 document.getElementById('calculationInfo').style.display = 'block';
                 document.getElementById('checkboxOptions').style.display = 'block';
                 
-                // Cập nhật giá trị cho vải thiếu và nhập lại kho (2 chữ số thập phân)
+                // Cập nhật giá trị cho vải thiếu và nhập lại kho
                 document.getElementById('vaiThieuValue').textContent = soMConLai.toFixed(2) + ' m';
                 document.getElementById('nhapLaiKhoValue').textContent = soMConLai.toFixed(2) + ' m';
                 
@@ -3513,7 +3594,7 @@ async function loadSavedItems() {
                 
                 // Số m đã cắt của mẫu nguồn (Sương đêm) - không tính phôi phát sinh/lưu trữ
                 const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
-                const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, maMau);
+                const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, maMau, currentMauVai?.tenMau);
                 // Tổng m ngang đã dùng cho phôi phát sinh + lưu trữ (Trời xanh)
                 const tongMNgangPhoiLuuTru = calculateTongMNgangPhoiLuuTru(currentKichThuocData);
                 const soMCanChoPhoiPhatSinh = (ngangThucTe * soLuong) / 100;
@@ -3521,7 +3602,7 @@ async function loadSavedItems() {
                 
                 // Kiểm tra: tổng m ngang (phôi + lưu trữ) không vượt quá số m đã cắt của Sương đêm
                 if (tongMNgangSauKhiThem > soMDaCat) {
-                    const msg = `Tổng m ngang xử lý phôi và lưu trữ (${tongMNgangSauKhiThem.toFixed(1)}m) không được vượt quá số m đã cắt của Sương đêm (${soMDaCat.toFixed(1)}m). Hiện đã dùng ${tongMNgangPhoiLuuTru.toFixed(1)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`;
+                    const msg = `Tổng m ngang xử lý phôi và lưu trữ (${tongMNgangSauKhiThem.toFixed(2)}m) không được vượt quá số m đã cắt của Sương đêm (${soMDaCat.toFixed(2)}m). Hiện đã dùng ${tongMNgangPhoiLuuTru.toFixed(2)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`;
                     showPhatSinhMauError(msg);
                     return;
                 }
@@ -3638,12 +3719,12 @@ async function loadSavedItems() {
                 const vaiLoiChecked = document.getElementById('vaiLoiCheckbox').checked;
                 const chieuDaiLoi = vaiLoiChecked ? (parseFloat(document.getElementById('vaiLoiInput').value) || 0) : 0;
                 const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - chieuDaiLoi);
-                const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, String(maMau));
+                const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, String(maMau), currentMauVai?.tenMau);
                 const tongMNgangPhoiLuuTru = calculateTongMNgangPhoiLuuTru(currentKichThuocData);
                 const soMCanChoLuuTru = (ngangThucTe * soLuong) / 100;
                 const tongMNgangSauKhiThem = tongMNgangPhoiLuuTru + soMCanChoLuuTru;
                 if (tongMNgangSauKhiThem > soMDaCat) {
-                    const msg = `Tổng m ngang xử lý phôi và lưu trữ (${tongMNgangSauKhiThem.toFixed(1)}m) không được vượt quá số m đã cắt của Sương đêm (${soMDaCat.toFixed(1)}m). Hiện đã dùng ${tongMNgangPhoiLuuTru.toFixed(1)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`;
+                    const msg = `Tổng m ngang xử lý phôi và lưu trữ (${tongMNgangSauKhiThem.toFixed(2)}m) không được vượt quá số m đã cắt của Sương đêm (${soMDaCat.toFixed(2)}m). Hiện đã dùng ${tongMNgangPhoiLuuTru.toFixed(2)}m. Vui lòng giảm số lượng hoặc kiểm tra lại.`;
                     showPhatSinhMauError(msg);
                     return;
                 }
@@ -3747,30 +3828,97 @@ async function loadSavedItems() {
                 return;
             }
 
-            // LẤY GIẢI TRỰC TIẾP TỪ UI ĐẢ HIỂN THỊ (để đảm bảo 100% giống dữ liệu hiển thị)
-            const soMBanDauText = (document.getElementById('soMBanDau')?.textContent || '0 m').replace(' m', '').trim();
-            const soMDaCatText = (document.getElementById('soMDaCat')?.textContent || '0 m').replace(' m', '').trim();
-            const soMConLaiText = (document.getElementById('soMConLai')?.textContent || '0 m').replace(' m', '').trim();
+
+            // Tính toán lại để lấy số m còn lại
+            const dienTichBanDau = chieuDaiCayVai * 2.3;
+            let dienTichDaCat = 0;
             
-            const soMBanDau_Display = Math.round(parseFloat(soMBanDauText) * 100) / 100 || 0;
-            const soMDaCat_Display = Math.round(parseFloat(soMDaCatText) * 100) / 100 || 0;
-            const soMConLai_Display = Math.round(parseFloat(soMConLaiText) * 100) / 100 || 0;
+            // Kiểm tra mẫu đặc biệt
+            const maMau = currentMauVai ? String(currentMauVai.maMau) : '';
+            const isMauDacBiet = maMau === '2' || maMau === '43' || maMau === '4' || maMau === '14';
             
-            // Lấy thông tin vải lỗi từ UI
+            for (const szSku in currentKichThuocData) {
+                const data = currentKichThuocData[szSku];
+                // Bỏ qua tất cả các kích thước phát sinh (xử lý phát sinh mẫu dư ra)
+                // QUAN TRỌNG: Tất cả vải xử lý phát sinh (isPhatSinh hoặc isLuuTru) đều KHÔNG tính vào diện tích cắt
+                // Chỉ cập nhật số lượng, không cập nhật số m và diện tích cắt
+                if (data.isPhatSinh || data.isLuuTru) {
+                    continue;
+                }
+                
+                // Tính số lượng thực tế cho processing cắt
+                let soLuongThucTe = data.soLuong;
+                
+                // Với các mẫu khác (ngoại trừ sương đêm, trời xanh, mùa đông, corgi)
+                if (!isMauDacBiet) {
+                    const parts = szSku.split('-');
+                    let hasCao110 = false;
+                    let hasCao70 = false;
+                    
+                    // Kiểm tra cao 110 (cắt đôi) - giảm 1/2
+                    for (let i = 1; i < parts.length; i++) {
+                        const cao = parseInt(parts[i]) || 0;
+                        if (cao === 110) {
+                            hasCao110 = true;
+                            break;
+                        }
+                    }
+                    
+                    // Kiểm tra cao 70 (cắt 3 lần) - giảm 1/3
+                    if (!hasCao110) {
+                        for (let i = 1; i < parts.length; i++) {
+                            const cao = parseInt(parts[i]) || 0;
+                            if (cao === 70) {
+                                hasCao70 = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Áp dụng hệ số giảm cho số lượng tính vào processing cắt
+                    if (hasCao110) {
+                        soLuongThucTe = data.soLuong / 2; // Giảm 1/2
+                    } else if (hasCao70) {
+                        // Với cao 70: làm tròn lên đến bội của 3 gần nhất, rồi chia 3
+                        // Ví dụ: 16 → làm tròn lên 18 → 18/3 = 6
+                        soLuongThucTe = Math.ceil(data.soLuong / 3);
+                    }
+                }
+                
+                dienTichDaCat += soLuongThucTe * data.dienTich;
+            }
+
+            // Lấy thông tin lỗi trước khi tính diện tích còn lại
             const vaiLoi = document.getElementById('vaiLoiCheckbox').checked ? 
                 parseFloat(document.getElementById('vaiLoiInput').value) || 0 : 0;
+            const dienTichLoi = vaiLoi * 2.3;
 
-            // Vải thiếu: luôn lưu, nếu tick thì lấy soMConLai_Display, không tick thì 0
+            // Diện tích còn lại tính trên diện tích hữu dụng (đã trừ vải lỗi)
+            const dienTichConLai = Math.max(0, (dienTichBanDau - dienTichLoi) - dienTichDaCat);
+            const chieuDaiHuuDung = Math.max(0, chieuDaiCayVai - vaiLoi);
+
+            // Tính số m đã cắt theo chiều dài thực tế
+            const soMDaCat = calculateSoMDaCatFromData(currentKichThuocData, maMau, currentMauVai?.tenMau);
+
+            // Ràng buộc: tổng (ngang + 5) * SL không được vượt chiều dài hữu dụng
+            if (soMDaCat > chieuDaiHuuDung) {
+                showError(`Tổng (ngang + 5) * SL = ${soMDaCat.toFixed(2)}m vượt Số m hữu dụng ${chieuDaiHuuDung.toFixed(2)}m (đã trừ vải lỗi nếu có). Vui lòng giảm số lượng phôi.`);
+                return;
+            }
+
+            const soMConLai = Math.max(0, Math.round((chieuDaiHuuDung - soMDaCat) * 100) / 100);
+
+            // Vải thiếu: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
             const vaiThieuChecked = document.getElementById('vaiThieuCheckbox').checked;
-            const vaiThieuSoM = vaiThieuChecked ? soMConLai_Display : 0;
+            const vaiThieuSoM = vaiThieuChecked ? soMConLai : 0;
 
-            // Nhập lại kho: luôn lưu, nếu tick thì lấy soMConLai_Display, không tick thì 0
+            // Nhập lại kho: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
             const nhapLaiKhoChecked = document.getElementById('nhapLaiKhoCheckbox').checked;
-            const nhapLaiKhoSoM = nhapLaiKhoChecked ? soMConLai_Display : 0;
+            const nhapLaiKhoSoM = nhapLaiKhoChecked ? soMConLai : 0;
 
-            // Phát sinh mẫu dư ra: luôn lưu, nếu tick thì lấy soMConLai_Display, không tick thì 0
+            // Phát sinh mẫu dư ra: luôn lưu, nếu tick thì lấy soMConLai, không tick thì 0
             const phatSinhMauDuRaChecked = document.getElementById('phatSinhMauDuRaCheckbox').checked;
-            const phatSinhMauDuRaSoM = phatSinhMauDuRaChecked ? soMConLai_Display : 0;
+            const phatSinhMauDuRaSoM = phatSinhMauDuRaChecked ? soMConLai : 0;
 
             // Tính thông tin mayAoGoi từ items
             // Trường hợp 1: Kích thước có chiều cao 180 (ví dụ: 100-180) → (ngang + 5) * SL
@@ -3865,16 +4013,10 @@ async function loadSavedItems() {
                 const requestBody = { 
                     items,
                     chieuDaiCayVai: chieuDaiCayVai,
-                    // Thêm dữ liệu tính toán để backend lưu đúng dữ liệu như trên UI
-                    calcData: {
-                        soMBanDau: soMBanDau_Display,
-                        soMDaCat: soMDaCat_Display,
-                        soMConLai: soMConLai_Display
-                    },
                     vaiLoi: vaiLoi > 0 ? {
-                        chieuDai: Math.round(vaiLoi * 100) / 100,
-                        dienTich: Math.round((vaiLoi * 2.3) * 100) / 100,
-                        soM: Math.round(vaiLoi * 100) / 100
+                        chieuDai: vaiLoi,
+                        dienTich: vaiLoi * 2.3,
+                        soM: vaiLoi
                     } : { chieuDai: 0, dienTich: 0, soM: 0 },
                     vaiThieu: {
                         soM: vaiThieuSoM
@@ -3888,19 +4030,6 @@ async function loadSavedItems() {
                     mayAoGoi: mayAoGoi,
                     catVaiId: currentCatVaiId || null // Gửi ID nếu có
                 };
-                
-                // Debug: log dữ liệu để kiểm tra
-                console.log('📤 Dữ liệu gửi API /api/nhap-phoi:', {
-                    hienhThiUI: {
-                        soMBanDau: soMBanDau_Display,
-                        soMDaCat: soMDaCat_Display,
-                        soMConLai: soMConLai_Display
-                    },
-                    vaiLoi: vaiLoi,
-                    vaiThieuSoM: vaiThieuSoM,
-                    nhapLaiKhoSoM: nhapLaiKhoSoM,
-                    phatSinhMauDuRaSoM: phatSinhMauDuRaSoM
-                });
                 
                 const response = await fetch('/api/nhap-phoi', {
                     method: 'POST',
@@ -3923,132 +4052,610 @@ async function loadSavedItems() {
                         showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
                     }
                     
-                    // Thêm dữ liệu mới vào danh sách local (không build lại từ biến form)
+                    // Khai báo biến phatSinhItems ở scope ngoài để sử dụng sau
+                    let phatSinhItems = [];
+                    
+                    // Thêm dữ liệu mới vào danh sách local (không load lại từ database)
                     if (result.data && result.data.cayVai) {
                         const cayVaiData = result.data.cayVai;
-                        // Đảm bảo object có đủ trường cần thiết để không gây lỗi UI
-                        if (!Array.isArray(cayVaiData.items)) cayVaiData.items = [];
-                        if (typeof cayVaiData.maMau === 'undefined') cayVaiData.maMau = '';
-                        if (typeof cayVaiData.tenMau === 'undefined') cayVaiData.tenMau = '';
-                        if (typeof cayVaiData.chieuDaiCayVai !== 'number') cayVaiData.chieuDaiCayVai = 0;
-                        if (typeof cayVaiData.dienTichDaCat !== 'number') cayVaiData.dienTichDaCat = 0;
-                        if (typeof cayVaiData.soMConLai !== 'number') cayVaiData.soMConLai = 0;
-                        if (typeof cayVaiData.vaiLoi !== 'object' || !cayVaiData.vaiLoi) cayVaiData.vaiLoi = { soM: 0 };
-                        if (typeof cayVaiData.vaiThieu !== 'object' || !cayVaiData.vaiThieu) cayVaiData.vaiThieu = { soM: 0 };
-                        if (typeof cayVaiData.nhapLaiKho !== 'object' || !cayVaiData.nhapLaiKho) cayVaiData.nhapLaiKho = { soM: 0 };
-                        if (typeof cayVaiData.importDate === 'undefined') cayVaiData.importDate = new Date();
-                        // Thêm mới vào danh sách (nếu chưa có)
-                        const allItemsWithMau = savedCayVaiList.flatMap(cayVai => 
-                            (cayVai.items || []).map(item => {
-                                const maMau = item.maMau || cayVai.maMau;
-                                let szSku = item.szSku;
-                                if (szSku) {
-                                    const parts = szSku.split('-');
-                                    const isLuuTruFormat = parts.length === 2 && 
-                                        /^\d+$/.test(parts[0]) && 
-                                        /^\d+$/.test(parts[1]) &&
-                                        (item.kichThuoc && item.kichThuoc.includes('Vải thừa'));
-                                    if (isLuuTruFormat || parts.length === 2) {
-                                        const loai = '25';
-                                        szSku = `${maMau}-${loai}-${szSku}`;
+                        const currentMaMau = String(cayVaiData.maMau);
+                        
+                        // QUAN TRỌNG: LUÔN lấy items từ currentKichThuocData (nguồn dữ liệu chính xác nhất)
+                        // Đảm bảo tất cả items từ bảng kích thước được lưu đúng
+                        // Tách items phát sinh (maMau '43') ra khỏi items của mẫu hiện tại
+                        let currentMauItems = [];
+                        phatSinhItems = []; // Reset lại mảng
+                        
+                        // LUÔN lấy items từ currentKichThuocData để đảm bảo đầy đủ
+                        if (currentMauVai && Object.keys(currentKichThuocData).length > 0) {
+                            for (const szSku in currentKichThuocData) {
+                                const data = currentKichThuocData[szSku];
+                                if (data.soLuong > 0) {
+                                    // Xác định maMau của item
+                                    // Ưu tiên data.maMau nếu có (đặc biệt quan trọng cho item lưu trữ và phát sinh)
+                                    // Với item lưu trữ, data.maMau đã được set đúng từ themLuuTruPhatSinh()
+                                    const itemMaMau = data.maMau || currentMauVai.maMau;
+                                    const itemTenMau = data.tenMau || currentMauVai.tenMau;
+                                    
+                                    // Tính dienTich nếu chưa có
+                                    let itemDienTich = data.dienTich || 0;
+                                    if (!itemDienTich && data.szSku) {
+                                        const kt = kichThuocList.find(k => k.szSku === data.szSku);
+                                        itemDienTich = kt ? (kt.dienTich || 0) : 0;
+                                    }
+                                    
+                                    const item = {
+                                        maMau: itemMaMau,
+                                        tenMau: itemTenMau,
+                                        kichThuoc: data.kichThuoc,
+                                        szSku: data.szSku,
+                                        soLuong: data.soLuong,
+                                        dienTich: itemDienTich,
+                                        isPhatSinh: data.isPhatSinh || false,
+                                        isLuuTru: data.isLuuTru || false
+                                    };
+                                    
+                                    // Tách items phát sinh và items của mẫu hiện tại
+                                    if (data.isPhatSinh) {
+                                        // Items phát sinh
+                                        // Nếu mẫu phát sinh CÙNG mẫu hiện tại → gộp vào currentMauItems
+                                        // Nếu mẫu phát sinh KHÁC mẫu hiện tại → tách riêng vào phatSinhItems
+                                        if (String(itemMaMau) === currentMaMau) {
+                                            // Mẫu phát sinh cùng mẫu → gộp vào mẫu hiện tại
+                                            currentMauItems.push(item);
+                                        } else {
+                                            // Mẫu phát sinh khác mẫu → tách riêng (ví dụ: Sương đêm → Trời xanh)
+                                            phatSinhItems.push(item);
+                                        }
+                                    } else if (String(itemMaMau) === currentMaMau) {
+                                        // Items của mẫu hiện tại (bao gồm cả lưu trữ như Ngân Hà 200-80)
+                                        // Lưu trữ vẫn được thêm vào danh sách vì là một phần của mẫu vải
+                                        currentMauItems.push(item);
                                     }
                                 }
-                                return {
-                                    maMau: maMau,
-                                    szSku: szSku,
-                                    kichThuoc: item.kichThuoc,
-                                    soLuong: item.soLuong,
-                                    dienTich: item.dienTich || 0
-                                };
-                            })
-                        );
-
-                        // Export logic starts here
-                        try {
-                            // 1) Export Excel như cũ
-                            const exportData = allItemsWithMau.reduce((acc, item) => {
-                                const key = `${item.maMau}_${item.szSku}`;
-                                if (acc[key]) {
-                                    acc[key].soLuong += item.soLuong;
-                                    acc[key].dienTichCat += (item.soLuong * (item.dienTich || 0));
-                                } else {
-                                    acc[key] = {
-                                        sku: item.szSku,
-                                        soLuong: item.soLuong,
-                                        kichThuoc: item.kichThuoc || '',
-                                        szSku: item.szSku,
-                                        maMau: item.maMau,
-                                        dienTich: item.dienTich || 0,
-                                        dienTichCat: (item.soLuong * (item.dienTich || 0))
-                                    };
-                                }
-                                return acc;
-                            }, {});
-
-                            const dataToSend = Object.values(exportData);
-                            btn.disabled = true;
-                            btn.innerHTML = '🔄 Đang xử lý...';
-
-                            const response = await fetch('/api/export-nhap-phoi', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                credentials: 'include',
-                                body: JSON.stringify({ items: dataToSend })
+                            }
+                            console.log('✅ Lấy items từ currentKichThuocData:', {
+                                currentMauItems: currentMauItems.length,
+                                phatSinhItems: phatSinhItems.length,
+                                currentMaMau: currentMaMau
                             });
-
-                            if (!response.ok) {
-                                const errorResult = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
-                                throw new Error(errorResult.message || `Lỗi server: ${response.statusText}`);
-                            }
-
-                            const contentDisposition = response.headers.get('Content-Disposition');
-                            let filename = 'nhap_phoi_export.xlsx';
-                            if (contentDisposition) {
-                                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                                if (filenameMatch && filenameMatch[1]) {
-                                    filename = filenameMatch[1].replace(/['"]/g, '');
-                                }
-                            }
-
-                            const blob = await response.blob();
-                            if (blob.size === 0) {
-                                throw new Error('File xuất ra rỗng. Vui lòng kiểm tra lại dữ liệu.');
-                            }
-
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.style.display = 'none';
-                            a.href = url;
-                            a.download = filename;
-                            document.body.appendChild(a);
-                            a.click();
-                            setTimeout(() => {
-                                window.URL.revokeObjectURL(url);
-                                a.remove();
-                            }, 100);
-
-                            if (includeBarcodePdf) {
-                                try {
-                                    await downloadBarcodePdf(barcodeIds);
-                                } catch (e) {
-                                    console.error('Barcode PDF download error:', e);
-                                    showError('Đã xuất Excel nhưng lỗi tải PDF mã vạch: ' + (e?.message || String(e)));
-                                }
-                            }
-
-                            showSuccess(`Xuất file thành công! Đã xuất ${dataToSend.length} SKU với tổng ${allItemsWithMau.reduce((sum, item) => sum + item.soLuong, 0)} sản phẩm.${includeBarcodePdf ? ' (kèm PDF mã vạch nếu có)' : ''}`);
-                            savedCayVaiList = [];
-                            savedItems = [];
-                            renderSavedList();
-                        } catch (error) {
-                            console.error('Error exporting file:', error);
-                            showError('Lỗi xuất file: ' + error.message);
-                        } finally {
-                            btn.disabled = false;
-                            btn.innerHTML = '🖨️ Xuất file';
                         }
+                        
+                        // Lấy allItems từ server response để debug (nếu có)
+                        const allItemsFromServer = Array.isArray(cayVaiData.items) ? cayVaiData.items : [];
+                        
+                        // Nếu không có items từ currentKichThuocData, thử lấy từ server response (fallback)
+                        if (currentMauItems.length === 0) {
+                            currentMauItems = allItemsFromServer.filter(item => {
+                                if (!item || !item.maMau) return false;
+                                return String(item.maMau) === currentMaMau && !item.isPhatSinh;
+                            });
+                            console.warn('⚠️ Không có items từ currentKichThuocData, dùng items từ server:', currentMauItems.length);
+                        }
+                        
+                        // Debug: Kiểm tra items từ server
+                        console.log('Items từ server:', {
+                            allItemsFromServer: allItemsFromServer.length,
+                            currentMauItems: currentMauItems.length,
+                            phatSinhItems: phatSinhItems.length,
+                            currentMaMau: currentMaMau
+                        });
+                        
+                        // Tính lại diện tích đã cắt cho mẫu hiện tại (chỉ tính items của mẫu hiện tại)
+                        let dienTichDaCatCurrent = 0;
+                        currentMauItems.forEach(item => {
+                            // Tính diện tích: nếu có dienTich trong item thì dùng, không thì tính từ kichThuocList
+                            let itemDienTich = item.dienTich || 0;
+                            if (!itemDienTich && item.szSku) {
+                                const kt = kichThuocList.find(k => k.szSku === item.szSku);
+                                itemDienTich = kt ? (kt.dienTich || 0) : 0;
+                            }
+                            dienTichDaCatCurrent += itemDienTich * (item.soLuong || 0);
+                        });
+                        
+                        // Chuyển đổi sang format giống như loadSavedItems
+                        const cayVaiToAdd = {
+                            _id: cayVaiData._id,
+                            maMau: cayVaiData.maMau,
+                            tenMau: cayVaiData.tenMau,
+                            chieuDaiCayVai: cayVaiData.chieuDaiCayVai,
+                            dienTichBanDau: cayVaiData.dienTichBanDau,
+                            dienTichDaCat: dienTichDaCatCurrent, // Chỉ tính items của mẫu hiện tại
+                            dienTichConLai: Math.max(0, cayVaiData.dienTichBanDau - dienTichDaCatCurrent),
+                            soMConLai: Math.round((Math.max(0, cayVaiData.dienTichBanDau - dienTichDaCatCurrent) / 2.3) * 100) / 100,
+                            tienDoPercent: cayVaiData.chieuDaiCayVai > 0 ? 
+                                Math.round(((cayVaiData.chieuDaiCayVai - Math.round((Math.max(0, cayVaiData.dienTichBanDau - dienTichDaCatCurrent) / 2.3) * 100) / 100) / cayVaiData.chieuDaiCayVai) * 100) : 0,
+                            vaiLoi: cayVaiData.vaiLoi,
+                            vaiThieu: cayVaiData.vaiThieu,
+                            nhapLaiKho: cayVaiData.nhapLaiKho,
+                            phatSinhMauDuRa: cayVaiData.phatSinhMauDuRa || { soM: 0 },
+                            items: currentMauItems.map(item => ({
+                                ...item,
+                                // Đảm bảo có đầy đủ thông tin
+                                kichThuoc: item.kichThuoc || '',
+                                szSku: item.szSku || '',
+                                soLuong: item.soLuong || 0,
+                                maMau: item.maMau || cayVaiData.maMau,
+                                tenMau: item.tenMau || cayVaiData.tenMau
+                            })), // CHỈ giữ lại items của mẫu hiện tại
+                            createdBy: cayVaiData.createdBy,
+                            importDate: cayVaiData.importDate || new Date(),
+                            catVaiId: result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null
+                        };
+                        
+                        // Lấy mayAoGoi từ response (ưu tiên từ doiTuongCatVai, nếu không có thì lấy từ cayVai)
+                        if (result.data.doiTuongCatVai && result.data.doiTuongCatVai.mayAoGoi) {
+                            cayVaiToAdd.mayAoGoi = result.data.doiTuongCatVai.mayAoGoi;
+                        } else if (cayVaiData.mayAoGoi) {
+                            cayVaiToAdd.mayAoGoi = cayVaiData.mayAoGoi;
+                        }
+                        
+                        // Kiểm tra xem mẫu này đã có trong danh sách chưa (nếu có thì cập nhật, không thì thêm mới)
+                        // QUAN TRỌNG: Normalize maMau để so sánh chính xác và đảm bảo tách riêng Sương đêm (2) và Trời xanh (43)
+                        // CHỈ merge nếu maMau VÀ catVaiId đều giống nhau
+                        const maMauToFind = String(cayVaiData.maMau);
+                        const catVaiIdToFind = result.data.doiTuongCatVai ? result.data.doiTuongCatVai.catVaiId : null;
+                        const existingIndex = savedCayVaiList.findIndex(cv => {
+                            const cvMaMau = String(cv.maMau);
+                            return cvMaMau === maMauToFind && cv.catVaiId === catVaiIdToFind;
+                        });
+                        
+                        if (existingIndex >= 0) {
+                            // Cập nhật cây vải đã có (cộng dồn items)
+                            const existing = savedCayVaiList[existingIndex];
+                            // Đảm bảo existing.items là array
+                            if (!Array.isArray(existing.items)) {
+                                existing.items = [];
+                            }
+                            // Đảm bảo cayVaiToAdd.items là array và có dữ liệu
+                            if (Array.isArray(cayVaiToAdd.items) && cayVaiToAdd.items.length > 0) {
+                                // Merge items: tránh trùng lặp theo szSku, nếu trùng thì cộng dồn số lượng
+                                cayVaiToAdd.items.forEach(newItem => {
+                                    const existingItemIndex = existing.items.findIndex(existingItem => 
+                                        existingItem.szSku === newItem.szSku && 
+                                        String(existingItem.maMau) === String(newItem.maMau)
+                                    );
+                                    if (existingItemIndex >= 0) {
+                                        // Cộng dồn số lượng nếu trùng
+                                        existing.items[existingItemIndex].soLuong += (newItem.soLuong || 0);
+                                    } else {
+                                        // Thêm mới nếu chưa có
+                                        existing.items.push(newItem);
+                                    }
+                                });
+                            }
+                            // Merge mayAoGoi
+                            if (cayVaiToAdd.mayAoGoi && cayVaiToAdd.mayAoGoi.length) {
+                                existing.mayAoGoi = (existing.mayAoGoi || []).concat(cayVaiToAdd.mayAoGoi);
+                            }
+                            existing.dienTichDaCat += cayVaiToAdd.dienTichDaCat;
+                            existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
+                            existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 100) / 100;
+                            existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
+                                Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
+                            // Cập nhật vải lỗi, thiếu, nhập lại kho
+                            if (cayVaiToAdd.vaiLoi && cayVaiToAdd.vaiLoi.chieuDai > 0) {
+                                existing.vaiLoi.chieuDai += cayVaiToAdd.vaiLoi.chieuDai;
+                                existing.vaiLoi.dienTich += cayVaiToAdd.vaiLoi.dienTich;
+                                existing.vaiLoi.soM += cayVaiToAdd.vaiLoi.soM;
+                            }
+                            existing.vaiThieu.soM = Math.max(existing.vaiThieu.soM || 0, cayVaiToAdd.vaiThieu.soM || 0);
+                            existing.nhapLaiKho.soM = Math.max(existing.nhapLaiKho.soM || 0, cayVaiToAdd.nhapLaiKho.soM || 0);
+                            existing.phatSinhMauDuRa = existing.phatSinhMauDuRa || { soM: 0 };
+                            existing.phatSinhMauDuRa.soM = Math.max(existing.phatSinhMauDuRa.soM || 0, (cayVaiToAdd.phatSinhMauDuRa && cayVaiToAdd.phatSinhMauDuRa.soM) || 0);
+                        } else {
+                            // Thêm mới vào danh sách
+                            // Đảm bảo items là array
+                            if (!Array.isArray(cayVaiToAdd.items)) {
+                                console.warn('⚠️ cayVaiToAdd.items không phải array, khởi tạo lại:', cayVaiToAdd.items);
+                                cayVaiToAdd.items = [];
+                            }
+                            // Đảm bảo có items trước khi thêm
+                            if (cayVaiToAdd.items.length === 0) {
+                                console.warn('⚠️ Không có items để thêm vào cây vải:', {
+                                    maMau: cayVaiToAdd.maMau,
+                                    tenMau: cayVaiToAdd.tenMau,
+                                    currentKichThuocData: Object.keys(currentKichThuocData).length
+                                });
+                            }
+                            console.log('✅ Thêm mới cây vải:', {
+                                maMau: cayVaiToAdd.maMau,
+                                tenMau: cayVaiToAdd.tenMau,
+                                itemsCount: cayVaiToAdd.items.length,
+                                items: cayVaiToAdd.items.map(item => ({
+                                    kichThuoc: item.kichThuoc,
+                                    szSku: item.szSku,
+                                    soLuong: item.soLuong
+                                }))
+                            });
+                            savedCayVaiList.push(cayVaiToAdd);
+                        }
+                        
+                        // Render lại danh sách
+                        renderSavedList();
+                        
+                        // QUAN TRỌNG: Xử lý items phát sinh (Trời xanh 43) đã được tách ở trên
+                        // Tách riêng và tạo mục riêng cho Trời xanh - KHÔNG tạo đối tượng cắt (catVaiId = null)
+                        // Sử dụng phatSinhItems đã được tách từ currentKichThuocData ở trên
+                        
+                        // Nếu có items phát sinh, tạo mục riêng
+                        if (phatSinhItems.length > 0) {
+                            console.log('✅ Phát hiện items phát sinh:', {
+                                count: phatSinhItems.length,
+                                items: phatSinhItems.map(item => ({
+                                    maMau: item.maMau,
+                                    tenMau: item.tenMau,
+                                    kichThuoc: item.kichThuoc,
+                                    szSku: item.szSku,
+                                    soLuong: item.soLuong
+                                }))
+                            });
+                            
+                            // Tính diện tích đã cắt cho Trời xanh
+                            let dienTichDaCatPhatSinh = 0;
+                            phatSinhItems.forEach(item => {
+                                // Tính diện tích: nếu có dienTich trong item thì dùng, không thì tính từ kichThuocList
+                                let itemDienTich = item.dienTich || 0;
+                                if (!itemDienTich && item.szSku) {
+                                    const kt = kichThuocList.find(k => k.szSku === item.szSku);
+                                    itemDienTich = kt ? (kt.dienTich || 0) : 0;
+                                }
+                                dienTichDaCatPhatSinh += itemDienTich * (item.soLuong || 0);
+                            });
+                            
+                            // Tìm mẫu phát sinh (thường là Trời xanh maMau '43')
+                            // Lấy maMau từ items phát sinh đầu tiên
+                            const phatSinhMaMau = String(phatSinhItems[0].maMau);
+                            const phatSinhMau = mauVaiList.find(m => String(m.maMau) === phatSinhMaMau);
+                            
+                            if (phatSinhMau) {
+                                // QUAN TRỌNG: KHÔNG tạo đối tượng cắt cho mẫu phát sinh (catVaiId = null)
+                                const troiXanhCatVaiId = null;
+                                
+                                // Tính các thông số cho Trời xanh
+                                // Lấy chiều dài cây vải từ items phát sinh (tính từ diện tích)
+                                const chieuDaiCayVaiPhatSinh = dienTichDaCatPhatSinh / 2.3;
+                                const dienTichBanDauPhatSinh = chieuDaiCayVaiPhatSinh * 2.3;
+                                const dienTichConLaiPhatSinh = Math.max(0, dienTichBanDauPhatSinh - dienTichDaCatPhatSinh);
+                                const soMConLaiPhatSinh = Math.round((dienTichConLaiPhatSinh / 2.3) * 100) / 100;
+                                const tienDoPercentPhatSinh = chieuDaiCayVaiPhatSinh > 0 ? 
+                                    Math.round(((chieuDaiCayVaiPhatSinh - soMConLaiPhatSinh) / chieuDaiCayVaiPhatSinh) * 100) : 0;
+                                
+                                const phatSinhCayVaiToAdd = {
+                                    _id: `phatsinh_${Date.now()}`, // ID tạm thời
+                                    maMau: phatSinhMaMau,
+                                    tenMau: phatSinhMau.tenMau,
+                                    chieuDaiCayVai: chieuDaiCayVaiPhatSinh,
+                                    dienTichBanDau: dienTichBanDauPhatSinh,
+                                    dienTichDaCat: dienTichDaCatPhatSinh,
+                                    dienTichConLai: dienTichConLaiPhatSinh,
+                                    soMConLai: soMConLaiPhatSinh,
+                                    tienDoPercent: tienDoPercentPhatSinh,
+                                    vaiLoi: { chieuDai: 0, dienTich: 0, soM: 0 },
+                                    vaiThieu: { soM: 0 },
+                                    nhapLaiKho: { soM: 0 },
+                                    phatSinhMauDuRa: { soM: 0 },
+                                    items: phatSinhItems.map(item => ({
+                                        ...item,
+                                        // Đảm bảo có đầy đủ thông tin
+                                        kichThuoc: item.kichThuoc || '',
+                                        szSku: item.szSku || '',
+                                        soLuong: item.soLuong || 0,
+                                        maMau: item.maMau || phatSinhMaMau,
+                                        tenMau: item.tenMau || phatSinhMau.tenMau,
+                                        dienTich: item.dienTich || 0
+                                    })), // Items phát sinh từ currentKichThuocData
+                                    createdBy: cayVaiData.createdBy,
+                                    importDate: cayVaiData.importDate || new Date(),
+                                    catVaiId: null, // QUAN TRỌNG: Không tạo đối tượng cắt cho mẫu phát sinh
+                                    mayAoGoi: [] // Có thể tính sau nếu cần
+                                };
+                                
+                                // Kiểm tra xem mẫu phát sinh này đã có trong danh sách chưa
+                                // Tìm mẫu phát sinh không có catVaiId (mẫu phát sinh)
+                                const existingPhatSinhIndex = savedCayVaiList.findIndex(cv => {
+                                    const cvMaMau = String(cv.maMau);
+                                    return cvMaMau === phatSinhMaMau && cv.catVaiId === null;
+                                });
+                                
+                                if (existingPhatSinhIndex >= 0) {
+                                    // Cập nhật cây vải đã có (cộng dồn items)
+                                    const existing = savedCayVaiList[existingPhatSinhIndex];
+                                    // Đảm bảo existing.items là array
+                                    if (!Array.isArray(existing.items)) {
+                                        existing.items = [];
+                                    }
+                                    // Đảm bảo phatSinhCayVaiToAdd.items là array và có dữ liệu
+                                    if (Array.isArray(phatSinhCayVaiToAdd.items) && phatSinhCayVaiToAdd.items.length > 0) {
+                                        existing.items.push(...phatSinhCayVaiToAdd.items);
+                                    }
+                                    existing.dienTichDaCat += phatSinhCayVaiToAdd.dienTichDaCat;
+                                    existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
+                                    existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 100) / 100;
+                                    existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
+                                        Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
+                                } else {
+                                    // Thêm mới vào danh sách - đảm bảo tách riêng với mẫu hiện tại
+                                    console.log('✅ Thêm mới mẫu phát sinh vào danh sách:', {
+                                        maMau: phatSinhCayVaiToAdd.maMau,
+                                        tenMau: phatSinhCayVaiToAdd.tenMau,
+                                        itemsCount: phatSinhCayVaiToAdd.items.length,
+                                        items: phatSinhCayVaiToAdd.items.map(item => ({
+                                            kichThuoc: item.kichThuoc,
+                                            szSku: item.szSku,
+                                            soLuong: item.soLuong
+                                        }))
+                                    });
+                                    savedCayVaiList.push(phatSinhCayVaiToAdd);
+                                }
+                                
+                                // Render lại danh sách sau khi thêm items phát sinh
+                                renderSavedList();
+                            } else {
+                                console.warn('⚠️ Không tìm thấy mẫu phát sinh trong mauVaiList:', phatSinhMaMau);
+                            }
+                        } else {
+                            console.log('ℹ️ Không có items phát sinh để thêm vào danh sách');
+                        }
+                    }
+                    
+                    // LƯU Ý: Xử lý linkedCayVai từ server (nếu có)
+                    // Tuy nhiên, mẫu phát sinh từ currentKichThuocData (catVaiId = null) được ưu tiên
+                    // vì không cần tạo đối tượng cắt cho mẫu phát sinh
+                    // Chỉ xử lý linkedCayVai nếu chưa có mẫu phát sinh từ currentKichThuocData
+                    const hasPhatSinhFromCurrentData = phatSinhItems.length > 0;
+                    if (!hasPhatSinhFromCurrentData && result.data && result.data.linkedCayVai && result.data.linkedCayVai.length > 0) {
+                        result.data.linkedCayVai.forEach(linkedData => {
+                            const linkedDoiTuong = linkedData.doiTuongCatVai;
+                            const linkedCayVai = linkedData.cayVai;
+                            
+                            if (!linkedDoiTuong || !linkedCayVai) return;
+                            
+                            // Đảm bảo maMau là string để so sánh chính xác
+                            const linkedMaMau = String(linkedCayVai.maMau);
+                            
+                            // Kiểm tra: Trời xanh phải có maMau '43', không được merge với Sương đêm '2'
+                            if (linkedMaMau !== '43') {
+                                console.warn('Linked item không phải Trời xanh (43):', linkedMaMau);
+                            }
+                            
+                            const linkedCayVaiToAdd = {
+                                _id: linkedCayVai._id,
+                                maMau: linkedMaMau, // Đảm bảo là string
+                                tenMau: linkedCayVai.tenMau,
+                                chieuDaiCayVai: linkedCayVai.chieuDaiCayVai || 0,
+                                dienTichBanDau: linkedCayVai.dienTichBanDau || 0,
+                                dienTichDaCat: linkedCayVai.dienTichDaCat || 0,
+                                dienTichConLai: linkedCayVai.dienTichConLai || 0,
+                                soMConLai: linkedCayVai.soMConLai || 0,
+                                tienDoPercent: linkedCayVai.tienDoPercent || 0,
+                                vaiLoi: linkedCayVai.vaiLoi || { chieuDai: 0, dienTich: 0, soM: 0 },
+                                vaiThieu: linkedCayVai.vaiThieu || { soM: 0 },
+                                nhapLaiKho: linkedCayVai.nhapLaiKho || { soM: 0 },
+                                items: linkedCayVai.items || [],
+                                createdBy: linkedCayVai.createdBy,
+                                importDate: linkedCayVai.importDate || new Date(),
+                                catVaiId: linkedDoiTuong.catVaiId,
+                                mayAoGoi: linkedCayVai.mayAoGoi || []
+                            };
+                            
+                            // Kiểm tra xem mẫu này đã có trong danh sách chưa
+                            // CHỈ merge nếu maMau VÀ catVaiId đều giống nhau
+                            // Điều này đảm bảo Sương đêm (2) và Trời xanh (43) luôn tách riêng
+                            const linkedCatVaiIdToFind = linkedDoiTuong.catVaiId;
+                            const existingLinkedIndex = savedCayVaiList.findIndex(cv => {
+                                const cvMaMau = String(cv.maMau);
+                                return cvMaMau === linkedMaMau && cv.catVaiId === linkedCatVaiIdToFind;
+                            });
+                            
+                            if (existingLinkedIndex >= 0) {
+                                // Cập nhật cây vải đã có (cộng dồn items) - chỉ khi maMau và catVaiId đều giống nhau
+                                const existing = savedCayVaiList[existingLinkedIndex];
+                                existing.items.push(...linkedCayVaiToAdd.items);
+                                if (linkedCayVaiToAdd.mayAoGoi && linkedCayVaiToAdd.mayAoGoi.length) {
+                                    existing.mayAoGoi = (existing.mayAoGoi || []).concat(linkedCayVaiToAdd.mayAoGoi);
+                                }
+                                existing.dienTichDaCat += linkedCayVaiToAdd.dienTichDaCat;
+                                existing.dienTichConLai = Math.max(0, existing.dienTichBanDau - existing.dienTichDaCat);
+                                existing.soMConLai = Math.round((existing.dienTichConLai / 2.3) * 100) / 100;
+                                existing.tienDoPercent = existing.chieuDaiCayVai > 0 ? 
+                                    Math.round(((existing.chieuDaiCayVai - existing.soMConLai) / existing.chieuDaiCayVai) * 100) : 0;
+                            } else {
+                                // Thêm mới vào danh sách - đảm bảo tách riêng với Sương đêm
+                                savedCayVaiList.push(linkedCayVaiToAdd);
+                            }
+                        });
+                        
+                        // Render lại danh sách sau khi thêm linked items
+                        renderSavedList();
+                    } else {
+                        // Kiểm tra: Nếu là mẫu Sương đêm và có items phát sinh (maMau '43') trong currentKichThuocData
+                        // nhưng server không trả về linkedCayVai, cần kiểm tra xem có trong cayVai.items không
+                        const isSuongDem = String(currentMauVai.maMau) === '2';
+                        if (isSuongDem) {
+                            // Kiểm tra xem có items với maMau '43' trong currentKichThuocData không
+                            const phatSinhItems = Object.values(currentKichThuocData).filter(data => 
+                                data.isPhatSinh && String(data.maMau) === '43' && data.soLuong > 0
+                            );
+                            
+                            if (phatSinhItems.length > 0) {
+                                // Kiểm tra xem items phát sinh có trong cayVai.items không
+                                const cayVaiItems = result.data && result.data.cayVai ? (result.data.cayVai.items || []) : [];
+                                const phatSinhInCayVai = cayVaiItems.filter(item => String(item.maMau) === '43');
+                                
+                                if (phatSinhInCayVai.length === 0) {
+                                    // Có items phát sinh nhưng không có trong cayVai.items và không có linkedCayVai
+                                    console.warn('⚠️ Phát hiện items phát sinh (Trời xanh) trong bảng kích thước nhưng server không trả về linkedCayVai');
+                                    console.warn('Items phát sinh:', phatSinhItems);
+                                } else {
+                                    // Items phát sinh có trong cayVai.items - có thể server đang trả về đúng nhưng cần tách riêng
+                                    console.info('ℹ️ Items phát sinh được trả về trong cayVai.items thay vì linkedCayVai:', phatSinhInCayVai);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Kiểm tra: So sánh items trả về với items đã gửi để đảm bảo khớp nhau
+                    if (result.data && result.data.cayVai && result.data.cayVai.items) {
+                        const returnedItems = result.data.cayVai.items || [];
+                        const sentItems = items.filter(item => {
+                            // Chỉ so sánh items không phải phát sinh (vì phát sinh sẽ ở linkedCayVai hoặc trong cayVai.items)
+                            return !item.isPhatSinh && !item.isLuuTru;
+                        });
+                        
+                        // Tách items phát sinh ra khỏi returnedItems để so sánh chính xác
+                        const returnedNonPhatSinhItems = returnedItems.filter(item => 
+                            String(item.maMau) !== '43' || !item.isPhatSinh
+                        );
+                        
+                        // Kiểm tra số lượng items (chỉ so sánh items không phát sinh)
+                        if (returnedNonPhatSinhItems.length !== sentItems.length) {
+                            console.warn('⚠️ Số lượng items trả về không khớp với số lượng items đã gửi');
+                            console.warn('Items đã gửi (không phát sinh):', sentItems.length, sentItems);
+                            console.warn('Items trả về (không phát sinh):', returnedNonPhatSinhItems.length, returnedNonPhatSinhItems);
+                            console.warn('Tất cả items trả về:', returnedItems.length, returnedItems);
+                        }
+                        
+                        // Kiểm tra từng item
+                        sentItems.forEach(sentItem => {
+                            const found = returnedNonPhatSinhItems.find(retItem => 
+                                retItem.szSku === sentItem.szSku && 
+                                retItem.soLuong === sentItem.soLuong
+                            );
+                            if (!found) {
+                                console.warn('⚠️ Item không tìm thấy trong dữ liệu trả về:', sentItem);
+                            }
+                        });
+                    }
+                    
+                    // Kiểm tra: So sánh linkedCayVai items với items phát sinh đã gửi
+                    const sentPhatSinhItems = items.filter(item => item.isPhatSinh && String(item.maMau) === '43');
+                    if (sentPhatSinhItems.length > 0) {
+                        if (result.data && result.data.linkedCayVai && result.data.linkedCayVai.length > 0) {
+                            // Có items phát sinh và có linkedCayVai trả về - kiểm tra khớp nhau
+                            const linkedItems = result.data.linkedCayVai.flatMap(linkedData => 
+                                linkedData.cayVai ? (linkedData.cayVai.items || []) : []
+                            );
+                            
+                            if (linkedItems.length !== sentPhatSinhItems.length) {
+                                console.warn('⚠️ Số lượng items phát sinh trả về không khớp với số lượng items đã gửi');
+                                console.warn('Items phát sinh đã gửi:', sentPhatSinhItems.length, sentPhatSinhItems);
+                                console.warn('Items phát sinh trả về:', linkedItems.length, linkedItems);
+                            }
+                            
+                            // Kiểm tra từng item phát sinh
+                            sentPhatSinhItems.forEach(sentItem => {
+                                const found = linkedItems.find(retItem => 
+                                    retItem.szSku === sentItem.szSku && 
+                                    retItem.soLuong === sentItem.soLuong
+                                );
+                                if (!found) {
+                                    console.warn('⚠️ Item phát sinh không tìm thấy trong linkedCayVai:', sentItem);
+                                }
+                            });
+                        } else {
+                            // Có items phát sinh nhưng không có linkedCayVai trả về - đã được xử lý ở trên
+                            console.warn('⚠️ Có items phát sinh nhưng server không trả về linkedCayVai');
+                        }
+                    }
+                    
+                    // Reset form nhập phôi - Clear tất cả để nhập phôi mới
+                    // Clear các input chính
+                    document.getElementById('chieuDaiCayVaiInput').value = '';
+                    document.getElementById('kichThuocInput').value = '';
+                    document.getElementById('soLuongInput').value = '';
+                    
+                    // Clear các attributes của kichThuocInput
+                    const kichThuocInput = document.getElementById('kichThuocInput');
+                    kichThuocInput.removeAttribute('data-selected-szsku');
+                    kichThuocInput.removeAttribute('data-selected-kichthuoc');
+                    kichThuocInput.removeAttribute('data-selected-cao');
+                    kichThuocInput.removeAttribute('data-selected-caoparts');
+                    kichThuocInput.removeAttribute('data-selected-ngang');
+                    
+                    // Clear input vải lỗi
+                    const vaiLoiInput = document.getElementById('vaiLoiInput');
+                    if (vaiLoiInput) {
+                        vaiLoiInput.value = '';
+                        vaiLoiInput.style.borderColor = '#e0e0e0';
+                        const vaiLoiInputError = document.getElementById('vaiLoiInputError');
+                        if (vaiLoiInputError) vaiLoiInputError.style.display = 'none';
+                        document.getElementById('dienTichLoi').textContent = '0 m²';
+                    }
+                    
+                    // Clear form phát sinh mẫu dư ra (phôi)
+                    const phoiKichThuocInput = document.getElementById('phoiKichThuocInput');
+                    if (phoiKichThuocInput) {
+                        phoiKichThuocInput.value = '';
+                        phoiKichThuocInput.removeAttribute('data-selected-szsku');
+                        phoiKichThuocInput.removeAttribute('data-selected-kichthuoc');
+                        phoiKichThuocInput.removeAttribute('data-selected-cao');
+                        phoiKichThuocInput.removeAttribute('data-selected-caoparts');
+                        phoiKichThuocInput.removeAttribute('data-selected-ngang');
+                    }
+                    
+                    const phoiNgangInput = document.getElementById('phoiNgangInput');
+                    if (phoiNgangInput) {
+                        phoiNgangInput.value = '';
+                    }
+                    
+                    const phoiSoLuongInput = document.getElementById('phoiSoLuongInput');
+                    if (phoiSoLuongInput) {
+                        phoiSoLuongInput.value = '';
+                    }
+                    
+                    const phoiNgangGroup = document.getElementById('phoiNgangGroup');
+                    if (phoiNgangGroup) phoiNgangGroup.style.display = 'none';
+                    
+                    // Ẩn các form phát sinh
+                    const catPhoiForm = document.getElementById('catPhoiForm');
+                    if (catPhoiForm) catPhoiForm.style.display = 'none';
+                    
+                    const catLuuTruForm = document.getElementById('catLuuTruForm');
+                    if (catLuuTruForm) catLuuTruForm.style.display = 'none';
+                    
+                    const phatSinhMauForm = document.getElementById('phatSinhMauForm');
+                    if (phatSinhMauForm) phatSinhMauForm.style.display = 'none';
+                    
+                    // Ẩn dropdown gợi ý kích thước phôi
+                    const phoiKichThuocDropdown = document.getElementById('phoiKichThuocDropdown');
+                    if (phoiKichThuocDropdown) {
+                        phoiKichThuocDropdown.classList.remove('show');
+                        phoiKichThuocDropdown.innerHTML = '';
+                    }
+                    
+                    // Reset các checkbox
+                    document.getElementById('vaiLoiCheckbox').checked = false;
+                    document.getElementById('vaiThieuCheckbox').checked = false;
+                    document.getElementById('nhapLaiKhoCheckbox').checked = false;
+                    document.getElementById('phatSinhMauDuRaCheckbox').checked = false;
+                    
+                    // Ẩn các group và info
+                    document.getElementById('calculationInfo').style.display = 'none';
+                    document.getElementById('checkboxOptions').style.display = 'none';
+                    document.getElementById('vaiLoiInputGroup').style.display = 'none';
+                    document.getElementById('vaiThieuInfo').style.display = 'none';
+                    document.getElementById('nhapLaiKhoInfo').style.display = 'none';
+                    document.getElementById('phatSinhMauDuRaInfo').style.display = 'none';
+                    
+                    // Clear dữ liệu kích thước
+                    currentKichThuocData = {};
+                    renderKichThuocList();
+                    calculateArea();
+                    
+                    // Reset và refresh form UI nhập phôi
+                    // Reset chiều cao đã cắt (nếu có hàm này)
+                    if (typeof tinhChieuCaoDaCat === 'function') {
+                        // Chiều cao đã cắt sẽ được tính lại khi có dữ liệu mới
+                    }
+                    
+                    // Reset form phát sinh mẫu dư ra (nếu đang mở)
+                    const phatSinhMauDuRaCheckbox = document.getElementById('phatSinhMauDuRaCheckbox');
+                    if (phatSinhMauDuRaCheckbox && phatSinhMauDuRaCheckbox.checked) {
+                        // Uncheck để reset form
+                        phatSinhMauDuRaCheckbox.checked = false;
+                        togglePhatSinhMauDuRa();
+                    }
                     
                     // Reset các button chế độ xử lý (nếu có)
                     const catPhoiBtn = document.getElementById('catPhoiBtn');
@@ -4065,7 +4672,10 @@ async function loadSavedItems() {
                 } else {
                     showError(result.message || 'Lỗi thêm mẫu');
                 }
-            // (removed stray catch block)
+            } catch (error) {
+                console.error('Error adding mau:', error);
+                showError('Lỗi thêm mẫu: ' + error.message);
+            }
         }
 
         // Load danh sách đã nhập
@@ -4183,8 +4793,15 @@ async function loadSavedItems() {
                 document.getElementById('kichThuocInput').value = '';
                 document.getElementById('kichThuocInput').disabled = true;
                 document.getElementById('soLuongInput').disabled = true;
-                document.getElementById('slLoiInput').value = '';
-                document.getElementById('slLoiInput').disabled = true;
+                
+                // Clear and reset Số tấm lỗi
+                const slLoiInput = document.getElementById('slLoiInput');
+                if (slLoiInput) {
+                    slLoiInput.value = '';
+                    slLoiInput.style.borderColor = '#e0e0e0';
+                    const slLoiError = document.getElementById('slLoiInputError');
+                    if (slLoiError) slLoiError.style.display = 'none';
+                }
                 
                 // Reset checkboxes
                 document.getElementById('vaiLoiCheckbox').checked = false;
@@ -4208,88 +4825,245 @@ async function loadSavedItems() {
         // Render danh sách đã nhập
         function renderSavedList() {
             try {
-                const list = document.getElementById('savedList');
-                const exportBtn = document.getElementById('exportBtn');
+            const list = document.getElementById('savedList');
+            const exportBtn = document.getElementById('exportBtn');
+                
                 if (!list) {
                     console.error('Không tìm thấy element savedList');
                     return;
                 }
-                // Nếu có danh sách cây vải, ưu tiên hiển thị cây vải
+            
+            // Nếu có danh sách cây vải, ưu tiên hiển thị cây vải
                 if (savedCayVaiList && savedCayVaiList.length > 0) {
-                    list.innerHTML = '';
+                list.innerHTML = '';
                     if (exportBtn) exportBtn.disabled = false;
+                
+                // Hiển thị danh sách cây vải (theo thứ tự mới nhất)
                     savedCayVaiList.forEach((cayVai, index) => {
                         try {
-                            const li = document.createElement('li');
-                            li.className = 'saved-item';
-                            const cayVaiId = cayVai._id || cayVai.catVaiId || `temp_${index}_${Date.now()}`;
-                            const dateStr = new Date(cayVai.ngayNhap || cayVai.importDate || Date.now()).toLocaleDateString('vi-VN');
-                            // Lấy các trường số liệu
-                            const soMBanDau = typeof cayVai.chieuDaiCayVai === 'number' ? cayVai.chieuDaiCayVai : 0;
-                            const soMDaCat = typeof cayVai.dienTichDaCat === 'number' ? cayVai.dienTichDaCat : 0;
-                            const soMConLai = typeof cayVai.soMConLai === 'number' ? cayVai.soMConLai : 0;
-                            const soMLoi = cayVai.vaiLoi && typeof cayVai.vaiLoi.soM === 'number' ? cayVai.vaiLoi.soM : 0;
-                            const soMThieu = cayVai.vaiThieu && typeof cayVai.vaiThieu.soM === 'number' ? cayVai.vaiThieu.soM : 0;
-                            const soMNhapKho = cayVai.nhapLaiKho && typeof cayVai.nhapLaiKho.soM === 'number' ? cayVai.nhapLaiKho.soM : 0;
+                const li = document.createElement('li');
+                li.className = 'saved-item';
+                
+                // Sử dụng _id nếu có, nếu không thì dùng catVaiId hoặc index làm ID tạm thời
+                const cayVaiId = cayVai._id || cayVai.catVaiId || `temp_${index}_${Date.now()}`;
+                
+                const dateStr = new Date(cayVai.importDate).toLocaleDateString('vi-VN');
+                const hasVaiLoi = cayVai.vaiLoi && cayVai.vaiLoi.soM > 0;
+                const hasVaiThieu = cayVai.vaiThieu && cayVai.vaiThieu.soM > 0;
+                const hasNhapLaiKho = cayVai.nhapLaiKho && cayVai.nhapLaiKho.soM > 0;
+                
+                // Tính toán lại mayAoGoi nếu không có (cho dữ liệu cũ)
+                if (!cayVai.mayAoGoi || cayVai.mayAoGoi.length === 0) {
+                    try {
+                        const mayAoGoi = [];
+                        const itemsList = cayVai.items || [];
+                        const maMau = cayVai.maMau;
+                        
+                        // Trường hợp 1: Tìm kích thước có chiều cao 180cm (tìm trong cả kichThuoc và szSku)
+                        itemsList.forEach(it => {
+                            const kt = (it.kichThuoc || '').toString();
+                            const szSku = (it.szSku || '').toString();
+                            let m = kt.match(/(\d+)\s*-\s*180/);
+                            if (!m) m = kt.match(/\((\d+)\s*-\s*180\)/);
+                            // Nếu không tìm thấy trong kichThuoc, tìm trong szSku
+                            if (!m) m = szSku.match(/(\d+)\s*-\s*180/);
+                            if (m) {
+                                const ngang = parseInt(m[1], 10);
+                                if (!isNaN(ngang)) {
+                                    const qty = parseInt(it.soLuong || 0, 10) || 0;
+                                    if (qty > 0) {
+                                        const value = (ngang + 5) * qty;
+                                        mayAoGoi.push({ maMau: maMau, label: 'May áo gối', ngang: ngang, qty: qty, calcStr: `(${ngang} + 5) * ${qty}`, value: value });
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // Trường hợp 2: Tìm các cặp kích thước có tổng chiều cao = 180cm (110 + 70 = 180)
+                        // CHỈ ÁP DỤNG CHO MẪU CÓ MÃ MẪU 4 VÀ 14 (Mùa đông, corgi)
+                        const maMauNum = parseInt(maMau, 10);
+                        const isMuaDongOrCorgi = (maMauNum === 4 || maMauNum === 14);
+                        
+                        if (isMuaDongOrCorgi) {
+                            const kichThuoc110 = itemsList.filter(it => {
+                                const kt = (it.kichThuoc || '').toString();
+                                const szSku = (it.szSku || '').toString();
+                                const match = kt.match(/(\d+)\s*-\s*110/) || szSku.match(/(\d+)\s*-\s*110/);
+                                return match !== null;
+                            });
+                            
+                            const kichThuoc70 = itemsList.filter(it => {
+                                const kt = (it.kichThuoc || '').toString();
+                                const szSku = (it.szSku || '').toString();
+                                const match = kt.match(/(\d+)\s*-\s*70/) || szSku.match(/(\d+)\s*-\s*70/);
+                                return match !== null;
+                            });
+                            
+                            if (kichThuoc110.length > 0 && kichThuoc70.length > 0) {
+                                kichThuoc110.forEach(item110 => {
+                                    const kt110 = (item110.kichThuoc || '').toString();
+                                    const szSku110 = (item110.szSku || '').toString();
+                                    let match110 = kt110.match(/(\d+)\s*-\s*110/);
+                                    if (!match110) match110 = szSku110.match(/(\d+)\s*-\s*110/);
+                                    if (!match110) return;
+                                    
+                                    const ngang110 = parseInt(match110[1], 10);
+                                    if (isNaN(ngang110)) return;
+                                    
+                                    kichThuoc70.forEach(item70 => {
+                                        const kt70 = (item70.kichThuoc || '').toString();
+                                        const szSku70 = (item70.szSku || '').toString();
+                                        let match70 = kt70.match(/(\d+)\s*-\s*70/);
+                                        if (!match70) match70 = szSku70.match(/(\d+)\s*-\s*70/);
+                                        if (!match70) return;
+                                        
+                                        const ngang70 = parseInt(match70[1], 10);
+                                        if (isNaN(ngang70)) return;
+                                        
+                                        const qty110 = parseInt(item110.soLuong || 0, 10);
+                                        const qty70 = parseInt(item70.soLuong || 0, 10);
+                                        const qty = Math.min(qty110, qty70);
+                                        
+                                        if (qty > 0) {
+                                            const value = (ngang110 + 5 + ngang70 + 5) * qty;
+                                            mayAoGoi.push({ 
+                                                maMau: maMau, 
+                                                label: 'May áo gối', 
+                                                ngang: ngang110 + ngang70, // Lưu tổng của 2 ngang (Number)
+                                                qty: qty, 
+                                                calcStr: `(${ngang110} + 5 + ${ngang70} + 5) * ${qty}`, 
+                                                value: value 
+                                            });
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                        
+                        cayVai.mayAoGoi = mayAoGoi;
+                    } catch (e) {
+                        console.warn('Error computing mayAoGoi in render:', e);
+                    }
+                }
+                
+                            // Đảm bảo các giá trị số là hợp lệ
+                            const chieuDaiCayVai = parseFloat(cayVai.chieuDaiCayVai) || 0;
+                            const tienDoPercent = parseFloat(cayVai.tienDoPercent) || 0;
+                            const soMConLai = parseFloat(cayVai.soMConLai) || 0;
+                            const dienTichBanDau = parseFloat(cayVai.dienTichBanDau) || 0;
+                            const dienTichDaCat = parseFloat(cayVai.dienTichDaCat) || 0;
+                            const dienTichConLai = parseFloat(cayVai.dienTichConLai) || 0;
+                            
+                            // Đảm bảo items là array
                             const itemsList = Array.isArray(cayVai.items) ? cayVai.items : [];
-                            li.innerHTML = `
-                                <div class="saved-item-header">
+                            
+                            // Kiểm tra xem có phải mẫu Trời xanh (phát sinh) không
+                            // Mẫu Trời xanh: maMau '43' và catVaiId === null
+                            const isTroiXanh = (String(cayVai.maMau) === '43' && cayVai.catVaiId === null);
+                            
+                            // Tính số m đã cắt từ items (đúng nghiệp vụ cao 110/70)
+                            // Convert itemsList -> kichThuocData format
+                            const tempKichThuocData = {};
+                            itemsList.forEach(it => {
+                                if (!it || !it.szSku) return;
+                                tempKichThuocData[it.szSku] = {
+                                    szSku: it.szSku,
+                                    soLuong: Number(it.soLuong) || 0,
+                                    isPhatSinh: Boolean(it.isPhatSinh),
+                                    isLuuTru: Boolean(it.isLuuTru),
+                                    isSpecialSet: Boolean(it.isSpecialSet),
+                                    specialSetName: it.specialSetName || ''
+                                };
+                            });
+                            let soMDaCat = calculateSoMDaCatFromData(tempKichThuocData, cayVai.maMau, cayVai.tenMau);
+                            soMDaCat = Math.round((Number(soMDaCat) || 0) * 100) / 100; // hiển thị 2 chữ số thập phân
+                            
+                            // Số m ban đầu = chiều dài cây vải
+                            const soMBanDau = chieuDaiCayVai;
+                            
+                            // Số m lỗi
+                            const soMLoi = cayVai.vaiLoi ? (parseFloat(cayVai.vaiLoi.chieuDai) || 0) : 0;
+                            
+                            // Số m thiếu vải
+                            const soMThieu = cayVai.vaiThieu ? (parseFloat(cayVai.vaiThieu.soM) || 0) : 0;
+                            
+                            // Số m nhập vào kho
+                            const soMNhapKho = cayVai.nhapLaiKho ? (parseFloat(cayVai.nhapLaiKho.soM) || 0) : 0;
+                            
+                            // Hiển thị "Số m còn lại" đồng nhất với giá trị đã nhập lại kho
+                            // (tránh lệch khi soMConLai lưu theo công thức khác với soMNhapKho)
+                            const soMConLaiDisplay = soMNhapKho > 0 ? soMNhapKho : soMConLai;
+                
+                li.innerHTML = `
+                    <div class="saved-item-header">
                                     <div class="saved-item-title">${cayVai.maMau || ''} - ${cayVai.tenMau || ''}</div>
-                                    <div style="display:flex; gap:8px; align-items:center;">
-                                        <div style="font-size: 0.85rem; color: #666; margin-right:8px;">${dateStr}</div>
-                                        <div class="saved-item-actions">
-                                            <button class="btn btn-small btn-secondary btn-barcode" data-catvaiid="${escapeAttr(cayVai.catVaiId || '')}" title="Hiển thị mã vạch theo ID đối tượng cắt vải">Mã vạch</button>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div style="font-size: 0.85rem; color: #666; margin-right:8px;">${dateStr}</div>
+                            <div class="saved-item-actions">
+                                            <button class="btn btn-small btn-secondary btn-barcode" data-catvaiid="${escapeAttr(cayVai.catVaiId || '')}" data-tenmau="${escapeAttr(cayVai.tenMau || '')}" title="Hiển thị mã vạch theo ID đối tượng cắt vải">Mã vạch</button>
                                             <button class="btn btn-small btn-secondary" onclick="editSavedCayVai('${cayVaiId}')">Sửa</button>
                                             <button class="btn btn-small btn-secondary" onclick="duplicateSavedCayVai('${cayVaiId}')">Sao chép</button>
                                             <button class="btn btn-small btn-danger" onclick="deleteSavedCayVai('${cayVaiId}')">Xóa</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="saved-item-details">
-                                    <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #007bff;">
-                                        <div style="margin-bottom: 5px;"><strong>Số m ban đầu:</strong> ${soMBanDau.toFixed(2)} m</div>
-                                        <div style="margin-bottom: 5px;"><strong>Số m đã cắt:</strong> ${soMDaCat.toFixed(2)} m</div>
-                                        <div style="margin-bottom: 5px;"><strong>Số m còn lại:</strong> ${soMConLai.toFixed(2)} m</div>
-                                        <div style="margin-bottom: 5px; color: #dc3545;"><strong>Số m lỗi:</strong> ${soMLoi.toFixed(2)} m</div>
-                                        <div style="margin-bottom: 5px; color: #ffc107;"><strong>Số m thiếu vải:</strong> ${soMThieu.toFixed(2)} m</div>
-                                        <div style="margin-bottom: 5px; color: #28a745;"><strong>Số m nhập vào kho:</strong> ${soMNhapKho.toFixed(2)} m</div>
-                                    </div>
-                                    <div style="margin-top: 10px;">
-                                        <strong>Chi tiết kích thước:</strong>
-                                        <table style="width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.9rem;">
-                                            <thead>
-                                                <tr style="background: #28a745; color: white;">
-                                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Kích thước</th>
-                                                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">SL</th>
-                                                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">SL Lỗi</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="saved-item-details">
+                        ${!isTroiXanh ? `
+                            <!-- Hiển thị thông tin số m cho các mẫu bình thường (trừ Trời xanh) -->
+                            <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #007bff;">
+                                <div style="margin-bottom: 5px;"><strong>Số m ban đầu:</strong> ${soMBanDau.toFixed(2)} m</div>
+                                <div style="margin-bottom: 5px;"><strong>Số m đã cắt:</strong> ${soMDaCat.toFixed(2)} m</div>
+                                <div style="margin-bottom: 5px;"><strong>Số m còn lại:</strong> ${soMConLaiDisplay.toFixed(2)} m</div>
+                                ${soMLoi > 0 ? `<div style="margin-bottom: 5px; color: #dc3545;"><strong>Số m lỗi:</strong> ${soMLoi.toFixed(2)} m</div>` : ''}
+                                ${soMThieu > 0 ? `<div style="margin-bottom: 5px; color: #ffc107;"><strong>Số m thiếu vải:</strong> ${soMThieu.toFixed(2)} m</div>` : ''}
+                                ${soMNhapKho > 0 ? `<div style="margin-bottom: 5px; color: #28a745;"><strong>Số m nhập vào kho:</strong> ${soMNhapKho.toFixed(2)} m</div>` : ''}
+                            </div>
+                        ` : ''}
+                        <!-- Phần hiển thị vải lỗi, vải thiếu, nhập lại kho đã được gộp vào phần trên -->
+                                    ${cayVai.mayAoGoi && Array.isArray(cayVai.mayAoGoi) && cayVai.mayAoGoi.length ? `
+                            <div style="margin-bottom:10px; padding:10px; background:#e9f7ef; border-radius:6px; border-left:4px solid #20c997;">
+                                <strong>May áo gối:</strong>
+                                <span style="margin-left:8px; font-size:0.95rem; color:#333;">
+                                                ${cayVai.mayAoGoi.reduce((sum, m) => sum + (parseFloat(m.value) || 0), 0)} cm
+                                </span>
+                            </div>
+                        ` : ''}
+                        <div style="margin-top: 10px;">
+                            <strong>Chi tiết kích thước:</strong>
+                            <table style="width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.9rem;">
+                                <thead>
+                                            <tr style="background: #28a745; color: white;">
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Kích thước</th>
+                                                <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">SL</th>
+                                            </tr>
+                                </thead>
+                                <tbody>
                                                 ${itemsList.length > 0 ? itemsList.map(item => `
-                                                    <tr>
+                                        <tr>
                                                         <td style="padding: 6px; border: 1px solid #ddd;">${item.kichThuoc || ''} (${item.szSku || ''})</td>
                                                         <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${item.soLuong || 0}</td>
-                                                        <td style="padding: 6px; text-align: center; border: 1px solid #ddd; color: #dc3545;">${item.slLoi || 0}</td>
-                                                    </tr>
-                                                `).join('') : '<tr><td colspan="3" style="padding: 6px; text-align: center; border: 1px solid #ddd;">Không có kích thước</td></tr>'}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            `;
-                            list.appendChild(li);
+                                        </tr>
+                                                `).join('') : '<tr><td colspan="2" style="padding: 6px; text-align: center; border: 1px solid #ddd;">Không có kích thước</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                list.appendChild(li);
                         } catch (itemError) {
                             console.error('Lỗi khi render item:', itemError, cayVai);
                         }
-                    });
-                    return;
-                }
+                });
+                
+                return;
+            }
             
             // Nếu không có cây vải, hiển thị danh sách nhập phôi cũ
                 if (!savedItems || savedItems.length === 0) {
                 list.innerHTML = `
                     <li class="empty-state">
-                        <div class="empty-state-icon">📦</div>
+                        <div class="empty-state-icon"></div>
                         <p>Chưa có dữ liệu nhập phôi</p>
                     </li>
                 `;
@@ -4374,8 +5148,7 @@ async function loadSavedItems() {
                 currentKichThuocData[item.szSku] = {
                     kichThuoc: item.kichThuoc,
                     szSku: item.szSku,
-                    soLuong: item.soLuong,
-                    slLoi: item.slLoi || 0
+                    soLuong: item.soLuong
                 };
             });
 
@@ -4408,7 +5181,6 @@ async function loadSavedItems() {
                     kichThuoc: item.kichThuoc,
                     szSku: item.szSku,
                     soLuong: item.soLuong,
-                    slLoi: item.slLoi || 0,
                     dienTich: dienTich
                 };
             });
@@ -4452,7 +5224,7 @@ async function loadSavedItems() {
             currentKichThuocData = {};
             groupItems.forEach(item => {
                 const dienTich = item.dienTich || (kichThuocList.find(k=>k.szSku===item.szSku)?.dienTich||0);
-                currentKichThuocData[item.szSku] = { kichThuoc: item.kichThuoc, szSku: item.szSku, soLuong: item.soLuong, slLoi: item.slLoi || 0, dienTich };
+                currentKichThuocData[item.szSku] = { kichThuoc: item.kichThuoc, szSku: item.szSku, soLuong: item.soLuong, dienTich };
             });
             renderKichThuocList();
             calculateArea();
@@ -4638,11 +5410,103 @@ async function loadSavedItems() {
                         maMau: maMau,
                         szSku: szSku,
                         kichThuoc: item.kichThuoc,
-                                        soLuong: item.soLuong,
-                                        dienTich: item.dienTich || 0
-                                    };
-                                })
-                            );
+                        soLuong: item.soLuong,
+                        dienTich: item.dienTich || 0
+                    };
+                })
+            );
+
+            if (allItemsWithMau.length === 0) {
+                showError('Không có chi tiết kích thước nào để xuất.');
+                return;
+            }
+
+            // Chuẩn bị dữ liệu: gộp số lượng cho cùng 1 szSku + maMau
+            // Key: maMau + szSku để phân biệt cùng szSku nhưng khác mẫu
+            const exportData = allItemsWithMau.reduce((acc, item) => {
+                const key = `${item.maMau}_${item.szSku}`;
+                if (acc[key]) {
+                    acc[key].soLuong += item.soLuong;
+                    // Cập nhật diện tích cắt tổng (nếu cần)
+                    acc[key].dienTichCat += (item.soLuong * (item.dienTich || 0));
+                } else {
+                    acc[key] = {
+                        sku: item.szSku, // Tạm thời dùng szSku, sẽ được thay bằng SKU từ MasterDataVai
+                        soLuong: item.soLuong,
+                        kichThuoc: item.kichThuoc || '', // Lưu thêm thông tin kích thước
+                        szSku: item.szSku, // Thêm szSku để tìm kích thước nếu cần
+                        maMau: item.maMau, // Thêm maMau để tìm SKU từ MasterDataVai
+                        dienTich: item.dienTich || 0,
+                        dienTichCat: (item.soLuong * (item.dienTich || 0))
+                    };
+                }
+                return acc;
+            }, {});
+
+            const dataToSend = Object.values(exportData);
+            
+            btn.disabled = true;
+            btn.innerHTML = '🔄 Đang xử lý...';
+
+            try {
+                // 1) Export Excel như cũ
+                const response = await fetch('/api/export-nhap-phoi', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include', // Thêm credentials để gửi session/cookie
+                    body: JSON.stringify({ 
+                        items: dataToSend
+                        // Không cần gửi maMau riêng vì mỗi item đã có maMau
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorResult = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+                    throw new Error(errorResult.message || `Lỗi server: ${response.statusText}`);
+                }
+
+                // Lấy tên file từ header - sửa lỗi regex
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'nhap_phoi_export.xlsx'; // fallback
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1].replace(/['"]/g, '');
+                    }
+                }
+
+                const blob = await response.blob();
+                
+                // Kiểm tra xem blob có dữ liệu không
+                if (blob.size === 0) {
+                    throw new Error('File xuất ra rỗng. Vui lòng kiểm tra lại dữ liệu.');
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup sau khi tải
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                }, 100);
+
+                // 2) Optional: tải PDF barcode
+                if (includeBarcodePdf) {
+                    try {
+                        await downloadBarcodePdf(barcodeIds);
+                    } catch (e) {
+                        // Excel đã xuất xong, nên chỉ báo lỗi PDF (không chặn)
+                        console.error('Barcode PDF download error:', e);
+                        showError('Đã xuất Excel nhưng lỗi tải PDF mã vạch: ' + (e?.message || String(e)));
+                    }
                 }
 
                 showSuccess(`Xuất file thành công! Đã xuất ${dataToSend.length} SKU với tổng ${allItemsWithMau.reduce((sum, item) => sum + item.soLuong, 0)} sản phẩm.${includeBarcodePdf ? ' (kèm PDF mã vạch nếu có)' : ''}`);
@@ -4651,9 +5515,8 @@ async function loadSavedItems() {
                 savedCayVaiList = [];
                 savedItems = [];
                 renderSavedList();
-            }
-            // Add missing closing brace for try block
-            catch (error) {
+
+            } catch (error) {
                 console.error('Error exporting file:', error);
                 showError('Lỗi xuất file: ' + error.message);
             } finally {
@@ -4709,7 +5572,6 @@ async function loadSavedItems() {
 
         // Khởi tạo
         initializePage();
-    }
     </script>
 </body>
 </html>

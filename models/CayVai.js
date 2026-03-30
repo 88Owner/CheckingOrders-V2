@@ -55,6 +55,7 @@ const cayVaiSchema = new mongoose.Schema({
         kichThuoc: String,
         szSku: String,
         soLuong: Number,
+        slLoi: { type: Number, default: 0 },
         dienTich: Number,
         dienTichCat: Number
     }],

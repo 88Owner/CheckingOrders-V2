@@ -125,3 +125,34 @@ Sau khi khởi tạo dữ liệu, bạn có thể đăng nhập với các tài 
 - **HTTPS**: https://localhost:3000
 - **MongoDB Local**: mongodb://localhost:27017
 - **MongoDB Remote**: mongodb://YOUR_SERVER_IP:27017/OrderDetailing
+
+## Operations service chay doc lap
+
+Service van hanh da duoc tach rieng trong thu muc `operations-service` va luu du lieu bang PostgreSQL.
+
+### Chay bang Docker Compose
+
+```bash
+docker-compose up -d operations-db operations-service
+```
+
+Endpoints:
+- `GET http://localhost:3010/health`
+- `GET http://localhost:3010/api/operations/orders`
+- `POST http://localhost:3010/api/operations/orders`
+- `POST http://localhost:3010/api/operations/actions`
+
+### Chay local khong docker
+
+```bash
+cd operations-service
+npm install
+npm run dev
+```
+
+Can tao bien moi truong:
+
+```env
+OPERATIONS_PORT=3010
+OPERATIONS_DATABASE_URL=postgresql://operations_user:operations_password@localhost:5434/operations_db
+```

@@ -468,6 +468,7 @@
                             </tbody>
                         </table>
                     </div>
+                    <div id="missingOrdersPager" style="display:flex;justify-content:center;gap:12px;align-items:center;margin-top:12px;"></div>
                 </div>
                 <div id="uploadPanel" style="display:none;margin-top:18px;">
                     <div class="dropzone" id="dropzone">Kéo thả file Excel đơn hàng vào đây hoặc chọn file bên dưới</div>
@@ -5071,6 +5072,97 @@ window.showOrderPager = function(show) {
             }
         }
 
+        // State cho phân trang danh sách đơn hàng thiếu
+        let missingOrdersPage = 1;
+        let missingOrdersData = [];
+        const MISSING_ORDERS_PAGE_SIZE = 25;
+
+        // Hàm render phân trang đơn hàng thiếu
+        function renderMissingOrdersPage() {
+            const tbody = document.getElementById('missingOrdersBody');
+            const pager = document.getElementById('missingOrdersPager');
+            if (!tbody || !pager) return;
+
+            // Tính số trang
+            const totalPages = Math.max(1, Math.ceil(missingOrdersData.length / MISSING_ORDERS_PAGE_SIZE));
+            
+            // Validate trang hiện tại
+            if (missingOrdersPage > totalPages) {
+                missingOrdersPage = totalPages;
+            }
+            if (missingOrdersPage < 1) {
+                missingOrdersPage = 1;
+            }
+
+            // Tính dữ liệu cho trang hiện tại
+            const startIdx = (missingOrdersPage - 1) * MISSING_ORDERS_PAGE_SIZE;
+            const endIdx = startIdx + MISSING_ORDERS_PAGE_SIZE;
+            const pageRows = missingOrdersData.slice(startIdx, endIdx);
+
+            // Clear tbody
+            tbody.innerHTML = '';
+
+            if (!pageRows.length) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="padding:12px 10px;text-align:center;color:#64748b;">
+                            Không có dữ liệu trên trang này.
+                        </td>
+                    </tr>
+                `;
+                pager.innerHTML = '';
+                return;
+            }
+
+            // Render rows
+            for (const r of pageRows) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(r.maVanDon || '')}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(r.sku || '')}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(r.tenSp || '')}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${r.soLuong || 0}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${r.inventoryQuantity !== undefined && r.inventoryQuantity !== null ? Number(r.inventoryQuantity) : '—'}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            // Render phân trang nếu có nhiều trang
+            pager.innerHTML = '';
+            if (totalPages > 1) {
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'btn';
+                prevBtn.textContent = '← Trang trước';
+                prevBtn.disabled = missingOrdersPage === 1;
+                prevBtn.onclick = () => {
+                    if (missingOrdersPage > 1) {
+                        missingOrdersPage--;
+                        renderMissingOrdersPage();
+                    }
+                };
+
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'btn';
+                nextBtn.textContent = 'Trang sau →';
+                nextBtn.disabled = missingOrdersPage >= totalPages;
+                nextBtn.onclick = () => {
+                    if (missingOrdersPage < totalPages) {
+                        missingOrdersPage++;
+                        renderMissingOrdersPage();
+                    }
+                };
+
+                const info = document.createElement('span');
+                info.textContent = `Trang ${missingOrdersPage} / ${totalPages} (Tổng: ${missingOrdersData.length} đơn hàng)`;
+                info.style.fontWeight = '600';
+                info.style.fontSize = '14px';
+
+                pager.appendChild(prevBtn);
+                pager.appendChild(info);
+                pager.appendChild(nextBtn);
+            }
+        }
+
         // Hàm load danh sách đơn hàng thiếu từ server (Sapo inventory)
         async function loadMissingOrders() {
             const tbody = document.getElementById('missingOrdersBody');
@@ -5104,9 +5196,10 @@ window.showOrderPager = function(show) {
                     return;
                 }
 
-                const rows = (result.data && result.data.rows) || [];
+                missingOrdersData = (result.data && result.data.rows) || [];
+                missingOrdersPage = 1; // Reset về trang 1
 
-                if (!rows.length) {
+                if (!missingOrdersData.length) {
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="5" style="padding:12px 10px;text-align:center;color:#64748b;">
@@ -5114,21 +5207,12 @@ window.showOrderPager = function(show) {
                             </td>
                         </tr>
                     `;
+                    document.getElementById('missingOrdersPager').innerHTML = '';
                     return;
                 }
 
-                tbody.innerHTML = '';
-                for (const r of rows) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(r.maVanDon || '')}</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(r.sku || '')}</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(r.tenSp || '')}</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${r.soLuong || 0}</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${r.inventoryQuantity !== undefined && r.inventoryQuantity !== null ? Number(r.inventoryQuantity) : '—'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
+                // Render trang đầu tiên
+                renderMissingOrdersPage();
             } catch (error) {
                 tbody.innerHTML = `
                     <tr>

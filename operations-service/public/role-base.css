@@ -1,0 +1,51 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f3f6fb;
+  color: #1f2937;
+}
+.topbar {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  padding: 16px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.topbar h1 { margin: 0; font-size: 22px; }
+.topbar p { margin: 6px 0 0; opacity: 0.9; }
+.btn {
+  border: 1px solid rgba(255,255,255,.4);
+  background: rgba(255,255,255,.18);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.container {
+  max-width: 1300px;
+  margin: 18px auto;
+  padding: 0 14px 20px;
+}
+.grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+}
+.kpi { font-size: 30px; font-weight: 700; margin-top: 8px; }
+.muted { color: #6b7280; font-size: 13px; }
+.section { margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 14px; }
+th { color: #6b7280; }
+.badge { border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; }
+.ok { background: #dcfce7; color: #166534; }
+.warn { background: #ffedd5; color: #9a3412; }
+.info { background: #dbeafe; color: #1e40af; }

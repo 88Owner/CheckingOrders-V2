@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "operations:start": "npm --prefix operations-service start",
+    "operations:dev": "npm --prefix operations-service run dev"
   },
   "keywords": [
     "nodejs",

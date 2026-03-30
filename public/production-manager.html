@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quản lý Sản xuất</title>
+  <link rel="stylesheet" href="/operations-role-base.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div><h1 id="roleTitle"></h1><p id="roleSubtitle"></p></div>
+    <div class="actions"><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div>
+  </header>
+  <main class="page">
+    <section class="kpi-grid" id="kpiGrid"></section>
+    <section class="content-grid">
+      <div class="panel">
+        <h2>Danh sách lệnh theo dõi</h2>
+        <table><thead><tr><th>Mã đơn</th><th>Công đoạn</th><th>Phụ trách</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody id="taskTableBody"></tbody></table>
+        <div class="helper">Màn hình khung cho quản lý sản xuất. Bước tiếp theo: nối API operations-service.</div>
+      </div>
+      <div class="panel">
+        <h2>Việc ưu tiên</h2><ul id="todoList" class="todo-list"></ul>
+        <h2 style="margin-top:16px;">Hoạt động gần đây</h2><ul id="activityList" class="activity-list"></ul>
+      </div>
+    </section>
+  </main>
+  <script>
+    window.ROLE_SCREEN_CONFIG = {
+      title: "Quản lý Sản xuất",
+      subtitle: "Điều phối tiến độ liên công đoạn",
+      kpis: [{ label: "Đơn đang chạy", value: "128", note: "Toàn xưởng" }, { label: "Trễ kế hoạch", value: "6", note: "Cần xử lý hôm nay" }, { label: "Năng suất", value: "93%", note: "So với target ngày" }, { label: "Điểm nghẽn", value: "May", note: "Công đoạn chậm nhất" }],
+      tasks: [{ orderCode: "OD-240321", step: "Cắt vải", owner: "Tổ A", due: "10:30", status: "Đúng tiến độ", badgeClass: "ok" }, { orderCode: "OD-240322", step: "May", owner: "Tổ May 2", due: "14:00", status: "Cảnh báo trễ", badgeClass: "warn" }, { orderCode: "OD-240323", step: "Đóng khoen", owner: "Tổ Khoen", due: "16:00", status: "Đang xử lý", badgeClass: "info" }],
+      todos: ["Phê duyệt tăng ca cho công đoạn May", "Xử lý đơn OD-240322 nguy cơ trễ", "Cập nhật kế hoạch giao cho QA cuối ca"],
+      activities: ["08:25 - Tổ hợp xác nhận hoàn tất 12 đơn", "09:10 - QA báo lỗi 2% công đoạn May", "09:40 - Tổ ép bông xin bổ sung vật tư"]
+    };
+  </script>
+  <script src="/operations-role-base.js"></script>
+</body>
+</html>

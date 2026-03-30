@@ -83,6 +83,7 @@ const doiTuongCatVaiSchema = new mongoose.Schema({
         kichThuoc: String,
         szSku: String,
         soLuong: Number,
+        slLoi: { type: Number, default: 0 },
         dienTich: Number,
         dienTichCat: Number
     }],
@@ -93,6 +94,7 @@ const doiTuongCatVaiSchema = new mongoose.Schema({
             kichThuoc: String,
             szSku: String,
             soLuong: Number,
+                slLoi: { type: Number, default: 0 },
             dienTich: Number,
             dienTichCat: Number
         }],
