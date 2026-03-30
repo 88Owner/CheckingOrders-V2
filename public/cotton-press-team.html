@@ -2,29 +2,74 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Đội ép bông</title>
   <link rel="stylesheet" href="/operations-role-base.css" />
 </head>
 <body>
-  <header class="topbar"><div><h1 id="roleTitle"></h1><p id="roleSubtitle"></p></div><div class="actions"><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div></header>
+  <header class="topbar">
+    <div>
+      <h1 id="roleTitle"></h1>
+      <p id="roleSubtitle"></p>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="logoutBtn">Đăng xuất</button>
+    </div>
+  </header>
   <main class="page">
     <section class="kpi-grid" id="kpiGrid"></section>
     <section class="content-grid">
-      <div class="panel"><h2>Lệnh ép bông</h2><table><thead><tr><th>Mã đơn</th><th>Công đoạn</th><th>Phụ trách</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody id="taskTableBody"></tbody></table></div>
-      <div class="panel"><h2>Nhắc việc</h2><ul id="todoList" class="todo-list"></ul><h2 style="margin-top:16px;">Cập nhật máy</h2><ul id="activityList" class="activity-list"></ul></div>
+      <div class="panel">
+        <h2>Đơn ưu tiên / chờ tại công đoạn</h2>
+        <p class="helper" id="queueHint"></p>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ưu tiên</th>
+              <th>Mã đơn</th>
+              <th>SKU</th>
+              <th>Tên SP</th>
+              <th>SL đơn</th>
+              <th>Công đoạn</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
+        <div id="queueMessage" class="helper"></div>
+      </div>
+      <div class="panel">
+        <h2>Quét mã đơn</h2>
+        <p class="helper">Ghi nhận số lượng và lỗi tại khâu ép bông. Sau đó đơn chuyển sang May hoặc Đóng khoen (theo cấu hình đơn).</p>
+        <div class="scan-row">
+          <input type="text" id="scanOrderCode" placeholder="Quét / nhập mã đơn" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="search" />
+          <button type="button" class="btn secondary" id="scanBtn">Tìm đơn</button>
+        </div>
+        <div id="scanMessage" class="helper"></div>
+        <div id="recordSection" style="display: none">
+          <h3 style="margin-top: 16px">Ghi nhận tại công đoạn</h3>
+          <div id="orderInfo" class="order-info"></div>
+          <div class="record-grid">
+            <input type="number" id="completedQtyInput" min="0" step="1" placeholder="Số lượng hoàn thành (lần này)" inputmode="numeric" />
+            <input type="number" id="defectQtyInput" min="0" step="1" placeholder="Số lượng lỗi (0 nếu không có)" inputmode="numeric" />
+            <input type="text" id="noteInput" placeholder="Lý do lỗi (tùy chọn)" />
+          </div>
+          <button type="button" class="btn secondary" id="submitRecordBtn">Ghi nhận</button>
+          <div id="recordMessage" class="helper"></div>
+        </div>
+      </div>
     </section>
   </main>
   <script>
-    window.ROLE_SCREEN_CONFIG = {
+    window.PRODUCTION_STAGE_CONFIG = {
+      stageKey: "cotton_press",
+      stageLabel: "Ép bông",
       title: "Đội ép bông",
-      subtitle: "Kiểm soát lệnh ép, nhiệt độ và tiến độ bàn giao",
-      kpis: [{ label: "Lệnh đang ép", value: "19", note: "Trong ca hiện tại" }, { label: "Máy hoạt động", value: "6/7", note: "1 máy bảo trì" }, { label: "Chờ đầu vào", value: "4", note: "Đợi từ đội cắt" }, { label: "Bàn giao xong", value: "14", note: "Tới đội đóng khoen" }],
-      tasks: [{ orderCode: "OD-240601", step: "Ép bông", owner: "Máy EP-02", due: "10:45", status: "Ổn định", badgeClass: "ok" }, { orderCode: "OD-240602", step: "Ép bông", owner: "Máy EP-04", due: "11:30", status: "Đang chạy", badgeClass: "info" }, { orderCode: "OD-240603", step: "Ép bông", owner: "Máy EP-01", due: "13:10", status: "Nhiệt độ lệch", badgeClass: "warn" }],
-      todos: ["Căn chỉnh nhiệt độ máy EP-01", "Ưu tiên OD-240602 theo yêu cầu quản lý", "Bàn giao lô đạt QA cho đội đóng khoen"],
-      activities: ["08:42 - EP-03 vào bảo trì định kỳ", "09:18 - OD-240598 hoàn tất ép", "09:36 - Cảnh báo lệch nhiệt độ 2.5 độ"]
+      subtitle: "Luồng: Cắt vải → Ép bông → May hoặc Đóng khoen → Tổ hợp",
     };
   </script>
-  <script src="/operations-role-base.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="/operations-production-stage.js"></script>
 </body>
 </html>

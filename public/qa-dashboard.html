@@ -14,6 +14,43 @@
     .msg { margin-top:10px; font-size:14px; color:var(--muted); }
     .table-actions { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
     .w-auto { width:auto; }
+    .qa-select-compact { padding:6px 8px; font-size:13px; max-width:150px; border-radius:8px; border:1px solid var(--border); background:#fff; }
+    /* Modal xem chi tiết lịch sử cập nhật công đoạn */
+    .qa-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+      box-sizing: border-box;
+    }
+    .qa-modal-backdrop.is-open { display: flex; }
+    .qa-modal-card {
+      width: 100%;
+      max-width: 720px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      padding: 16px;
+      max-height: 82vh;
+      overflow: auto;
+    }
+    .qa-modal-title { margin: 0 0 10px; font-size: 18px; }
+    .qa-detail-header { margin-bottom: 12px; }
+    .qa-detail-items { display: grid; gap: 10px; }
+    .qa-detail-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .qa-detail-item .row { margin-top: 4px; }
     @media (max-width: 1100px) { .form-grid { grid-template-columns:1fr; } .form-grid button { grid-column: auto; } }
   </style>
 </head>
@@ -44,13 +81,17 @@
       <div class="panel">
         <h2>Tạo đơn thủ công</h2>
         <form id="manualForm" class="form-grid">
-          <input id="orderCode" placeholder="Mã đơn" required />
+          <input id="orderCode" placeholder="Mã đơn (để trống = tự cấp PO00001…)" autocomplete="off" />
           <input id="sku" placeholder="SKU" required />
           <input id="productName" placeholder="Tên SP (tự động theo SKU, không bắt buộc)" />
           <input id="quantity" type="number" min="1" placeholder="Số lượng" required />
+          <select id="prioritySelect" title="Mức độ ưu tiên trên hàng đợi từng công đoạn">
+            <option value="normal">Ưu tiên: thường</option>
+            <option value="high">Ưu tiên: cao</option>
+          </select>
           <button class="btn secondary w-auto" type="submit">Tạo đơn</button>
         </form>
-        <div class="helper">Dữ liệu bắt buộc: Mã đơn, SKU, Số lượng. Tên SP có thể để trống và sẽ tự lấy từ master data theo SKU.</div>
+        <div class="helper">Đơn mới <strong>luôn vào đúng luồng sản xuất</strong> (bắt đầu từ cắt vải); QA <strong>không chọn công đoạn</strong>, chỉ có thể đặt <strong>mức ưu tiên</strong> (hoặc sửa sau trong danh sách / Quản lý đơn). <strong>Mã đơn</strong> có thể để trống — hệ thống tự cấp dạng <code>PO00001</code>, tăng dần. Bắt buộc: SKU, Số lượng. Tên SP có thể để trống (lấy từ master data theo SKU).</div>
       </div>
 
       <div class="panel">
@@ -59,7 +100,7 @@
           <input id="importFile" type="file" accept=".xlsx,.xls" />
           <button id="importBtn" class="btn secondary w-auto">Import</button>
         </div>
-        <div class="helper">Template cột khuyến nghị: Mã đơn | SKU | Tên SP | Số lượng (cột Tên SP có thể để trống).</div>
+        <div class="helper">Bắt buộc các cột: <strong>SKU</strong>, <strong>Số lượng</strong>. <strong>Mã đơn</strong> tùy chọn — thiếu hoặc để trống sẽ tự cấp mã <code>PO…</code> từng dòng. Thêm: Tên SP (có thể để trống).</div>
       </div>
     </section>
 
@@ -77,6 +118,7 @@
             <th>SKU</th>
             <th>Tên SP</th>
             <th>Số lượng</th>
+            <th>Ưu tiên</th>
             <th>Tạo lúc</th>
             <th>In</th>
           </tr>
@@ -89,6 +131,7 @@
 
     <section id="manageSection" class="panel" style="display:none; margin-top:14px;">
       <h2>Quản lý trạng thái đơn qua các khâu</h2>
+      <p class="helper" style="margin-top:0;">Công đoạn hiện tại do <strong>luồng sản xuất</strong> cập nhật khi từng đội ghi nhận; QA không chọn công đoạn. Tại đây QA có thể chỉnh <strong>mức ưu tiên</strong> và xem <strong>lịch sử chi tiết</strong> theo từng lần ghi nhận.</p>
       <table>
         <thead>
           <tr>
@@ -96,6 +139,7 @@
             <th>SKU</th>
             <th>Tên SP</th>
             <th>SL đơn</th>
+            <th>Ưu tiên</th>
             <th>Công đoạn hiện tại</th>
             <th>Trạng thái</th>
             <th>SL hoàn thành</th>
@@ -109,6 +153,18 @@
     </section>
   </main>
 
+  <!-- Modal xem chi tiết lịch sử cập nhật công đoạn -->
+  <div id="orderDetailModal" class="qa-modal-backdrop" aria-hidden="true">
+    <div class="qa-modal-card" role="dialog" aria-modal="true" aria-label="Chi tiết đơn QA">
+      <h3 class="qa-modal-title">Chi tiết đơn</h3>
+      <div id="orderDetailHeader" class="qa-detail-header helper"></div>
+      <div id="orderDetailItems" class="qa-detail-items"></div>
+      <div style="margin-top: 14px; display:flex; justify-content:flex-end;">
+        <button class="btn secondary w-auto" type="button" id="orderDetailCloseBtn">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const ordersBody = document.getElementById('ordersBody');
     const messageEl = document.getElementById('message');
@@ -116,6 +172,33 @@
     const manageOrdersBody = document.getElementById('manageOrdersBody');
     const manageMessageEl = document.getElementById('manageMessage');
     let orders = [];
+
+    const orderDetailModal = document.getElementById('orderDetailModal');
+    const orderDetailHeaderEl = document.getElementById('orderDetailHeader');
+    const orderDetailItemsEl = document.getElementById('orderDetailItems');
+    const orderDetailCloseBtn = document.getElementById('orderDetailCloseBtn');
+
+    function closeOrderDetailModal() {
+      if (!orderDetailModal) return;
+      orderDetailModal.classList.remove('is-open');
+      orderDetailModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openOrderDetailModal() {
+      if (!orderDetailModal) return;
+      orderDetailModal.classList.add('is-open');
+      orderDetailModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (orderDetailCloseBtn) orderDetailCloseBtn.addEventListener('click', closeOrderDetailModal);
+    if (orderDetailModal) {
+      orderDetailModal.addEventListener('click', (e) => {
+        if (e.target === orderDetailModal) closeOrderDetailModal();
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeOrderDetailModal();
+    });
 
     function setMessage(text, isError = false) {
       messageEl.textContent = text || '';
@@ -139,6 +222,20 @@
 
     function formatDate(value) {
       try { return new Date(value).toLocaleString('vi-VN'); } catch (_) { return value || ''; }
+    }
+
+    function escapeAttr(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+    }
+
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     }
 
     function openPrintWindow(items) {
@@ -173,35 +270,51 @@
       printWin.document.close();
     }
 
+    function priorityOptionsHtml(value) {
+      const v = value === 'high' ? 'high' : 'normal';
+      return `<option value="normal" ${v === 'normal' ? 'selected' : ''}>Thường</option><option value="high" ${v === 'high' ? 'selected' : ''}>Cao</option>`;
+    }
+
+    function routeAfterPressOptionsHtml(value) {
+      const v = value === 'Đóng khoen' ? 'Đóng khoen' : 'May';
+      return `<option value="May" ${v === 'May' ? 'selected' : ''}>May</option><option value="Đóng khoen" ${v === 'Đóng khoen' ? 'selected' : ''}>Đóng khoen</option>`;
+    }
+
     function renderRows() {
-      ordersBody.innerHTML = orders.map(item => `
+      ordersBody.innerHTML = orders.map(item => {
+        const oc = escapeAttr(item.orderCode);
+        return `
         <tr>
           <td><input type="checkbox" data-id="${item._id}" ${selectedIds.has(item._id) ? 'checked' : ''} /></td>
           <td>${item.orderCode}</td>
           <td>${item.sku}</td>
           <td>${item.productName}</td>
           <td>${item.quantity}</td>
+          <td><select class="qa-select-compact qa-priority-select" data-order-code="${oc}" aria-label="Ưu tiên đơn ${oc}">${priorityOptionsHtml(item.priority)}</select></td>
           <td>${formatDate(item.createdAt)}</td>
           <td><button class="btn secondary w-auto" data-print-id="${item._id}">In</button></td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
       updateKpi();
     }
 
     function renderManageRows() {
-      manageOrdersBody.innerHTML = orders.map(item => `
+      manageOrdersBody.innerHTML = orders.map(item => {
+        const oc = escapeAttr(item.orderCode);
+        return `
         <tr>
           <td>${item.orderCode}</td>
           <td>${item.sku}</td>
           <td>${item.productName}</td>
           <td>${item.quantity}</td>
+          <td><select class="qa-select-compact qa-priority-select-manage" data-order-code="${oc}" aria-label="Ưu tiên ${oc}">${priorityOptionsHtml(item.priority)}</select></td>
           <td>${item.currentStage || 'Tạo đơn'}</td>
           <td>${item.currentStatus || 'pending'}</td>
           <td>${item.totalCompleted || 0}</td>
           <td>${item.totalDefect || 0}</td>
           <td><button class="btn secondary w-auto" data-history-order="${item.orderCode}">Xem</button></td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
     }
 
     async function loadOrders() {
@@ -226,7 +339,8 @@
         orderCode: document.getElementById('orderCode').value.trim(),
         sku: document.getElementById('sku').value.trim(),
         productName: document.getElementById('productName').value.trim(),
-        quantity: Number(document.getElementById('quantity').value)
+        quantity: Number(document.getElementById('quantity').value),
+        priority: document.getElementById('prioritySelect').value
       };
 
       try {
@@ -238,7 +352,7 @@
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Tạo đơn thất bại');
         e.target.reset();
-        setMessage('Tạo đơn thành công');
+        setMessage(`Tạo đơn thành công — mã đơn: ${data.item?.orderCode || ''}`);
         await loadOrders();
       } catch (error) {
         setMessage(error.message, true);
@@ -271,7 +385,8 @@
         const res = await fetch('/api/qa/orders/import', { method: 'POST', body: formData });
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Import thất bại');
-        setMessage(`${data.message}. Thêm mới: ${data.summary.inserted}, cập nhật: ${data.summary.updated}, tự điền tên: ${data.summary.autoFilled || 0}, thiếu tên (bỏ qua): ${data.summary.missingProductName || 0}`);
+        const s = data.summary || {};
+        setMessage(`${data.message}. Thêm mới: ${s.inserted}, cập nhật: ${s.updated}, tự điền tên: ${s.autoFilled || 0}, tự cấp mã đơn: ${s.autoOrderCodes || 0}, thiếu tên (bỏ qua): ${s.missingProductName || 0}`);
         fileInput.value = '';
         await loadOrders();
       } catch (error) {
@@ -322,6 +437,49 @@
       }
     });
 
+    async function patchOrderByCode(orderCode, body) {
+      const res = await fetch(`/api/qa/orders/${encodeURIComponent(orderCode)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Cập nhật thất bại');
+      const idx = orders.findIndex((o) => o.orderCode === orderCode);
+      if (idx >= 0 && data.item) orders[idx] = { ...orders[idx], ...data.item };
+      return data.item;
+    }
+
+    ordersBody.addEventListener('change', async (e) => {
+      const t = e.target;
+      if (!t.matches('select.qa-priority-select')) return;
+      const orderCode = t.getAttribute('data-order-code');
+      if (!orderCode) return;
+      try {
+        await patchOrderByCode(orderCode, { priority: t.value });
+        setMessage(`Đã cập nhật ưu tiên đơn ${orderCode}`);
+      } catch (err) {
+        setMessage(err.message, true);
+        await loadOrders();
+      }
+    });
+
+    manageOrdersBody.addEventListener('change', async (e) => {
+      const t = e.target;
+      if (t.matches('select.qa-priority-select-manage')) {
+        const orderCode = t.getAttribute('data-order-code');
+        if (!orderCode) return;
+        try {
+          await patchOrderByCode(orderCode, { priority: t.value });
+          setManageMessage(`Đã cập nhật ưu tiên đơn ${orderCode}`);
+        } catch (err) {
+          setManageMessage(err.message, true);
+          await loadOrders();
+        }
+        return;
+      }
+    });
+
     manageOrdersBody.addEventListener('click', async (e) => {
       if (!e.target.matches('button[data-history-order]')) return;
       const orderCode = e.target.getAttribute('data-history-order');
@@ -329,14 +487,37 @@
         const res = await fetch(`/api/qa/orders/${encodeURIComponent(orderCode)}/progress`);
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Không tải được lịch sử');
-        if (!data.items?.length) {
-          alert(`Đơn ${orderCode} chưa có lịch sử cập nhật công đoạn.`);
-          return;
+        const items = data.items || [];
+        const order = orders.find((o) => o.orderCode === orderCode) || {};
+
+        orderDetailHeaderEl.innerHTML = `
+          <div><strong>Mã đơn:</strong> ${escapeHtml(orderCode)}</div>
+          <div><strong>Công đoạn hiện tại:</strong> ${escapeHtml(order.currentStage || '—')}</div>
+          <div><strong>SL đơn:</strong> ${escapeHtml(order.quantity || 0)}</div>
+          <div><strong>Trạng thái:</strong> ${escapeHtml(order.currentStatus || 'pending')}</div>
+        `;
+
+        if (!items.length) {
+          orderDetailItemsEl.innerHTML = `<div class="qa-detail-item">Đơn ${escapeHtml(orderCode)} chưa có lịch sử cập nhật công đoạn.</div>`;
+        } else {
+          orderDetailItemsEl.innerHTML = items
+            .map((x) => {
+              const employee = `${x.updatedBy || '—'}${x.updatedByRole ? ' (' + x.updatedByRole + ')' : ''}`;
+              return `
+                <div class="qa-detail-item">
+                  <div class="row"><strong>Thời gian ghi nhận:</strong> ${escapeHtml(new Date(x.createdAt).toLocaleString('vi-VN'))}</div>
+                  <div class="row"><strong>Công đoạn:</strong> ${escapeHtml(x.stage || '—')}</div>
+                  <div class="row"><strong>Nhân viên:</strong> ${escapeHtml(employee)}</div>
+                  <div class="row"><strong>Số lượng hoàn thành:</strong> ${escapeHtml(x.completedQty ?? 0)}</div>
+                  <div class="row"><strong>Số lõi / lỗi:</strong> ${escapeHtml(x.defectQty ?? 0)}</div>
+                  <div class="row"><strong>Lý do lỗi (ghi chú):</strong> ${escapeHtml(x.note || '—')}</div>
+                </div>
+              `;
+            })
+            .join('');
         }
-        const content = data.items
-          .map((x) => `${new Date(x.createdAt).toLocaleString('vi-VN')} | ${x.stage} | Hoàn thành: ${x.completedQty} | Lỗi: ${x.defectQty} | User: ${x.updatedBy}`)
-          .join('\n');
-        alert(`Lịch sử đơn ${orderCode}:\n\n${content}`);
+
+        openOrderDetailModal();
       } catch (error) {
         setManageMessage(error.message, true);
       }

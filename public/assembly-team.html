@@ -2,29 +2,74 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Đội tổ hợp</title>
   <link rel="stylesheet" href="/operations-role-base.css" />
 </head>
 <body>
-  <header class="topbar"><div><h1 id="roleTitle"></h1><p id="roleSubtitle"></p></div><div class="actions"><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div></header>
+  <header class="topbar">
+    <div>
+      <h1 id="roleTitle"></h1>
+      <p id="roleSubtitle"></p>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="logoutBtn">Đăng xuất</button>
+    </div>
+  </header>
   <main class="page">
     <section class="kpi-grid" id="kpiGrid"></section>
     <section class="content-grid">
-      <div class="panel"><h2>Lệnh tổ hợp</h2><table><thead><tr><th>Mã đơn</th><th>Công đoạn</th><th>Phụ trách</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody id="taskTableBody"></tbody></table></div>
-      <div class="panel"><h2>Checklist tổ hợp</h2><ul id="todoList" class="todo-list"></ul><h2 style="margin-top:16px;">Bàn giao thành phẩm</h2><ul id="activityList" class="activity-list"></ul></div>
+      <div class="panel">
+        <h2>Đơn ưu tiên / chờ tại công đoạn</h2>
+        <p class="helper" id="queueHint"></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Ưu tiên</th>
+              <th>Mã đơn</th>
+              <th>SKU</th>
+              <th>Tên SP</th>
+              <th>SL đơn</th>
+              <th>Công đoạn</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
+        </div>
+        <div id="queueMessage" class="helper"></div>
+      </div>
+      <div class="panel">
+        <h2>Quét mã đơn</h2>
+        <p class="helper">Ghi nhận tại khâu tổ hợp. Sau khi hoàn thành, đơn chuyển trạng thái hoàn thành.</p>
+        <div class="scan-row">
+          <input type="text" id="scanOrderCode" placeholder="Quét / nhập mã đơn" autocomplete="off" />
+          <button type="button" class="btn secondary" id="scanBtn">Tìm đơn</button>
+        </div>
+        <div id="scanMessage" class="helper"></div>
+        <div id="recordSection" style="display: none">
+          <h3 style="margin-top: 16px">Ghi nhận tại công đoạn</h3>
+          <div id="orderInfo" class="order-info"></div>
+          <div class="record-grid">
+            <input type="number" id="completedQtyInput" min="0" step="1" placeholder="Số lượng hoàn thành (lần này)" inputmode="numeric" />
+            <input type="number" id="defectQtyInput" min="0" step="1" placeholder="Số lượng lỗi (0 nếu không có)" inputmode="numeric" />
+            <input type="text" id="noteInput" placeholder="Lý do lỗi (tùy chọn)" />
+          </div>
+          <button type="button" class="btn secondary" id="submitRecordBtn">Ghi nhận</button>
+          <div id="recordMessage" class="helper"></div>
+        </div>
+      </div>
     </section>
   </main>
   <script>
-    window.ROLE_SCREEN_CONFIG = {
+    window.PRODUCTION_STAGE_CONFIG = {
+      stageKey: "assembly",
+      stageLabel: "Tổ hợp",
       title: "Đội tổ hợp",
-      subtitle: "Tổ hợp bán thành phẩm và chốt đơn hoàn thiện",
-      kpis: [{ label: "Đơn cần tổ hợp", value: "31", note: "Theo kế hoạch hôm nay" }, { label: "Hoàn thiện xong", value: "21", note: "Đã qua QA cuối" }, { label: "Chờ phụ kiện", value: "5", note: "Thiếu đầu vào" }, { label: "Đơn giao sớm", value: "3", note: "Hoàn tất trước hạn" }],
-      tasks: [{ orderCode: "OD-240901", step: "Tổ hợp", owner: "Tổ Hợp 1", due: "11:10", status: "Đang tổ hợp", badgeClass: "info" }, { orderCode: "OD-240902", step: "Tổ hợp", owner: "Tổ Hợp 2", due: "12:40", status: "Sẵn sàng giao", badgeClass: "ok" }, { orderCode: "OD-240903", step: "Tổ hợp", owner: "Tổ Hợp 1", due: "14:00", status: "Thiếu phụ kiện", badgeClass: "warn" }],
-      todos: ["Đồng bộ phụ kiện OD-240903 với kho", "Chốt biên bản bàn giao đơn đã QA pass", "Đẩy nhanh 2 đơn ưu tiên giao sáng mai"],
-      activities: ["08:48 - Hoàn tất OD-240898", "09:22 - Chờ kho cấp khoen bổ sung", "09:55 - Bàn giao thành phẩm 480 sp"]
+      subtitle: "Luồng: May hoặc Đóng khoen → Tổ hợp → Hoàn thành",
     };
   </script>
-  <script src="/operations-role-base.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="/operations-production-stage.js"></script>
 </body>
 </html>

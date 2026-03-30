@@ -25,11 +25,23 @@ const qaOrderSchema = new mongoose.Schema(
         },
         currentStage: {
             type: String,
-            default: 'Tạo đơn'
+            default: 'Cắt vải'
         },
         currentStatus: {
             type: String,
             default: 'pending'
+        },
+        /** cao: xếp trước trong hàng đợi công đoạn */
+        priority: {
+            type: String,
+            enum: ['high', 'normal'],
+            default: 'normal'
+        },
+        /** Sau ép bông: chuyển sang May hoặc Đóng khoen (tùy loại hàng) */
+        routeAfterPress: {
+            type: String,
+            enum: ['May', 'Đóng khoen'],
+            default: 'May'
         },
         totalCompleted: {
             type: Number,

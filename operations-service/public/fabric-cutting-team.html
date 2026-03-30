@@ -1,11 +1,76 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Đội cắt vải</title><link rel="stylesheet" href="/role-base.css"></head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Đội cắt vải</title>
+  <link rel="stylesheet" href="/operations-role-base.css" />
+</head>
 <body>
-  <header class="topbar"><div><h1>Đội cắt vải</h1><p>Quản lý lệnh cắt và bàn giao</p></div><button class="btn" id="logoutBtn">Đăng xuất</button></header>
-  <main class="container">
-    <section class="grid"><div class="card"><div>Lệnh cắt</div><div class="kpi">26</div><div class="muted">Đang thực hiện</div></div><div class="card"><div>Thiếu vải</div><div class="kpi">3</div><div class="muted">Cần kho cấp</div></div></section>
-    <section class="card section"><h3>Trạng thái đơn</h3><table><thead><tr><th>Mã đơn</th><th>Trạng thái</th></tr></thead><tbody><tr><td>OD-240503</td><td><span class="badge warn">Thiếu vật tư</span></td></tr></tbody></table></section>
+  <header class="topbar">
+    <div>
+      <h1 id="roleTitle"></h1>
+      <p id="roleSubtitle"></p>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="logoutBtn">Đăng xuất</button>
+    </div>
+  </header>
+  <main class="page">
+    <section class="kpi-grid" id="kpiGrid"></section>
+    <section class="content-grid">
+      <div class="panel">
+        <h2>Đơn ưu tiên / chờ tại công đoạn</h2>
+        <p class="helper" id="queueHint"></p>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ưu tiên</th>
+              <th>Mã đơn</th>
+              <th>SKU</th>
+              <th>Tên SP</th>
+              <th>SL đơn</th>
+              <th>Công đoạn</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
+        </div>
+        <div id="queueMessage" class="helper"></div>
+      </div>
+      <div class="panel">
+        <h2>Quét mã đơn</h2>
+        <p class="helper">Quét hoặc nhập mã đơn để mở form ghi nhận số lượng hoàn thành và lỗi tại khâu cắt vải.</p>
+        <div class="scan-row">
+          <input type="text" id="scanOrderCode" placeholder="Quét / nhập mã đơn" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="search" />
+          <button type="button" class="btn secondary" id="scanBtn">Tìm đơn</button>
+        </div>
+        <div id="scanMessage" class="helper"></div>
+        <div id="recordSection" style="display: none">
+          <h3 style="margin-top: 16px">Ghi nhận tại công đoạn</h3>
+          <div id="orderInfo" class="order-info"></div>
+          <div class="record-grid">
+            <input type="number" id="completedQtyInput" min="0" step="1" placeholder="Số lượng hoàn thành (lần này)" inputmode="numeric" />
+            <input type="number" id="defectQtyInput" min="0" step="1" placeholder="Số lượng lỗi (0 nếu không có)" inputmode="numeric" />
+            <input type="text" id="noteInput" placeholder="Lý do lỗi (tùy chọn)" />
+          </div>
+          <button type="button" class="btn secondary" id="submitRecordBtn">Ghi nhận</button>
+          <div id="recordMessage" class="helper"></div>
+        </div>
+      </div>
+    </section>
   </main>
-  <script src="/role-base.js"></script>
-</body></html>
+  <script>
+    window.PRODUCTION_STAGE_CONFIG = {
+      stageKey: "fabric_cutting",
+      stageLabel: "Cắt vải",
+      title: "Đội cắt vải",
+      subtitle: "Luồng: Cắt vải → Ép bông → May hoặc Đóng khoen → Tổ hợp",
+    };
+  </script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="/operations-production-stage.js"></script>
+</body>
+</html>

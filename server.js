@@ -35,6 +35,82 @@ const DatabaseConfig = require('./models/DatabaseConfig');
 const Template = require('./models/Template');
 const QAOrder = require('./models/QAOrder');
 const QAOrderProgress = require('./models/QAOrderProgress');
+const Counter = require('./models/Counter');
+
+const QA_ORDER_CODE_COUNTER_ID = 'qa_order_code';
+
+let qaOrderCodeCounterSeeded = false;
+
+async function getNextQaOrderCode() {
+    if (!qaOrderCodeCounterSeeded) {
+        qaOrderCodeCounterSeeded = true;
+        const agg = await QAOrder.aggregate([
+            { $match: { orderCode: { $regex: /^PO\d{5}$/ } } },
+            { $project: { n: { $toInt: { $substrCP: ['$orderCode', 2, 5] } } } },
+            { $group: { _id: null, max: { $max: '$n' } } }
+        ]);
+        const maxN = agg[0]?.max || 0;
+        if (maxN > 0) {
+            await Counter.updateOne({ _id: QA_ORDER_CODE_COUNTER_ID }, { $max: { seq: maxN } }, { upsert: true });
+        }
+    }
+    const doc = await Counter.findOneAndUpdate(
+        { _id: QA_ORDER_CODE_COUNTER_ID },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+    ).lean();
+    const n = Number(doc.seq) || 1;
+    return `PO${String(n).padStart(5, '0')}`;
+}
+
+/** Hàng đợi theo khóa công đoạn (currentStage trên QAOrder) */
+const PRODUCTION_STAGE_QUEUE = {
+    fabric_cutting: ['Cắt vải', 'Tạo đơn'],
+    cotton_press: ['Ép bông'],
+    sewing: ['May'],
+    eyelet: ['Đóng khoen'],
+    assembly: ['Tổ hợp']
+};
+
+const ROLE_TO_PRODUCTION_STAGE_KEY = {
+    fabric_cutting_team: 'fabric_cutting',
+    cotton_press_team: 'cotton_press',
+    sewing_team: 'sewing',
+    eyelet_team: 'eyelet',
+    assembly_team: 'assembly'
+};
+
+function resolveProductionQueueStageKey(req) {
+    const role = req.session.user?.role;
+    const mapped = ROLE_TO_PRODUCTION_STAGE_KEY[role];
+    if (mapped) return mapped;
+    if (role === 'production_manager' || role === 'production_worker') {
+        const k = String(req.query.stageKey || '').trim();
+        return PRODUCTION_STAGE_QUEUE[k] ? k : null;
+    }
+    return null;
+}
+
+function effectiveProductionStage(order) {
+    const cur = String(order.currentStage || 'Tạo đơn').trim();
+    return cur === 'Tạo đơn' ? 'Cắt vải' : cur;
+}
+
+function isOrderAtProductionStage(order, stageLabel) {
+    const cur = String(order.currentStage || 'Tạo đơn').trim();
+    const st = String(stageLabel || '').trim();
+    if (st === 'Cắt vải') return cur === 'Tạo đơn' || cur === 'Cắt vải';
+    return cur === st;
+}
+
+function nextProductionStageAfterRecord(order) {
+    const eff = effectiveProductionStage(order);
+    if (eff === 'Cắt vải') return 'Ép bông';
+    if (eff === 'Ép bông') return order.routeAfterPress || 'May';
+    if (eff === 'May' || eff === 'Đóng khoen') return 'Tổ hợp';
+    if (eff === 'Tổ hợp') return 'Hoàn thành';
+    return order.currentStage;
+}
 const comboCache = require('./utils/comboCache');
 const SimpleLocking = require('./utils/simpleLocking');
 const masterDataUploadRouter = require('./routes/masterDataUpload');
@@ -1805,18 +1881,18 @@ function parseQAImportSheet(filePath) {
     const productNameKey = resolveKey(firstRow, ['tên sp', 'ten sp', 'tên sản phẩm', 'ten san pham', 'product name', 'productname']);
     const quantityKey = resolveKey(firstRow, ['số lượng', 'so luong', 'quantity']);
 
-    if (!orderCodeKey || !skuKey || !quantityKey) {
-        throw new Error('File phải có cột: Mã đơn, SKU, Số lượng');
+    if (!skuKey || !quantityKey) {
+        throw new Error('File phải có cột: SKU, Số lượng (cột Mã đơn tùy chọn — để trống sẽ tự cấp mã)');
     }
 
     const mapped = [];
     for (const row of rows) {
-        const orderCode = String(row[orderCodeKey] || '').trim();
+        const orderCode = orderCodeKey ? String(row[orderCodeKey] || '').trim() : '';
         const sku = String(row[skuKey] || '').trim();
         const productName = productNameKey ? String(row[productNameKey] || '').trim() : '';
         const quantity = Number(row[quantityKey]);
 
-        if (!orderCode || !sku || !Number.isFinite(quantity) || quantity <= 0) {
+        if (!sku || !Number.isFinite(quantity) || quantity <= 0) {
             continue;
         }
 
@@ -1886,14 +1962,19 @@ app.get('/api/qa/orders', requireRole('qa'), async (req, res) => {
 
 app.post('/api/qa/orders', requireRole('qa'), async (req, res) => {
     try {
-        const { orderCode, sku, productName, quantity } = req.body;
-        if (!orderCode || !sku || !quantity) {
-            return res.status(400).json({ success: false, message: 'Thiếu dữ liệu bắt buộc' });
+        const { orderCode, sku, productName, quantity, priority, routeAfterPress } = req.body;
+        if (!sku || !quantity) {
+            return res.status(400).json({ success: false, message: 'Thiếu SKU hoặc số lượng' });
         }
 
         const parsedQuantity = Number(quantity);
         if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
             return res.status(400).json({ success: false, message: 'Số lượng không hợp lệ' });
+        }
+
+        let finalOrderCode = String(orderCode || '').trim();
+        if (!finalOrderCode) {
+            finalOrderCode = await getNextQaOrderCode();
         }
 
         let finalProductName = String(productName || '').trim();
@@ -1904,11 +1985,18 @@ app.post('/api/qa/orders', requireRole('qa'), async (req, res) => {
             return res.status(400).json({ success: false, message: 'Không tìm thấy Tên SP từ master data cho SKU đã nhập' });
         }
 
+        const pri = priority === 'high' ? 'high' : 'normal';
+        const route = routeAfterPress === 'Đóng khoen' ? 'Đóng khoen' : 'May';
+
         const created = await QAOrder.create({
-            orderCode: String(orderCode).trim(),
+            orderCode: finalOrderCode,
             sku: String(sku).trim(),
             productName: finalProductName,
             quantity: Math.floor(parsedQuantity),
+            currentStage: 'Cắt vải',
+            currentStatus: 'pending',
+            priority: pri,
+            routeAfterPress: route,
             createdBy: req.session.user?.username || null
         });
 
@@ -1917,6 +2005,37 @@ app.post('/api/qa/orders', requireRole('qa'), async (req, res) => {
         if (error?.code === 11000) {
             return res.status(409).json({ success: false, message: 'Mã đơn đã tồn tại' });
         }
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.patch('/api/qa/orders/:orderCode', requireRole('qa'), async (req, res) => {
+    try {
+        const orderCode = String(req.params.orderCode || '').trim();
+        if (!orderCode) {
+            return res.status(400).json({ success: false, message: 'Thiếu mã đơn' });
+        }
+        const { priority, routeAfterPress } = req.body;
+        const update = {};
+        if (priority === 'high' || priority === 'normal') {
+            update.priority = priority;
+        }
+        if (routeAfterPress === 'May' || routeAfterPress === 'Đóng khoen') {
+            update.routeAfterPress = routeAfterPress;
+        }
+        if (!Object.keys(update).length) {
+            return res.status(400).json({ success: false, message: 'Cần ít nhất: priority hoặc routeAfterPress hợp lệ' });
+        }
+        const order = await QAOrder.findOneAndUpdate(
+            { orderCode },
+            { $set: update },
+            { new: true }
+        ).lean();
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn' });
+        }
+        res.json({ success: true, item: order });
+    } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -1936,6 +2055,7 @@ app.post('/api/qa/orders/import', requireRole('qa'), upload.single('xlsxFile'), 
         let updated = 0;
         let autoFilled = 0;
         let missingProductName = 0;
+        let autoOrderCodes = 0;
 
         for (const row of rows) {
             let finalProductName = String(row.productName || '').trim();
@@ -1951,14 +2071,28 @@ app.post('/api/qa/orders/import', requireRole('qa'), upload.single('xlsxFile'), 
                 continue;
             }
 
+            let oc = String(row.orderCode || '').trim();
+            if (!oc) {
+                oc = await getNextQaOrderCode();
+                autoOrderCodes += 1;
+            }
+
             const writeResult = await QAOrder.updateOne(
-                { orderCode: row.orderCode },
+                { orderCode: oc },
                 {
                     $set: {
                         sku: row.sku,
                         productName: finalProductName,
                         quantity: row.quantity,
                         createdBy: req.session.user?.username || null
+                    },
+                    $setOnInsert: {
+                        currentStage: 'Cắt vải',
+                        currentStatus: 'pending',
+                        priority: 'normal',
+                        routeAfterPress: 'May',
+                        totalCompleted: 0,
+                        totalDefect: 0
                     }
                 },
                 { upsert: true }
@@ -1971,7 +2105,7 @@ app.post('/api/qa/orders/import', requireRole('qa'), upload.single('xlsxFile'), 
         res.json({
             success: true,
             message: `Import thành công ${rows.length} dòng`,
-            summary: { total: rows.length, inserted, updated, autoFilled, missingProductName }
+            summary: { total: rows.length, inserted, updated, autoFilled, missingProductName, autoOrderCodes }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -2043,6 +2177,39 @@ app.post('/api/production/orders/scan', requireAnyRole([
     }
 });
 
+app.get('/api/production/orders/queue', requireAnyRole([
+    'production_worker',
+    'production_manager',
+    'fabric_cutting_team',
+    'cotton_press_team',
+    'eyelet_team',
+    'sewing_team',
+    'assembly_team'
+]), async (req, res) => {
+    try {
+        const stageKey = resolveProductionQueueStageKey(req);
+        if (!stageKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu stageKey hợp lệ (bắt buộc với quản lý / NV sản xuất chung): fabric_cutting, cotton_press, sewing, eyelet, assembly'
+            });
+        }
+        const stages = PRODUCTION_STAGE_QUEUE[stageKey];
+        const items = await QAOrder.find({ currentStage: { $in: stages } })
+            .sort({ priority: 1, createdAt: 1 })
+            .lean();
+        const highCount = items.filter((o) => o.priority === 'high').length;
+        res.json({
+            success: true,
+            stageKey,
+            items,
+            counts: { total: items.length, highPriority: highCount }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.post('/api/production/orders/update-status', requireAnyRole([
     'production_worker',
     'production_manager',
@@ -2057,13 +2224,13 @@ app.post('/api/production/orders/update-status', requireAnyRole([
         const normalizedOrderCode = String(orderCode || '').trim();
         const normalizedStage = String(stage || '').trim();
         const done = Number(completedQty);
-        const defect = Number(defectQty);
+        const defect = Number(defectQty ?? 0);
 
         if (!normalizedOrderCode || !normalizedStage) {
             return res.status(400).json({ success: false, message: 'Thiếu mã đơn hoặc công đoạn' });
         }
-        if (!Number.isFinite(done) || done < 0 || !Number.isFinite(defect) || defect < 0) {
-            return res.status(400).json({ success: false, message: 'Số lượng hoàn thành/lỗi không hợp lệ' });
+        if (!Number.isFinite(done) || !Number.isInteger(done) || done < 0 || !Number.isFinite(defect) || !Number.isInteger(defect) || defect < 0) {
+            return res.status(400).json({ success: false, message: 'Số lượng hoàn thành/lỗi phải là số tự nhiên (>= 0)' });
         }
 
         const order = await QAOrder.findOne({ orderCode: normalizedOrderCode });
@@ -2071,10 +2238,27 @@ app.post('/api/production/orders/update-status', requireAnyRole([
             return res.status(404).json({ success: false, message: 'Không tìm thấy đơn QA theo mã đơn' });
         }
 
-        order.currentStage = normalizedStage;
-        order.currentStatus = done + defect >= Number(order.quantity || 0) ? 'completed' : 'in_progress';
-        order.totalCompleted = (Number(order.totalCompleted) || 0) + Math.floor(done);
-        order.totalDefect = (Number(order.totalDefect) || 0) + Math.floor(defect);
+        const qtyTotal = Number(order.quantity || 0);
+        if (!Number.isFinite(qtyTotal) || qtyTotal <= 0) {
+            return res.status(400).json({ success: false, message: 'Số lượng đơn không hợp lệ' });
+        }
+
+        if (!isOrderAtProductionStage(order, normalizedStage)) {
+            return res.status(400).json({
+                success: false,
+                message: `Đơn không đang ở công đoạn này (hiện tại: ${order.currentStage || '—'})`
+            });
+        }
+
+        if (done + defect > qtyTotal) {
+            return res.status(400).json({ success: false, message: 'Số lượng hoàn thành + số lượng lỗi không được vượt quá Số lượng đơn' });
+        }
+
+        const nextStage = nextProductionStageAfterRecord(order);
+        order.currentStage = nextStage;
+        order.currentStatus = nextStage === 'Hoàn thành' ? 'completed' : 'in_progress';
+        order.totalCompleted = (Number(order.totalCompleted) || 0) + done;
+        order.totalDefect = (Number(order.totalDefect) || 0) + defect;
         order.lastUpdatedBy = req.session.user?.username || null;
         await order.save();
 
@@ -2084,8 +2268,8 @@ app.post('/api/production/orders/update-status', requireAnyRole([
             productName: order.productName,
             quantity: order.quantity,
             stage: normalizedStage,
-            completedQty: Math.floor(done),
-            defectQty: Math.floor(defect),
+            completedQty: done,
+            defectQty: defect,
             note: String(note || '').trim(),
             updatedBy: req.session.user?.username || 'unknown',
             updatedByRole: req.session.user?.role || 'unknown'

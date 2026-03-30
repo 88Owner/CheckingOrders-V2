@@ -2,29 +2,75 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Đội May</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Đội may</title>
   <link rel="stylesheet" href="/operations-role-base.css" />
 </head>
 <body>
-  <header class="topbar"><div><h1 id="roleTitle"></h1><p id="roleSubtitle"></p></div><div class="actions"><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div></header>
+  <header class="topbar">
+    <div>
+      <h1 id="roleTitle"></h1>
+      <p id="roleSubtitle"></p>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="logoutBtn">Đăng xuất</button>
+    </div>
+  </header>
   <main class="page">
     <section class="kpi-grid" id="kpiGrid"></section>
     <section class="content-grid">
-      <div class="panel"><h2>Lệnh may</h2><table><thead><tr><th>Mã đơn</th><th>Công đoạn</th><th>Phụ trách</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody id="taskTableBody"></tbody></table></div>
-      <div class="panel"><h2>Việc trọng tâm</h2><ul id="todoList" class="todo-list"></ul><h2 style="margin-top:16px;">Nhật ký line may</h2><ul id="activityList" class="activity-list"></ul></div>
+      <div class="panel">
+        <h2>Đơn ưu tiên / chờ tại công đoạn</h2>
+        <p class="helper" id="queueHint"></p>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ưu tiên</th>
+              <th>Mã đơn</th>
+              <th>SKU</th>
+              <th>Tên SP</th>
+              <th>SL đơn</th>
+              <th>Công đoạn</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
+        </div>
+        <div id="queueMessage" class="helper"></div>
+      </div>
+      <div class="panel">
+        <h2>Quét mã đơn</h2>
+        <p class="helper">Ghi nhận tại khâu may. Sau khi hoàn thành, đơn chuyển sang tổ hợp.</p>
+        <div class="scan-row">
+          <input type="text" id="scanOrderCode" placeholder="Quét / nhập mã đơn" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="search" />
+          <button type="button" class="btn secondary" id="scanBtn">Tìm đơn</button>
+        </div>
+        <div id="scanMessage" class="helper"></div>
+        <div id="recordSection" style="display: none">
+          <h3 style="margin-top: 16px">Ghi nhận tại công đoạn</h3>
+          <div id="orderInfo" class="order-info"></div>
+          <div class="record-grid">
+            <input type="number" id="completedQtyInput" min="0" step="1" placeholder="Số lượng hoàn thành (lần này)" />
+            <input type="number" id="defectQtyInput" min="0" step="1" placeholder="Số lượng lỗi (0 nếu không có)" />
+            <input type="text" id="noteInput" placeholder="Lý do lỗi (tùy chọn)" />
+          </div>
+          <button type="button" class="btn secondary" id="submitRecordBtn">Ghi nhận</button>
+          <div id="recordMessage" class="helper"></div>
+        </div>
+      </div>
     </section>
   </main>
   <script>
-    window.ROLE_SCREEN_CONFIG = {
-      title: "Đội May",
-      subtitle: "Quản lý line may, sản lượng và lỗi kỹ thuật",
-      kpis: [{ label: "Line đang chạy", value: "9", note: "Trong tổng 10 line" }, { label: "Sản lượng/ca", value: "1,240", note: "Sản phẩm hoàn tất" }, { label: "Lỗi may", value: "2.1%", note: "So với target 1.8%" }, { label: "Đơn ưu tiên", value: "4", note: "Hạn giao gấp" }],
-      tasks: [{ orderCode: "OD-240801", step: "May", owner: "Line May 2", due: "10:55", status: "Đang chạy", badgeClass: "info" }, { orderCode: "OD-240802", step: "May", owner: "Line May 5", due: "11:40", status: "Đúng tiến độ", badgeClass: "ok" }, { orderCode: "OD-240803", step: "May", owner: "Line May 1", due: "12:30", status: "Cần hỗ trợ", badgeClass: "warn" }],
-      todos: ["Điều phối thợ phụ cho Line May 1", "Xử lý lỗi nhăn đường may OD-240803", "Chốt số lượng bàn giao tổ hợp trước 15:00"],
-      activities: ["08:20 - Line 3 đạt 102% năng suất", "09:05 - QA phản hồi lỗi may chéo", "09:42 - Đã bàn giao 300 sp sang tổ hợp"]
+    window.PRODUCTION_STAGE_CONFIG = {
+      stageKey: "sewing",
+      stageLabel: "May",
+      title: "Đội may",
+      subtitle: "Luồng: … → May → Tổ hợp (song song với Đóng khoen tùy lô hàng)",
     };
   </script>
-  <script src="/operations-role-base.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="/operations-production-stage.js"></script>
 </body>
 </html>
