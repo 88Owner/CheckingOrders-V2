@@ -32,9 +32,10 @@
       <div id="orderInfo" class="helper"></div>
       <div style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:12px;">
         <input id="stageInput" placeholder="Khâu/Công đoạn (vd: Cắt vải)" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
-        <input id="completedQtyInput" type="number" min="0" placeholder="Số lượng hoàn thành" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
-        <input id="defectQtyInput" type="number" min="0" placeholder="Số lượng lỗi" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
-        <input id="noteInput" placeholder="Ghi chú" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+        <div></div>
+        <input id="completedQtyInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Số lượng hoàn thành (chỉ số)" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+        <input id="defectQtyInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Số lượng lỗi (chỉ số, để trống = 0)" style="padding:10px; border:1px solid #ddd; border-radius:8px;" />
+        <input id="noteInput" placeholder="Lý do lỗi / ghi chú (bắt buộc khi có SL lỗi)" style="padding:10px; border:1px solid #ddd; border-radius:8px; grid-column: 1 / -1;" />
       </div>
       <div style="margin-top:10px;">
         <button class="btn secondary" id="updateBtn">Ghi nhận cập nhật trạng thái</button>
@@ -45,14 +46,45 @@
 
   <script>
     let currentOrder = null;
+    /** @type {{ inboundCap?: number; inboundCapNote?: string } | null} */
+    let lastScanMeta = null;
     const scanMessage = document.getElementById('scanMessage');
     const updateMessage = document.getElementById('updateMessage');
     const orderInfoPanel = document.getElementById('orderInfoPanel');
+    const completedQtyInput = document.getElementById('completedQtyInput');
+    const defectQtyInput = document.getElementById('defectQtyInput');
+    const noteInput = document.getElementById('noteInput');
 
     function setText(el, msg, isError = false) {
       el.textContent = msg || '';
       el.style.color = isError ? '#b91c1c' : '#6b7280';
     }
+
+    function bindQtyStrip(el) {
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const v = String(el.value || '').replace(/\D/g, '');
+        if (el.value !== v) el.value = v;
+      });
+      el.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const t = (e.clipboardData && e.clipboardData.getData('text')) || '';
+        el.value = String(t).replace(/\D/g, '');
+      });
+    }
+
+    function parseNat(value, label) {
+      const s = String(value == null ? '' : value).trim();
+      if (s === '') {
+        if (label === 'Số lượng lỗi') return 0;
+        throw new Error(`${label}: bắt buộc nhập số tự nhiên (chỉ 0–9)`);
+      }
+      if (!/^\d+$/.test(s)) throw new Error(`${label}: chỉ được nhập số, không chữ hoặc ký tự đặc biệt`);
+      return parseInt(s, 10);
+    }
+
+    bindQtyStrip(completedQtyInput);
+    bindQtyStrip(defectQtyInput);
 
     async function scanOrder() {
       const orderCode = document.getElementById('scanOrderCode').value.trim();
@@ -66,10 +98,24 @@
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Không tìm thấy đơn');
         currentOrder = data.item;
+        lastScanMeta = data.meta && typeof data.meta === 'object' ? data.meta : null;
         orderInfoPanel.style.display = '';
+        const cap =
+          lastScanMeta && Number.isFinite(Number(lastScanMeta.inboundCap))
+            ? Number(lastScanMeta.inboundCap)
+            : Number(currentOrder.quantity || 0);
+        const capNote =
+          lastScanMeta && lastScanMeta.inboundCapNote
+            ? String(lastScanMeta.inboundCapNote)
+            : `Tối đa theo SL đơn: ${currentOrder.quantity}`;
         document.getElementById('orderInfo').innerHTML =
-          `<b>Mã đơn:</b> ${currentOrder.orderCode} | <b>SKU:</b> ${currentOrder.sku} | <b>Tên SP:</b> ${currentOrder.productName} | <b>Số lượng:</b> ${currentOrder.quantity}`;
+          `<div><b>Mã đơn:</b> ${currentOrder.orderCode} | <b>SKU:</b> ${currentOrder.sku} | <b>Tên SP:</b> ${currentOrder.productName}</div>` +
+          `<div><b>Số lượng đơn:</b> ${currentOrder.quantity} — <b>Giới hạn ghi nhận:</b> tổng (hoàn thành + lỗi) ≤ ${cap}</div>` +
+          `<div class="helper">${capNote}</div>`;
         document.getElementById('stageInput').value = currentOrder.currentStage || '';
+        if (completedQtyInput) completedQtyInput.value = '';
+        if (defectQtyInput) defectQtyInput.value = '';
+        if (noteInput) noteInput.value = '';
         setText(scanMessage, `Đã tải đơn ${currentOrder.orderCode}`);
       } catch (error) {
         setText(scanMessage, error.message, true);
@@ -78,12 +124,38 @@
 
     async function updateStatus() {
       if (!currentOrder) return setText(updateMessage, 'Vui lòng quét đơn trước', true);
+      const qtyPO = Number(currentOrder.quantity || 0);
+      let done;
+      let defect;
+      try {
+        done = parseNat(completedQtyInput && completedQtyInput.value, 'Số lượng hoàn thành');
+        defect = parseNat(defectQtyInput && defectQtyInput.value, 'Số lượng lỗi');
+      } catch (e) {
+        return setText(updateMessage, e.message || 'Dữ liệu không hợp lệ', true);
+      }
+      if (defect > 0 && !(noteInput && noteInput.value.trim())) {
+        return setText(updateMessage, 'Có số lượng lỗi thì bắt buộc nhập lý do lỗi (ô ghi chú)', true);
+      }
+      if (done + defect <= 0) {
+        return setText(updateMessage, 'Tổng SL hoàn thành + lỗi phải lớn hơn 0', true);
+      }
+      const cap =
+        lastScanMeta && Number.isFinite(Number(lastScanMeta.inboundCap))
+          ? Number(lastScanMeta.inboundCap)
+          : qtyPO;
+      if (done + defect > cap) {
+        return setText(
+          updateMessage,
+          `SL hoàn thành + SL lỗi (${done + defect}) không được vượt đầu vào khâu trước (${cap}). Hãy quét lại mã đơn để cập nhật giới hạn.`,
+          true
+        );
+      }
       const payload = {
         orderCode: currentOrder.orderCode,
         stage: document.getElementById('stageInput').value.trim(),
-        completedQty: Number(document.getElementById('completedQtyInput').value || 0),
-        defectQty: Number(document.getElementById('defectQtyInput').value || 0),
-        note: document.getElementById('noteInput').value.trim()
+        completedQty: String(done),
+        defectQty: String(defect),
+        note: noteInput ? noteInput.value.trim() : ''
       };
       try {
         const res = await fetch('/api/production/orders/update-status', {

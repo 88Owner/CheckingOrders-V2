@@ -21,6 +21,8 @@
   const recordMessageEl = document.getElementById("recordMessage");
 
   let currentOrder = null;
+  /** @type {{ inboundCap?: number; inboundCapNote?: string; prevStageLabel?: string; stage?: string } | null} */
+  let scanMeta = null;
   let html5QrcodeInstance = null;
   let scannerModalEl = null;
   let scannerClosing = false;
@@ -237,21 +239,65 @@
     }
   }
 
-  function showOrderForRecord(order) {
+  function showOrderForRecord(order, meta) {
     currentOrder = order;
+    scanMeta = meta && typeof meta === "object" ? meta : null;
+    const cap =
+      scanMeta && Number.isFinite(Number(scanMeta.inboundCap))
+        ? Number(scanMeta.inboundCap)
+        : Number(order.quantity || 0);
+    const capLine =
+      scanMeta && scanMeta.inboundCapNote
+        ? String(scanMeta.inboundCapNote)
+        : `Tối đa (SL đơn): ${order.quantity}`;
     if (recordSection) recordSection.style.display = "";
     if (orderInfoEl) {
       orderInfoEl.innerHTML = `
         <div><strong>Mã đơn:</strong> ${order.orderCode}</div>
         <div><strong>SKU / SP:</strong> ${order.sku} — ${order.productName}</div>
-        <div><strong>SL đơn:</strong> ${order.quantity} &nbsp;|&nbsp; <strong>Đã hoàn thành (lũy kế):</strong> ${order.totalCompleted || 0} &nbsp;|&nbsp; <strong>Lỗi (lũy kế):</strong> ${order.totalDefect || 0}</div>
+        <div><strong>SL đơn (PO):</strong> ${order.quantity} &nbsp;|&nbsp; <strong>Giới hạn ghi nhận:</strong> tổng (hoàn thành + lỗi) ≤ ${cap}</div>
+        <div class="helper" style="margin-top:4px;">${capLine}</div>
         <div><strong>Công đoạn ghi nhận:</strong> ${stageLabel}</div>
       `;
     }
     if (completedQtyInput) completedQtyInput.value = "";
-    if (defectQtyInput) defectQtyInput.value = "0"; // mặc định lỗi = 0 nếu không có
+    if (defectQtyInput) defectQtyInput.value = "";
     if (noteInput) noteInput.value = "";
     setRecordMsg("");
+  }
+
+  function bindNaturalQtyInputs() {
+    function stripNonDigits(el) {
+      if (!el) return;
+      el.setAttribute("inputmode", "numeric");
+      el.setAttribute("pattern", "[0-9]*");
+      el.autocomplete = "off";
+      el.addEventListener("input", function () {
+        const v = String(el.value || "").replace(/\D/g, "");
+        if (el.value !== v) el.value = v;
+      });
+      el.addEventListener("paste", function (e) {
+        e.preventDefault();
+        const t = (e.clipboardData && e.clipboardData.getData("text")) || "";
+        el.value = String(t).replace(/\D/g, "");
+      });
+    }
+    stripNonDigits(completedQtyInput);
+    stripNonDigits(defectQtyInput);
+  }
+
+  function parseNaturalQty(value, label) {
+    const s = String(value == null ? "" : value).trim();
+    if (s === "") {
+      if (label === "Số lượng lỗi") return 0;
+      throw new Error(`${label}: bắt buộc nhập số tự nhiên (chỉ 0–9)`);
+    }
+    if (!/^\d+$/.test(s)) {
+      throw new Error(`${label}: chỉ được nhập số tự nhiên, không chữ hoặc ký tự đặc biệt`);
+    }
+    const n = parseInt(s, 10);
+    if (n > Number.MAX_SAFE_INTEGER) throw new Error(`${label}: số quá lớn`);
+    return n;
   }
 
   async function scanOrder() {
@@ -282,7 +328,7 @@
         return;
       }
       setScanMsg(`Đã mở đơn ${order.orderCode}`);
-      showOrderForRecord(order);
+      showOrderForRecord(order, data.meta);
     } catch (e) {
       setScanMsg(e.message, true);
       currentOrder = null;
@@ -296,19 +342,32 @@
       return;
     }
     const qtyTotal = Number(currentOrder.quantity || 0);
-    const done = Number(completedQtyInput?.value);
-    const defect = Number(defectQtyInput?.value || "0");
+    let done;
+    let defect;
+    try {
+      done = parseNaturalQty(completedQtyInput && completedQtyInput.value, "Số lượng hoàn thành");
+      defect = parseNaturalQty(defectQtyInput && defectQtyInput.value, "Số lượng lỗi");
+    } catch (err) {
+      setRecordMsg(err.message || "Dữ liệu không hợp lệ", true);
+      return;
+    }
 
     if (!Number.isFinite(qtyTotal) || qtyTotal <= 0) {
       setRecordMsg("Số lượng đơn không hợp lệ", true);
       return;
     }
-    if (!Number.isFinite(done) || !Number.isInteger(done) || done < 0 || !Number.isFinite(defect) || !Number.isInteger(defect) || defect < 0) {
-      setRecordMsg("Số lượng hoàn thành và lỗi phải là số tự nhiên (>= 0)", true);
+    if (defect > 0 && !(noteInput && String(noteInput.value).trim())) {
+      setRecordMsg("Có số lượng lỗi thì bắt buộc nhập lý do lỗi (ghi chú)", true);
       return;
     }
-    if (done + defect > qtyTotal) {
-      setRecordMsg("SL hoàn thành + SL lỗi không được vượt quá Số lượng đơn", true);
+    if (done + defect <= 0) {
+      setRecordMsg("Tổng SL hoàn thành + lỗi phải lớn hơn 0", true);
+      return;
+    }
+    const cap =
+      scanMeta && Number.isFinite(Number(scanMeta.inboundCap)) ? Number(scanMeta.inboundCap) : qtyTotal;
+    if (done + defect > cap) {
+      setRecordMsg(`SL hoàn thành + SL lỗi (${done + defect}) không được vượt đầu vào khâu trước (${cap}). Hãy quét lại mã để cập nhật giới hạn.`, true);
       return;
     }
     setRecordMsg("Đang lưu…");
@@ -347,6 +406,7 @@
   }
   if (submitRecordBtn) submitRecordBtn.addEventListener("click", submitRecord);
 
+  bindNaturalQtyInputs();
   attachCameraButton();
 
   if (logoutBtn) {

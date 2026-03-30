@@ -51,6 +51,35 @@
       line-height: 1.5;
     }
     .qa-detail-item .row { margin-top: 4px; }
+    .qa-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .qa-stg-tao { background: #f1f5f9; color: #334155; }
+    .qa-stg-cat { background: #dbeafe; color: #1e40af; }
+    .qa-stg-ep { background: #fef3c7; color: #92400e; }
+    .qa-stg-may { background: #e0e7ff; color: #3730a3; }
+    .qa-stg-khoen { background: #fce7f3; color: #9d174d; }
+    .qa-stg-tohop { background: #d1fae5; color: #065f46; }
+    .qa-stg-xong { background: #bbf7d0; color: #14532d; }
+    .qa-stg-other { background: #e5e7eb; color: #374151; }
+    .qa-st-pend { background: #fef9c3; color: #854d0e; }
+    .qa-st-run { background: #bfdbfe; color: #1d4ed8; }
+    .qa-st-ok { background: #a7f3d0; color: #047857; }
+    .qa-pager {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .qa-pager button { margin: 0; }
     @media (max-width: 1100px) { .form-grid { grid-template-columns:1fr; } .form-grid button { grid-column: auto; } }
   </style>
 </head>
@@ -91,7 +120,7 @@
           </select>
           <button class="btn secondary w-auto" type="submit">Tạo đơn</button>
         </form>
-        <div class="helper">Đơn mới <strong>luôn vào đúng luồng sản xuất</strong> (bắt đầu từ cắt vải); QA <strong>không chọn công đoạn</strong>, chỉ có thể đặt <strong>mức ưu tiên</strong> (hoặc sửa sau trong danh sách / Quản lý đơn). <strong>Mã đơn</strong> có thể để trống — hệ thống tự cấp dạng <code>PO00001</code>, tăng dần. Bắt buộc: SKU, Số lượng. Tên SP có thể để trống (lấy từ master data theo SKU).</div>
+        <div class="helper">Đơn mới <strong>luôn vào đúng luồng sản xuất</strong> (bắt đầu từ cắt vải); QA <strong>không chọn công đoạn</strong>, chỉ có thể đặt <strong>mức ưu tiên</strong> (hoặc sửa sau trong danh sách / Quản lý đơn). Sau ép bông, hệ thống tự chọn nhánh: tên SP có <strong>Rido</strong> hoặc <strong>Rèm giường</strong> → <strong>Đóng khoen</strong>, còn lại → <strong>May</strong>. Gửi kèm <code>routeAfterPress</code> trong API khi cần ghi đè thủ công. <strong>Mã đơn</strong> có thể để trống — hệ thống tự cấp dạng <code>PO00001</code>, tăng dần. Bắt buộc: SKU, Số lượng. Tên SP có thể để trống (lấy từ master data theo SKU).</div>
       </div>
 
       <div class="panel">
@@ -100,7 +129,7 @@
           <input id="importFile" type="file" accept=".xlsx,.xls" />
           <button id="importBtn" class="btn secondary w-auto">Import</button>
         </div>
-        <div class="helper">Bắt buộc các cột: <strong>SKU</strong>, <strong>Số lượng</strong>. <strong>Mã đơn</strong> tùy chọn — thiếu hoặc để trống sẽ tự cấp mã <code>PO…</code> từng dòng. Thêm: Tên SP (có thể để trống).</div>
+        <div class="helper">Bắt buộc các cột: <strong>SKU</strong>, <strong>Số lượng</strong>. <strong>Mã đơn</strong> tùy chọn — thiếu hoặc để trống sẽ tự cấp mã <code>PO…</code> từng dòng. Thêm: Tên SP (có thể để trống). Tùy chọn cột <strong>Sau ép bông</strong>: giá trị rõ ràng <code>May</code> hoặc <code>Đóng khoen</code> để ghi đè; để trống thì hệ thống suy từ tên SP (Rido / Rèm giường → Đóng khoen).</div>
       </div>
     </section>
 
@@ -125,6 +154,7 @@
         </thead>
         <tbody id="ordersBody"></tbody>
       </table>
+      <div id="createPager" class="qa-pager" aria-label="Phân trang danh sách tạo đơn"></div>
       <div id="message" class="msg"></div>
     </section>
     </section>
@@ -132,6 +162,9 @@
     <section id="manageSection" class="panel" style="display:none; margin-top:14px;">
       <h2>Quản lý trạng thái đơn qua các khâu</h2>
       <p class="helper" style="margin-top:0;">Công đoạn hiện tại do <strong>luồng sản xuất</strong> cập nhật khi từng đội ghi nhận; QA không chọn công đoạn. Tại đây QA có thể chỉnh <strong>mức ưu tiên</strong> và xem <strong>lịch sử chi tiết</strong> theo từng lần ghi nhận.</p>
+      <div class="table-actions">
+        <button id="manageRefreshBtn" class="btn secondary w-auto">Làm mới</button>
+      </div>
       <table>
         <thead>
           <tr>
@@ -142,13 +175,14 @@
             <th>Ưu tiên</th>
             <th>Công đoạn hiện tại</th>
             <th>Trạng thái</th>
-            <th>SL hoàn thành</th>
-            <th>SL lỗi</th>
+            <th title="Tổng SL đạt từ khâu trước (đầu vào khâu hiện tại)">SL đạt (khâu trước)</th>
+            <th title="Tổng SL lỗi ghi tại khâu trước">SL lỗi (khâu trước)</th>
             <th>Lịch sử</th>
           </tr>
         </thead>
         <tbody id="manageOrdersBody"></tbody>
       </table>
+      <div id="managePager" class="qa-pager" aria-label="Phân trang quản lý đơn"></div>
       <div id="manageMessage" class="msg"></div>
     </section>
   </main>
@@ -171,7 +205,8 @@
     const selectedIds = new Set();
     const manageOrdersBody = document.getElementById('manageOrdersBody');
     const manageMessageEl = document.getElementById('manageMessage');
-    let orders = [];
+    let createList = { items: [], page: 1, pageSize: 25, total: 0, totalPages: 1 };
+    let manageList = { items: [], page: 1, pageSize: 25, total: 0, totalPages: 1 };
 
     const orderDetailModal = document.getElementById('orderDetailModal');
     const orderDetailHeaderEl = document.getElementById('orderDetailHeader');
@@ -206,7 +241,7 @@
     }
 
     function updateKpi() {
-      document.getElementById('kpiTotal').textContent = String(orders.length);
+      document.getElementById('kpiTotal').textContent = String(createList.total);
       document.getElementById('kpiSelected').textContent = String(selectedIds.size);
     }
 
@@ -275,13 +310,139 @@
       return `<option value="normal" ${v === 'normal' ? 'selected' : ''}>Thường</option><option value="high" ${v === 'high' ? 'selected' : ''}>Cao</option>`;
     }
 
-    function routeAfterPressOptionsHtml(value) {
-      const v = value === 'Đóng khoen' ? 'Đóng khoen' : 'May';
-      return `<option value="May" ${v === 'May' ? 'selected' : ''}>May</option><option value="Đóng khoen" ${v === 'Đóng khoen' ? 'selected' : ''}>Đóng khoen</option>`;
+    function stageBadgeClass(stage) {
+      const s = String(stage || '').trim();
+      const map = {
+        'Tạo đơn': 'qa-stg-tao',
+        'Cắt vải': 'qa-stg-cat',
+        'Ép bông': 'qa-stg-ep',
+        'May': 'qa-stg-may',
+        'Đóng khoen': 'qa-stg-khoen',
+        'Tổ hợp': 'qa-stg-tohop',
+        'Hoàn thành': 'qa-stg-xong'
+      };
+      return map[s] || 'qa-stg-other';
+    }
+
+    function statusBadgeClass(st) {
+      const s = String(st || 'pending').trim();
+      if (s === 'completed') return 'qa-st-ok';
+      if (s === 'in_progress') return 'qa-st-run';
+      return 'qa-st-pend';
+    }
+
+    function statusLabelVi(st) {
+      const s = String(st || 'pending').trim();
+      if (s === 'completed') return 'Hoàn thành';
+      if (s === 'in_progress') return 'Đang xử lý';
+      return 'Chờ xử lý';
+    }
+
+    function renderCreatePager() {
+      const el = document.getElementById('createPager');
+      if (!el) return;
+      const { page, totalPages, total, pageSize } = createList;
+      el.innerHTML = `
+        <button type="button" class="btn secondary w-auto" data-create-prev ${page <= 1 ? 'disabled' : ''}>Trước</button>
+        <span>Trang <strong>${page}</strong> / ${totalPages} — tổng <strong>${total}</strong> đơn</span>
+        <button type="button" class="btn secondary w-auto" data-create-next ${page >= totalPages ? 'disabled' : ''}>Sau</button>
+        <label style="display:inline-flex;align-items:center;gap:6px;">Số dòng/trang
+          <select class="qa-select-compact" data-create-ps aria-label="Số dòng mỗi trang danh sách tạo đơn">
+            ${[10, 25, 50, 100].map((n) => `<option value="${n}" ${n === pageSize ? 'selected' : ''}>${n}</option>`).join('')}
+          </select>
+        </label>`;
+      const prev = el.querySelector('[data-create-prev]');
+      const next = el.querySelector('[data-create-next]');
+      const ps = el.querySelector('[data-create-ps]');
+      if (prev) prev.addEventListener('click', () => { if (createList.page > 1) loadCreateOrders({ page: createList.page - 1 }); });
+      if (next) next.addEventListener('click', () => { if (createList.page < createList.totalPages) loadCreateOrders({ page: createList.page + 1 }); });
+      if (ps) ps.addEventListener('change', (e) => {
+        createList.pageSize = Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 25));
+        loadCreateOrders({ page: 1 });
+      });
+    }
+
+    function renderManagePager() {
+      const el = document.getElementById('managePager');
+      if (!el) return;
+      const { page, totalPages, total, pageSize } = manageList;
+      el.innerHTML = `
+        <button type="button" class="btn secondary w-auto" data-man-prev ${page <= 1 ? 'disabled' : ''}>Trước</button>
+        <span>Trang <strong>${page}</strong> / ${totalPages} — tổng <strong>${total}</strong> đơn</span>
+        <button type="button" class="btn secondary w-auto" data-man-next ${page >= totalPages ? 'disabled' : ''}>Sau</button>
+        <label style="display:inline-flex;align-items:center;gap:6px;">Số dòng/trang
+          <select class="qa-select-compact" data-man-ps aria-label="Số dòng mỗi trang quản lý đơn">
+            ${[10, 25, 50, 100].map((n) => `<option value="${n}" ${n === pageSize ? 'selected' : ''}>${n}</option>`).join('')}
+          </select>
+        </label>`;
+      const prev = el.querySelector('[data-man-prev]');
+      const next = el.querySelector('[data-man-next]');
+      const ps = el.querySelector('[data-man-ps]');
+      if (prev) prev.addEventListener('click', () => { if (manageList.page > 1) loadManageOrders({ page: manageList.page - 1 }); });
+      if (next) next.addEventListener('click', () => { if (manageList.page < manageList.totalPages) loadManageOrders({ page: manageList.page + 1 }); });
+      if (ps) ps.addEventListener('change', (e) => {
+        manageList.pageSize = Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 25));
+        loadManageOrders({ page: 1 });
+      });
+    }
+
+    async function loadCreateOrders(opts = {}) {
+      const silent = !!opts.silent;
+      const page = opts.page != null ? opts.page : createList.page;
+      try {
+        const res = await fetch(`/api/qa/orders?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(createList.pageSize)}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Không thể tải đơn');
+        createList = {
+          items: data.items || [],
+          page: data.page || page,
+          pageSize: data.pageSize || createList.pageSize,
+          total: typeof data.total === 'number' ? data.total : (data.items || []).length,
+          totalPages: data.totalPages || 1
+        };
+        renderRows();
+        renderCreatePager();
+        updateKpi();
+        if (!silent) setMessage(`Đã tải trang ${createList.page}/${createList.totalPages} (${createList.total} đơn)`);
+      } catch (error) {
+        if (!silent) setMessage(error.message, true);
+      }
+    }
+
+    async function loadManageOrders(opts = {}) {
+      const silent = !!opts.silent;
+      const page = opts.page != null ? opts.page : manageList.page;
+      try {
+        const res = await fetch(`/api/qa/orders?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(manageList.pageSize)}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Không thể tải đơn');
+        manageList = {
+          items: data.items || [],
+          page: data.page || page,
+          pageSize: data.pageSize || manageList.pageSize,
+          total: typeof data.total === 'number' ? data.total : (data.items || []).length,
+          totalPages: data.totalPages || 1
+        };
+        renderManageRows();
+        renderManagePager();
+        if (!silent) setManageMessage(`Đã tải trang ${manageList.page}/${manageList.totalPages} (${manageList.total} đơn)`);
+      } catch (error) {
+        if (!silent) setManageMessage(error.message, true);
+      }
+    }
+
+    function mergePatchedOrder(patched) {
+      if (!patched || !patched.orderCode) return;
+      for (const list of [createList, manageList]) {
+        const i = list.items.findIndex((o) => o.orderCode === patched.orderCode);
+        if (i >= 0) list.items[i] = { ...list.items[i], ...patched };
+      }
+      renderRows();
+      renderManageRows();
     }
 
     function renderRows() {
-      ordersBody.innerHTML = orders.map(item => {
+      ordersBody.innerHTML = createList.items.map(item => {
         const oc = escapeAttr(item.orderCode);
         return `
         <tr>
@@ -295,12 +456,20 @@
           <td><button class="btn secondary w-auto" data-print-id="${item._id}">In</button></td>
         </tr>`;
       }).join('');
+      const selAll = document.getElementById('selectAll');
+      if (selAll) selAll.checked = false;
       updateKpi();
     }
 
     function renderManageRows() {
-      manageOrdersBody.innerHTML = orders.map(item => {
+      manageOrdersBody.innerHTML = manageList.items.map(item => {
         const oc = escapeAttr(item.orderCode);
+        const stg = item.currentStage || 'Tạo đơn';
+        const stRaw = item.currentStatus || 'pending';
+        const g = item.qaPrevStageGood;
+        const d = item.qaPrevStageDefect;
+        const gCell = g == null ? '—' : String(g);
+        const dCell = d == null ? '—' : String(d);
         return `
         <tr>
           <td>${item.orderCode}</td>
@@ -308,29 +477,13 @@
           <td>${item.productName}</td>
           <td>${item.quantity}</td>
           <td><select class="qa-select-compact qa-priority-select-manage" data-order-code="${oc}" aria-label="Ưu tiên ${oc}">${priorityOptionsHtml(item.priority)}</select></td>
-          <td>${item.currentStage || 'Tạo đơn'}</td>
-          <td>${item.currentStatus || 'pending'}</td>
-          <td>${item.totalCompleted || 0}</td>
-          <td>${item.totalDefect || 0}</td>
-          <td><button class="btn secondary w-auto" data-history-order="${item.orderCode}">Xem</button></td>
+          <td><span class="qa-badge ${stageBadgeClass(stg)}">${escapeHtml(stg)}</span></td>
+          <td><span class="qa-badge ${statusBadgeClass(stRaw)}">${escapeHtml(statusLabelVi(stRaw))}</span></td>
+          <td>${gCell}</td>
+          <td>${dCell}</td>
+          <td><button class="btn secondary w-auto" type="button" data-history-order="${item.orderCode}">Xem</button></td>
         </tr>`;
       }).join('');
-    }
-
-    async function loadOrders() {
-      try {
-        const res = await fetch('/api/qa/orders');
-        const data = await res.json();
-        if (!data.success) throw new Error(data.message || 'Không thể tải đơn');
-        orders = data.items || [];
-        renderRows();
-        renderManageRows();
-        setMessage(`Đã tải ${orders.length} đơn`);
-        setManageMessage(`Đã tải ${orders.length} đơn`);
-      } catch (error) {
-        setMessage(error.message, true);
-        setManageMessage(error.message, true);
-      }
     }
 
     document.getElementById('manualForm').addEventListener('submit', async (e) => {
@@ -353,7 +506,7 @@
         if (!data.success) throw new Error(data.message || 'Tạo đơn thất bại');
         e.target.reset();
         setMessage(`Tạo đơn thành công — mã đơn: ${data.item?.orderCode || ''}`);
-        await loadOrders();
+        await loadCreateOrders();
       } catch (error) {
         setMessage(error.message, true);
       }
@@ -388,27 +541,35 @@
         const s = data.summary || {};
         setMessage(`${data.message}. Thêm mới: ${s.inserted}, cập nhật: ${s.updated}, tự điền tên: ${s.autoFilled || 0}, tự cấp mã đơn: ${s.autoOrderCodes || 0}, thiếu tên (bỏ qua): ${s.missingProductName || 0}`);
         fileInput.value = '';
-        await loadOrders();
+        await loadCreateOrders();
       } catch (error) {
         setMessage(error.message, true);
       }
     });
 
-    document.getElementById('refreshBtn').addEventListener('click', loadOrders);
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      const onCreate = document.getElementById('createSection').style.display !== 'none';
+      if (onCreate) loadCreateOrders();
+      else loadManageOrders();
+    });
     document.getElementById('menuCreateBtn').addEventListener('click', () => {
       document.getElementById('createSection').style.display = '';
       document.getElementById('manageSection').style.display = 'none';
+      loadCreateOrders({ silent: true });
     });
     document.getElementById('menuManageBtn').addEventListener('click', () => {
       document.getElementById('createSection').style.display = 'none';
       document.getElementById('manageSection').style.display = '';
+      loadManageOrders();
     });
+    const manageRefreshBtn = document.getElementById('manageRefreshBtn');
+    if (manageRefreshBtn) manageRefreshBtn.addEventListener('click', () => loadManageOrders());
 
     document.getElementById('logoutBtn').addEventListener('click', logout);
 
     document.getElementById('selectAll').addEventListener('change', (e) => {
       if (e.target.checked) {
-        orders.forEach(o => selectedIds.add(o._id));
+        createList.items.forEach(o => selectedIds.add(o._id));
       } else {
         selectedIds.clear();
       }
@@ -416,7 +577,7 @@
     });
 
     document.getElementById('printSelectedBtn').addEventListener('click', () => {
-      const items = orders.filter(o => selectedIds.has(o._id));
+      const items = createList.items.filter(o => selectedIds.has(o._id));
       openPrintWindow(items);
     });
 
@@ -432,7 +593,7 @@
     ordersBody.addEventListener('click', (e) => {
       if (e.target.matches('button[data-print-id]')) {
         const id = e.target.getAttribute('data-print-id');
-        const found = orders.find(o => o._id === id);
+        const found = createList.items.find(o => o._id === id);
         if (found) openPrintWindow([found]);
       }
     });
@@ -445,8 +606,7 @@
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Cập nhật thất bại');
-      const idx = orders.findIndex((o) => o.orderCode === orderCode);
-      if (idx >= 0 && data.item) orders[idx] = { ...orders[idx], ...data.item };
+      if (data.item) mergePatchedOrder(data.item);
       return data.item;
     }
 
@@ -460,7 +620,7 @@
         setMessage(`Đã cập nhật ưu tiên đơn ${orderCode}`);
       } catch (err) {
         setMessage(err.message, true);
-        await loadOrders();
+        await loadCreateOrders();
       }
     });
 
@@ -474,7 +634,7 @@
           setManageMessage(`Đã cập nhật ưu tiên đơn ${orderCode}`);
         } catch (err) {
           setManageMessage(err.message, true);
-          await loadOrders();
+          await loadManageOrders();
         }
         return;
       }
@@ -488,7 +648,10 @@
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Không tải được lịch sử');
         const items = data.items || [];
-        const order = orders.find((o) => o.orderCode === orderCode) || {};
+        const order =
+          manageList.items.find((o) => o.orderCode === orderCode) ||
+          createList.items.find((o) => o.orderCode === orderCode) ||
+          {};
 
         orderDetailHeaderEl.innerHTML = `
           <div><strong>Mã đơn:</strong> ${escapeHtml(orderCode)}</div>
@@ -502,14 +665,13 @@
         } else {
           orderDetailItemsEl.innerHTML = items
             .map((x) => {
-              const employee = `${x.updatedBy || '—'}${x.updatedByRole ? ' (' + x.updatedByRole + ')' : ''}`;
               return `
                 <div class="qa-detail-item">
                   <div class="row"><strong>Thời gian ghi nhận:</strong> ${escapeHtml(new Date(x.createdAt).toLocaleString('vi-VN'))}</div>
                   <div class="row"><strong>Công đoạn:</strong> ${escapeHtml(x.stage || '—')}</div>
-                  <div class="row"><strong>Nhân viên:</strong> ${escapeHtml(employee)}</div>
+                  <div class="row"><strong>Nhân viên:</strong> ${escapeHtml(x.updatedBy || '—')}</div>
                   <div class="row"><strong>Số lượng hoàn thành:</strong> ${escapeHtml(x.completedQty ?? 0)}</div>
-                  <div class="row"><strong>Số lõi / lỗi:</strong> ${escapeHtml(x.defectQty ?? 0)}</div>
+                  <div class="row"><strong>Số lượng lỗi:</strong> ${escapeHtml(x.defectQty ?? 0)}</div>
                   <div class="row"><strong>Lý do lỗi (ghi chú):</strong> ${escapeHtml(x.note || '—')}</div>
                 </div>
               `;
@@ -523,7 +685,14 @@
       }
     });
 
-    loadOrders();
+    loadCreateOrders();
+
+    setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      const onCreate = document.getElementById('createSection').style.display !== 'none';
+      if (onCreate) loadCreateOrders({ silent: true });
+      else loadManageOrders({ silent: true });
+    }, 12000);
   </script>
 </body>
 </html>

@@ -37,7 +37,7 @@ const qaOrderSchema = new mongoose.Schema(
             enum: ['high', 'normal'],
             default: 'normal'
         },
-        /** Sau ép bông: chuyển sang May hoặc Đóng khoen (tùy loại hàng) */
+        /** Sau ép bông: May hoặc Đóng khoen — mặc định theo tên SP (Rido / Rèm giường → Đóng khoen), có thể sửa bằng PATCH */
         routeAfterPress: {
             type: String,
             enum: ['May', 'Đóng khoen'],
