@@ -156,15 +156,53 @@
 
       const noop = function () {};
 
+      const isSecureContext =
+        (typeof window.isSecureContext === "boolean" && window.isSecureContext) ||
+        window.location.protocol === "https:" ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+      if (!isSecureContext) {
+        throw new Error(
+          "Camera cần HTTPS (hoặc localhost). Vui lòng mở trang bằng https để iOS/Android cho phép."
+        );
+      }
+
+      function pickBackCameraId(devices) {
+        const list = Array.isArray(devices) ? devices : [];
+        if (!list.length) return null;
+        const scored = list.map((d, idx) => {
+          const label = String(d.label || "").toLowerCase();
+          const id = d.deviceId || d.id || "";
+          let score = 0;
+          if (label.includes("back")) score += 80;
+          if (label.includes("rear")) score += 70;
+          if (label.includes("environment")) score += 60;
+          if (label.includes("sau")) score += 50; // tiếng Việt hiếm khi label, nhưng vẫn phòng thủ
+          if (label.includes("rear") || label.includes("back")) score += 10;
+          return { idx, id, score, label };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        const best = scored[0];
+        return best && best.id ? best.id : (list[list.length - 1].deviceId || list[list.length - 1].id || null);
+      }
+
       try {
-        await html5QrcodeInstance.start({ facingMode: "environment" }, config, onOk, noop);
+        // iOS đôi khi chỉ nhận "exact" hoặc chỉ nhận camera sau khi chọn deviceId.
+        await html5QrcodeInstance.start({ facingMode: { exact: "environment" } }, config, onOk, noop);
       } catch (e1) {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length) {
-          const last = devices[devices.length - 1];
-          await html5QrcodeInstance.start(last.id, config, onOk, noop);
-        } else {
-          throw e1;
+        try {
+          await html5QrcodeInstance.start({ facingMode: "environment" }, config, onOk, noop);
+        } catch (e2) {
+          // Fallback: lấy danh sách camera và chọn camera sau (label phụ thuộc OS & quyền camera)
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length) {
+            const backId = pickBackCameraId(devices);
+            const chosen = backId || devices[devices.length - 1].id || devices[devices.length - 1].deviceId || devices[0].id;
+            if (!chosen) throw e2;
+            await html5QrcodeInstance.start(chosen, config, onOk, noop);
+          } else {
+            throw e2 || e1;
+          }
         }
       }
       setScanMsg("Đã bật camera — đưa mã vào khung quét.");
