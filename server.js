@@ -4341,6 +4341,27 @@ function calculateSoMDaCat(items, maMau, tenMau) {
     return Math.round(totalMeters * 100) / 100;
 }
 
+/** Mỗi dòng items = một bản ghi NhapPhoi riêng (không upsert/gộp theo mẫu+kích thước). */
+async function insertNhapPhoiRecordsFromItems(items, username, catVaiId) {
+    if (!items || !Array.isArray(items)) return;
+    for (const item of items) {
+        const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
+        if (!maMau || !tenMau || !kichThuoc || !szSku || soLuong === undefined || soLuong < 0) {
+            continue;
+        }
+        await NhapPhoi.create({
+            maMau: String(maMau).trim(),
+            tenMau: String(tenMau).trim(),
+            kichThuoc: String(kichThuoc).trim(),
+            szSku: String(szSku).trim(),
+            soLuong: Math.floor(Number(soLuong)),
+            createdBy: username,
+            importDate: new Date(),
+            catVaiId: catVaiId ? String(catVaiId).trim() : null
+        });
+    }
+}
+
 // API lưu/cập nhật nhập phôi
 app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
@@ -4388,28 +4409,6 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                 dienTich,
                 dienTichCat
             });
-
-            // Lưu vào NhapPhoi (giữ nguyên logic cũ)
-            await NhapPhoi.findOneAndUpdate(
-                {
-                    maMau: maMau,
-                    kichThuoc: kichThuoc,
-                    createdBy: username
-                },
-                {
-                    $set: {
-                        tenMau: tenMau,
-                        szSku: szSku,
-                        soLuong: soLuong,
-                        importDate: new Date()
-                    }
-                },
-                {
-                    upsert: true,
-                    new: true,
-                    runValidators: true
-                }
-            );
         }
 
         // Chuẩn hóa dữ liệu vải lỗi, thiếu, nhập lại kho - luôn có giá trị, mặc định 0
@@ -4556,6 +4555,8 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             await doiTuongCatVai.save();
         }
 
+        await insertNhapPhoiRecordsFromItems(items, username, doiTuongCatVai.catVaiId);
+
         // Xử lý linkedItems (Trời xanh 43) nếu có
         const linkedCayVaiList = [];
         if (linkedItems && Array.isArray(linkedItems) && linkedItems.length > 0) {
@@ -4598,28 +4599,6 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
                     dienTich,
                     dienTichCat
                 });
-
-                // Lưu vào NhapPhoi cho Trời xanh (43)
-                await NhapPhoi.findOneAndUpdate(
-                    {
-                        maMau: maMau,
-                        kichThuoc: kichThuoc,
-                        createdBy: username
-                    },
-                    {
-                        $set: {
-                            tenMau: tenMau,
-                            szSku: szSku,
-                            soLuong: soLuong,
-                            importDate: new Date()
-                        }
-                    },
-                    {
-                        upsert: true,
-                        new: true,
-                        runValidators: true
-                    }
-                );
             }
             
             // Tính toán các thông tin cho linkedCayVai
@@ -4689,6 +4668,8 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             });
             
             await linkedDoiTuongCatVai.save();
+
+            await insertNhapPhoiRecordsFromItems(linkedItems, username, linkedDoiTuongCatVai.catVaiId);
             
             // Thêm vào danh sách để trả về
             linkedCayVaiList.push({
@@ -4881,7 +4862,7 @@ app.get('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res)
         // Ưu tiên lấy từ DoiTuongCatVai vì đây là dữ liệu mới nhất
         const [nhapPhoiList, cayVaiList, doiTuongCatVaiList] = await Promise.all([
             NhapPhoi.find({ createdBy: username })
-                .sort({ importDate: -1, maMau: 1, kichThuoc: 1 }),
+                .sort({ importDate: -1, createdAt: -1, maMau: 1, kichThuoc: 1 }),
             CayVai.find({ createdBy: username })
                 .sort({ importDate: -1, maMau: 1 }),
             DoiTuongCatVai.find({ createdBy: username, trangThai: { $ne: 'archived' } })

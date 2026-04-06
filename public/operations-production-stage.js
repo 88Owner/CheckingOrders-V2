@@ -52,6 +52,10 @@
     recordMessageEl.style.color = isError ? "#b91c1c" : "var(--muted)";
   }
 
+  function playSound(kind) {
+    if (typeof playScanSound === "function") playScanSound(kind);
+  }
+
   function ensureScannerModal() {
     if (document.getElementById("scannerModal")) {
       scannerModalEl = document.getElementById("scannerModal");
@@ -342,6 +346,7 @@
     const orderCode = (scanInput && scanInput.value.trim()) || "";
     if (!orderCode) {
       setScanMsg("Nhập hoặc quét mã đơn", true);
+      playSound("warning");
       return;
     }
     setScanMsg("Đang tìm…");
@@ -361,14 +366,17 @@
           : cur === stageLabel;
       if (!ok) {
         setScanMsg(`Đơn đang ở công đoạn «${cur || "—"}», không khớp khâu ${stageLabel}.`, true);
+        playSound("stage_wrong");
         currentOrder = null;
         if (recordSection) recordSection.style.display = "none";
         return;
       }
       setScanMsg(`Đã mở đơn ${order.orderCode}`);
+      playSound("order_ok");
       showOrderForRecord(order, data.meta);
     } catch (e) {
       setScanMsg(e.message, true);
+      playSound("not_found");
       currentOrder = null;
       if (recordSection) recordSection.style.display = "none";
     }
@@ -377,6 +385,7 @@
   async function submitRecord() {
     if (!currentOrder) {
       setRecordMsg("Quét đơn trước khi ghi nhận", true);
+      playSound("warning");
       return;
     }
     const qtyTotal = Number(currentOrder.quantity || 0);
@@ -387,25 +396,30 @@
       defect = parseNaturalQty(defectQtyInput && defectQtyInput.value, "Số lượng lỗi");
     } catch (err) {
       setRecordMsg(err.message || "Dữ liệu không hợp lệ", true);
+      playSound("item_wrong");
       return;
     }
 
     if (!Number.isFinite(qtyTotal) || qtyTotal <= 0) {
       setRecordMsg("Số lượng đơn không hợp lệ", true);
+      playSound("item_wrong");
       return;
     }
     if (defect > 0 && !(noteInput && String(noteInput.value).trim())) {
       setRecordMsg("Có số lượng lỗi thì bắt buộc nhập lý do lỗi (ghi chú)", true);
+      playSound("item_wrong");
       return;
     }
     if (done + defect <= 0) {
       setRecordMsg("Tổng SL hoàn thành + lỗi phải lớn hơn 0", true);
+      playSound("item_wrong");
       return;
     }
     const cap =
       scanMeta && Number.isFinite(Number(scanMeta.inboundCap)) ? Number(scanMeta.inboundCap) : qtyTotal;
     if (done + defect > cap) {
       setRecordMsg(`SL hoàn thành + SL lỗi (${done + defect}) không được vượt đầu vào khâu trước (${cap}). Hãy quét lại mã để cập nhật giới hạn.`, true);
+      playSound("item_wrong");
       return;
     }
     setRecordMsg("Đang lưu…");
@@ -424,12 +438,14 @@
       const data = await res.json();
       if (!data.success) throw new Error(data.message || "Lưu thất bại");
       setRecordMsg(data.message || "Đã ghi nhận");
+      playSound("item_ok");
       if (scanInput) scanInput.value = "";
       currentOrder = null;
       if (recordSection) recordSection.style.display = "none";
       await loadQueue();
     } catch (e) {
       setRecordMsg(e.message, true);
+      playSound("item_wrong");
     }
   }
 

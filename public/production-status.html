@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cập nhật trạng thái sản xuất</title>
   <link rel="stylesheet" href="/operations-role-base.css" />
+  <script src="/scan-sounds.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -60,6 +61,10 @@
       el.style.color = isError ? '#b91c1c' : '#6b7280';
     }
 
+    function playSound(kind) {
+      if (typeof playScanSound === 'function') playScanSound(kind);
+    }
+
     function bindQtyStrip(el) {
       if (!el) return;
       el.addEventListener('input', () => {
@@ -88,7 +93,10 @@
 
     async function scanOrder() {
       const orderCode = document.getElementById('scanOrderCode').value.trim();
-      if (!orderCode) return setText(scanMessage, 'Vui lòng nhập mã đơn', true);
+      if (!orderCode) {
+        playSound('warning');
+        return setText(scanMessage, 'Vui lòng nhập mã đơn', true);
+      }
       try {
         const res = await fetch('/api/production/orders/scan', {
           method: 'POST',
@@ -116,14 +124,19 @@
         if (completedQtyInput) completedQtyInput.value = '';
         if (defectQtyInput) defectQtyInput.value = '';
         if (noteInput) noteInput.value = '';
+        playSound('order_ok');
         setText(scanMessage, `Đã tải đơn ${currentOrder.orderCode}`);
       } catch (error) {
+        playSound('not_found');
         setText(scanMessage, error.message, true);
       }
     }
 
     async function updateStatus() {
-      if (!currentOrder) return setText(updateMessage, 'Vui lòng quét đơn trước', true);
+      if (!currentOrder) {
+        playSound('warning');
+        return setText(updateMessage, 'Vui lòng quét đơn trước', true);
+      }
       const qtyPO = Number(currentOrder.quantity || 0);
       let done;
       let defect;
@@ -131,12 +144,15 @@
         done = parseNat(completedQtyInput && completedQtyInput.value, 'Số lượng hoàn thành');
         defect = parseNat(defectQtyInput && defectQtyInput.value, 'Số lượng lỗi');
       } catch (e) {
+        playSound('item_wrong');
         return setText(updateMessage, e.message || 'Dữ liệu không hợp lệ', true);
       }
       if (defect > 0 && !(noteInput && noteInput.value.trim())) {
+        playSound('item_wrong');
         return setText(updateMessage, 'Có số lượng lỗi thì bắt buộc nhập lý do lỗi (ô ghi chú)', true);
       }
       if (done + defect <= 0) {
+        playSound('item_wrong');
         return setText(updateMessage, 'Tổng SL hoàn thành + lỗi phải lớn hơn 0', true);
       }
       const cap =
@@ -144,6 +160,7 @@
           ? Number(lastScanMeta.inboundCap)
           : qtyPO;
       if (done + defect > cap) {
+        playSound('item_wrong');
         return setText(
           updateMessage,
           `SL hoàn thành + SL lỗi (${done + defect}) không được vượt đầu vào khâu trước (${cap}). Hãy quét lại mã đơn để cập nhật giới hạn.`,
@@ -165,8 +182,10 @@
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Cập nhật thất bại');
+        playSound('item_ok');
         setText(updateMessage, 'Đã cập nhật trạng thái đơn thành công');
       } catch (error) {
+        playSound('item_wrong');
         setText(updateMessage, error.message, true);
       }
     }

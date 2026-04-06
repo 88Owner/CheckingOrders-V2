@@ -6,6 +6,7 @@
     <title>Kiểm đơn gói hàng</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'">
     <script src="/serial-scanner.js"></script>
+    <script src="/scan-sounds.js"></script>
     <style>
         :root { --primary:#667eea; --accent:#764ba2; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #0b1020; min-height: 100vh; margin: 0; }
@@ -699,14 +700,17 @@ let pageSize = 20;
                     
                     switch (inputType) {
                         case 'INVALID_INPUT':
+                            if (typeof playScanSound === 'function') playScanSound('item_wrong');
                             this.showError('Input không hợp lệ. Vui lòng nhập lại.');
                             break;
                             
                         case 'ITEM_WITHOUT_ORDER':
+                            if (typeof playScanSound === 'function') playScanSound('warning');
                             this.showError('Chưa chọn mã vận đơn. Hãy nhập mã vận đơn trước.');
                             break;
                             
                         case 'INVALID_ITEM_FOR_ORDER':
+                            if (typeof playScanSound === 'function') playScanSound('item_wrong');
                             this.showError(`Mã hàng "${code}" không thuộc đơn ${this.currentOrder.maVanDon}. Vui lòng quét mã hàng đúng hoặc quét đơn khác.`);
                             break;
                             
@@ -727,10 +731,12 @@ let pageSize = 20;
                             break;
                             
                         default:
+                            if (typeof playScanSound === 'function') playScanSound('warning');
                             this.showError('Loại input không được hỗ trợ.');
                     }
                     
                 } catch (error) {
+                    if (typeof playScanSound === 'function') playScanSound('item_wrong');
                     this.showError(error.message || 'Có lỗi xảy ra');
                 } finally {
                     this.isLoading = false;
@@ -2157,6 +2163,7 @@ let pageSize = 20;
             // Xử lý khi quét đơn khác (KHÔNG cho phép chuyển)
             async handleDifferentOrderBlocked(newMaVanDon) {
                 // Hiển thị thông báo không cho phép chuyển đơn
+                if (typeof playScanSound === 'function') playScanSound('warning');
                 this.showWarning(
                     `Không thể chuyển sang đơn ${newMaVanDon}.`,
                     `Đang xử lý đơn ${this.currentOrder.maVanDon}. Vui lòng hoàn thành đơn hiện tại trước khi chuyển đơn khác.\n\nHướng dẫn:\n• Quét lại đơn ${this.currentOrder.maVanDon} để hoàn thành\n• Hoặc quét lại đơn ${this.currentOrder.maVanDon} để hủy`
@@ -2265,12 +2272,14 @@ let pageSize = 20;
                     if (!result.success) {
                         // Kiểm tra nếu đơn đã hoàn thành
                         if (result.message && result.message.includes('đã được quét hoàn tất')) {
+                            if (typeof playScanSound === 'function') playScanSound('warning');
                             this.showWarning(`Đơn ${maVanDon} đã được quét hoàn tất. Vui lòng chọn đơn khác.`);
                             return;
                         }
                         
                         // Kiểm tra nếu không tìm thấy đơn hàng - không rollback, chỉ hiển thị lỗi
                         if (result.message && result.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                            if (typeof playScanSound === 'function') playScanSound('not_found');
                             this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${maVanDon}. Vui lòng kiểm tra lại mã vận đơn.`);
                             return;
                         }
@@ -2289,6 +2298,7 @@ let pageSize = 20;
                     
                     // Hiển thị thông báo ngắn gọn
                     const verifiedCount = result.data.alreadyVerifiedItems?.length || 0;
+                    if (typeof playScanSound === 'function') playScanSound('order_ok');
                     this.showInfo(`Đã check-in ${this.cacheOrders.length} mặt hàng cho đơn ${maVanDon}. Bắt đầu quét hàng.`);
                     
                     // Lưu user behaviour
@@ -2308,6 +2318,7 @@ let pageSize = 20;
                     
                     // Kiểm tra nếu lỗi là "Không tìm thấy đơn hàng với mã vận đơn này" - không rollback, chỉ hiển thị lỗi
                     if (error.message && error.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                        if (typeof playScanSound === 'function') playScanSound('not_found');
                         this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${maVanDon}. Vui lòng kiểm tra lại mã vận đơn.`);
                         return;
                     }
@@ -2355,6 +2366,7 @@ let pageSize = 20;
                     // Kiểm tra mã hàng có trong danh sách đơn hàng không
                     const orderItem = this.cacheOrders.find(order => order.maHang === maHang);
                     if (!orderItem) {
+                        if (typeof playScanSound === 'function') playScanSound('item_wrong');
                         this.showError(`Mã hàng ${maHang} không có trong đơn hàng hiện tại!`);
                         this.isLoading = false;
                         return;
@@ -2366,6 +2378,7 @@ let pageSize = 20;
                     const required = orderItem.soLuong;
                     
                     if (currentScanned >= required) {
+                        if (typeof playScanSound === 'function') playScanSound('warning');
                         this.showError(`Mã hàng ${maHang} đã quét đủ (${currentScanned}/${required})! Không thể quét thêm.`);
                         this.isLoading = false;
                         return;
@@ -2388,6 +2401,7 @@ let pageSize = 20;
                     if (!result.success) {
                         // Kiểm tra nếu không tìm thấy đơn hàng - không rollback, chỉ hiển thị lỗi và tiếp tục quét
                         if (result.message && result.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                            if (typeof playScanSound === 'function') playScanSound('not_found');
                             this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${this.currentOrder.maVanDon}. Vui lòng kiểm tra lại mã vận đơn.`);
                             // Không throw error để không rollback, giữ nguyên trạng thái đơn hiện tại
                             this.isLoading = false;
@@ -2411,6 +2425,7 @@ let pageSize = 20;
                     this.updateUI();
                     
                     // Hiển thị thông báo quét thành công
+                    if (typeof playScanSound === 'function') playScanSound('item_ok');
                     this.showInfo(`✅ Đã quét: ${result.data.maHang} (${newScanned}/${required})`);
                     
                     // Lưu user behaviour
@@ -2441,12 +2456,14 @@ let pageSize = 20;
                 } catch (error) {
                     // Kiểm tra nếu lỗi là "Không tìm thấy đơn hàng với mã vận đơn này" - không rollback, chỉ hiển thị lỗi
                     if (error.message && error.message.includes('Không tìm thấy đơn hàng với mã vận đơn này')) {
+                        if (typeof playScanSound === 'function') playScanSound('not_found');
                         this.showError(`Không tìm thấy đơn hàng với mã vận đơn ${this.currentOrder.maVanDon}. Tiếp tục quét đơn hiện tại.`);
                         this.isLoading = false;
                         return;
                     }
                     
                     // Các lỗi khác - hiển thị lỗi nhưng không rollback đơn hiện tại
+                    if (typeof playScanSound === 'function') playScanSound('item_wrong');
                     this.showError(`Lỗi quét mã hàng: ${error.message}. Tiếp tục quét đơn hiện tại ${this.currentOrder.maVanDon}.`);
                     this.isLoading = false;
                 }
@@ -2489,6 +2506,7 @@ let pageSize = 20;
                     this.reset();
                     
                     // Hiển thị modal thông báo hủy đơn
+                    if (typeof playScanSound === 'function') playScanSound('order_cancel');
                     this.showModal({
                         type: 'warning',
                         title: 'Đã hủy đơn hàng',
@@ -2502,6 +2520,7 @@ let pageSize = 20;
                     }, 2000);
                     
                 } catch (error) {
+                    if (typeof playScanSound === 'function') playScanSound('item_wrong');
                     this.showError(`Lỗi hủy đơn: ${error.message}`);
                 }
             }
@@ -2524,6 +2543,7 @@ let pageSize = 20;
                     
                     if (result.success) {
                         const completedOrder = this.currentOrder.maVanDon;
+                        if (typeof playScanSound === 'function') playScanSound('order_complete');
                         
                         // Reset state trước
                         this.reset();
@@ -5700,6 +5720,7 @@ window.showOrderPager = function(show) {
             ensureInputFocus();
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
+                    if (typeof unlockScanAudio === 'function') unlockScanAudio();
                     const val = input.value;
                     input.value = '';
                     
@@ -6465,7 +6486,9 @@ window.showOrderPager = function(show) {
 
         // Xử lý kết nối/ngắt kết nối COM port
         async function handleComConnection() {
-            
+            // Phải gọi trong cùng “user gesture” với click — quét COM đi qua setTimeout nên không mở được audio
+            if (typeof unlockScanAudio === 'function') unlockScanAudio();
+
             if (isConnecting) {
                 return;
             }

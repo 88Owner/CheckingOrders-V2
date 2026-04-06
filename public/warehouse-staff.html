@@ -881,7 +881,7 @@
 
                 <!-- Input ID cho lần cắt sau -->
                 <div class="form-group" id="catVaiIdGroup" style="display: none;">
-                    <label for="catVaiIdInput">ID đối tượng cắt vải (để tiếp tục lần cắt sau)</label>
+                    <label for="catVaiIdInput">ID đối tượng cắt vải (chỉ khi tiếp tục cùng một cây vải)</label>
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="catVaiIdInput" 
                                placeholder="Nhập ID từ lần cắt trước (VD: CV-MAUM001-1234567890)" 
@@ -891,7 +891,7 @@
                         </button>
                     </div>
                     <div style="margin-top: 5px; font-size: 0.85rem; color: #666;">
-                        Để trống nếu đây là lần cắt đầu tiên. Sau khi lưu, ID sẽ được hiển thị để dùng cho lần cắt sau.
+                        Mỗi lần xác nhận hoàn thành tạo một cây mới trong danh sách. Để cộng dồn phôi vào cây đã có, nhập ID cây đó rồi bấm «Tải thông tin» trước khi nhập tiếp.
                     </div>
                 </div>
 
@@ -4043,14 +4043,23 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Lưu ID đối tượng cắt vải nếu có
-                    if (result.data && result.data.doiTuongCatVai) {
-                        currentCatVaiId = result.data.doiTuongCatVai.catVaiId;
-                        document.getElementById('catVaiIdInput').value = currentCatVaiId;
-                        showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}. ID đối tượng cắt vải: ${currentCatVaiId} (đã tự động điền vào form để dùng cho lần cắt sau)`);
+                    // Mỗi lần "Xác nhận hoàn thành" = một cây vải / một dòng trong danh sách trái.
+                    // Không giữ catVaiId trong form sau lưu — nếu giữ, lần nhập tiếp theo (kể cả cùng mẫu Ngân Hà)
+                    // sẽ gửi cùng ID → server cập nhật một đối tượng → danh sách bị gộp một dòng.
+                    // Để tiếp tục cắt trên cùng một cây vải: nhập ID vào ô đối tượng cắt vải và tải đối tượng (loadCatVaiById).
+                    if (result.data && result.data.doiTuongCatVai && result.data.doiTuongCatVai.catVaiId) {
+                        const savedId = result.data.doiTuongCatVai.catVaiId;
+                        showSuccess(
+                            `Đã lưu ${items.length} mục nhập phôi — mẫu ${currentMauVai.maMau}. ID cây vải: ${savedId}. ` +
+                            `Lần xác nhận tiếp theo sẽ tạo cây mới trong danh sách. ` +
+                            `Nếu cần cộng dồn vào cùng cây, nhập ID ${savedId} vào ô đối tượng cắt vải rồi tải.`
+                        );
                     } else {
                         showSuccess(`Đã thêm ${items.length} mục nhập phôi cho mẫu ${currentMauVai.maMau}`);
                     }
+                    currentCatVaiId = null;
+                    const catVaiIdInputEl = document.getElementById('catVaiIdInput');
+                    if (catVaiIdInputEl) catVaiIdInputEl.value = '';
                     
                     // Khai báo biến phatSinhItems ở scope ngoài để sử dụng sau
                     let phatSinhItems = [];
@@ -4209,19 +4218,9 @@
                             }
                             // Đảm bảo cayVaiToAdd.items là array và có dữ liệu
                             if (Array.isArray(cayVaiToAdd.items) && cayVaiToAdd.items.length > 0) {
-                                // Merge items: tránh trùng lặp theo szSku, nếu trùng thì cộng dồn số lượng
+                                // Mỗi lần ghi nhận giữ riêng từng dòng (cùng szSku vẫn là nhiều cây/mã vạch khác nhau); gộp SL chỉ khi xuất file
                                 cayVaiToAdd.items.forEach(newItem => {
-                                    const existingItemIndex = existing.items.findIndex(existingItem => 
-                                        existingItem.szSku === newItem.szSku && 
-                                        String(existingItem.maMau) === String(newItem.maMau)
-                                    );
-                                    if (existingItemIndex >= 0) {
-                                        // Cộng dồn số lượng nếu trùng
-                                        existing.items[existingItemIndex].soLuong += (newItem.soLuong || 0);
-                                    } else {
-                                        // Thêm mới nếu chưa có
-                                        existing.items.push(newItem);
-                                    }
+                                    existing.items.push({ ...newItem });
                                 });
                             }
                             // Merge mayAoGoi
