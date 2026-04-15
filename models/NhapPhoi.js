@@ -23,6 +23,23 @@ const nhapPhoiSchema = new mongoose.Schema(
             required: true,
             min: 0
         },
+        /** Số tấm lỗi (theo dòng nhập phôi) — dùng cho cột N/O khi xuất CSV */
+        slLoi: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+        /** Số m vải lỗi (snapshot theo lần nhập / đối tượng cắt) */
+        soMLoi: {
+            type: Number,
+            required: false
+        },
+        /** SKU hàng lỗi: mã mẫu + hậu tố (mặc định 00-404-230) */
+        skuHangLoi: {
+            type: String,
+            default: null,
+            trim: true
+        },
         createdBy: {
             type: String,
             required: true

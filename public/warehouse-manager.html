@@ -624,7 +624,7 @@
                     <div style="background: #fff3cd; padding: 20px; border-radius: 12px; border: 2px solid #ffc107; margin-bottom: 24px;">
                         <h3 style="color: #856404; margin-bottom: 12px;">⚠️ Lưu ý về Template</h3>
                         <ul style="color: #856404; line-height: 1.8; margin-left: 20px;">
-                            <li>Template phải là file Excel (.xlsx)</li>
+                            <li>Template có thể là file Excel (.xlsx/.xls) hoặc CSV (đúng header A–X ~ 24 cột)</li>
                             <li>Bạn có thể upload nhiều template với tên khác nhau</li>
                             <li>Khi upload, bạn có thể cấu hình mapping cột SKU và cột SL</li>
                             <li>Template được đánh dấu "Active" sẽ được sử dụng khi xuất file</li>
@@ -648,7 +648,7 @@
                         </div>
 
                         <div style="margin-bottom: 16px;">
-                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mapping cột</label>
+                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Mapping cột (template Excel cũ — tùy chọn)</label>
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
                                 <div>
                                     <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Cột SKU</label>
@@ -667,13 +667,43 @@
                                 </div>
                             </div>
                         </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">Cấu hình xuất CSV (cột D, tên kho &amp; hậu tố SKU)</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Kho phôi sau cắt</label>
+                                    <input type="text" id="warehousePhoiNameInput" value="Kho Phôi - Shi"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Kho NVL (vải nhập lại)</label>
+                                    <input type="text" id="warehouseNVLNameInput" value="Kho NVL - Shi"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Kho phế phẩm (hàng lỗi)</label>
+                                    <input type="text" id="warehousePhePhamNameInput" value="Kho Phế phẩm - Shi"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Hậu tố SKU hàng lỗi (mã mẫu-…)</label>
+                                    <input type="text" id="skuHangLoiSuffixInput" value="00-404-230"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 4px;">Hậu tố SKU vải nhập kho</label>
+                                    <input type="text" id="skuNhapKhoSuffixInput" value="00-000-230"
+                                           style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="upload-area" onclick="document.getElementById('templateFile').click()" style="margin-bottom: 16px;">
                             <div class="upload-icon"></div>
-                            <div class="upload-text">Click để chọn file Template Excel</div>
-                            <div class="upload-subtext">Hỗ trợ file .xlsx</div>
+                            <div class="upload-text">Click để chọn file Template Excel/CSV</div>
+                            <div class="upload-subtext">Hỗ trợ file .xlsx/.xls/.csv</div>
                         </div>
-                        <input type="file" id="templateFile" class="file-input" accept=".xlsx" />
+                        <input type="file" id="templateFile" class="file-input" accept=".xlsx,.xls,.csv" />
                         
                         <div style="text-align: center;">
                             <button class="btn" onclick="uploadTemplate()" disabled id="uploadTemplateBtn">
@@ -738,6 +768,16 @@
                                             <input type="number" id="editTemplateStartRow" min="1"
                                                    style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
                                         </div>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 16px;">
+                                    <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">CSV — tên kho &amp; hậu tố SKU</label>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                        <input type="text" id="editWarehousePhoiName" placeholder="Kho Phôi - Shi" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        <input type="text" id="editWarehouseNVLName" placeholder="Kho NVL - Shi" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        <input type="text" id="editWarehousePhePhamName" placeholder="Kho Phế phẩm - Shi" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        <input type="text" id="editSkuHangLoiSuffix" placeholder="00-404-230" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
+                                        <input type="text" id="editSkuNhapKhoSuffix" placeholder="00-000-230" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;">
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
@@ -1343,7 +1383,7 @@
             updateProgress('export', 25, 'Đang chuẩn bị dữ liệu...');
 
             try {
-                updateProgress('export', 50, 'Đang tạo file Excel...');
+                updateProgress('export', 50, 'Đang tạo file CSV...');
                 
                 const response = await fetch('/api/export-nhap-phoi', {
                     method: 'GET',
@@ -1357,14 +1397,20 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `NhapPhoi_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    let filename = `NhapPhoi_Export_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+                    const cd = response.headers.get('Content-Disposition');
+                    if (cd) {
+                        const m = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (m && m[1]) filename = m[1].replace(/['"]/g, '');
+                    }
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
                     
                     updateProgress('export', 100, 'Hoàn thành!');
-                    showSuccess('export', 'File nhập phôi đã được tải xuống thành công!');
+                    showSuccess('export', 'Đã tải file CSV nhập kho (UTF-8).');
                 } else {
                     const result = await response.json();
                     showError('export', result.message || 'Lỗi xuất file');
@@ -1401,6 +1447,11 @@
             formData.append('skuColumn', document.getElementById('templateSkuColumn').value.toUpperCase() || 'C');
             formData.append('slColumn', document.getElementById('templateSlColumn').value.toUpperCase() || 'D');
             formData.append('startRow', document.getElementById('templateStartRow').value || '1');
+            formData.append('warehousePhoiName', document.getElementById('warehousePhoiNameInput').value.trim() || 'Kho Phôi - Shi');
+            formData.append('warehouseNVLName', document.getElementById('warehouseNVLNameInput').value.trim() || 'Kho NVL - Shi');
+            formData.append('warehousePhePhamName', document.getElementById('warehousePhePhamNameInput').value.trim() || 'Kho Phế phẩm - Shi');
+            formData.append('skuHangLoiSuffix', document.getElementById('skuHangLoiSuffixInput').value.trim() || '00-404-230');
+            formData.append('skuNhapKhoSuffix', document.getElementById('skuNhapKhoSuffixInput').value.trim() || '00-000-230');
 
             showProgress('template');
             document.getElementById('uploadTemplateBtn').disabled = true;
@@ -1534,6 +1585,11 @@
                     document.getElementById('editTemplateSkuColumn').value = template.skuColumn;
                     document.getElementById('editTemplateSlColumn').value = template.slColumn;
                     document.getElementById('editTemplateStartRow').value = template.startRow;
+                    document.getElementById('editWarehousePhoiName').value = template.warehousePhoiName || 'Kho Phôi - Shi';
+                    document.getElementById('editWarehouseNVLName').value = template.warehouseNVLName || 'Kho NVL - Shi';
+                    document.getElementById('editWarehousePhePhamName').value = template.warehousePhePhamName || 'Kho Phế phẩm - Shi';
+                    document.getElementById('editSkuHangLoiSuffix').value = template.skuHangLoiSuffix || '00-404-230';
+                    document.getElementById('editSkuNhapKhoSuffix').value = template.skuNhapKhoSuffix || '00-000-230';
                     
                     document.getElementById('templateMappingModal').style.display = 'flex';
                 } else {
@@ -1575,7 +1631,12 @@
                         description: document.getElementById('editTemplateDescription').value.trim(),
                         skuColumn: document.getElementById('editTemplateSkuColumn').value.toUpperCase(),
                         slColumn: document.getElementById('editTemplateSlColumn').value.toUpperCase(),
-                        startRow: parseInt(document.getElementById('editTemplateStartRow').value)
+                        startRow: parseInt(document.getElementById('editTemplateStartRow').value),
+                        warehousePhoiName: document.getElementById('editWarehousePhoiName').value.trim(),
+                        warehouseNVLName: document.getElementById('editWarehouseNVLName').value.trim(),
+                        warehousePhePhamName: document.getElementById('editWarehousePhePhamName').value.trim(),
+                        skuHangLoiSuffix: document.getElementById('editSkuHangLoiSuffix').value.trim(),
+                        skuNhapKhoSuffix: document.getElementById('editSkuNhapKhoSuffix').value.trim()
                     })
                 });
 

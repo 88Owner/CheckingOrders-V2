@@ -1080,7 +1080,7 @@
                 <div style="display:flex; flex-direction:column; gap:10px; color:#333;">
                     <div id="exportConfirmMessage" style="font-size:1rem; line-height:1.5;"></div>
                     <div style="font-size:0.9rem; color:#666;">
-                        Nếu chọn <strong>Có</strong>: hệ thống sẽ xuất Excel và tải thêm <strong>PDF chứa tất cả mã vạch đối tượng cắt vải</strong>.
+                        Nếu chọn <strong>Có</strong>: hệ thống sẽ xuất CSV nhập kho và tải thêm <strong>PDF chứa tất cả mã vạch đối tượng cắt vải</strong>.
                     </div>
                 </div>
             </div>
@@ -1230,9 +1230,9 @@
 
             if (msg) {
                 if (ids.length > 0) {
-                    msg.innerHTML = `Danh sách đang có <strong>${total}</strong> mục. Bạn chưa in mã vạch.<br/>Bạn có muốn <strong>xuất tất cả mã vạch</strong> (PDF) kèm theo file Excel không?<br/><span style="color:#0f766e;font-weight:600;">Sẽ tạo PDF cho ${ids.length} ID đối tượng cắt vải.</span>`;
+                    msg.innerHTML = `Danh sách đang có <strong>${total}</strong> mục. Bạn chưa in mã vạch.<br/>Bạn có muốn <strong>xuất tất cả mã vạch</strong> (PDF) kèm theo file CSV không?<br/><span style="color:#0f766e;font-weight:600;">Sẽ tạo PDF cho ${ids.length} ID đối tượng cắt vải.</span>`;
                 } else {
-                    msg.innerHTML = `Danh sách đang có <strong>${total}</strong> mục nhưng <strong>chưa có ID đối tượng cắt vải</strong> (catVaiId) để tạo mã vạch.<br/>Bạn vẫn muốn xuất file Excel không?`;
+                    msg.innerHTML = `Danh sách đang có <strong>${total}</strong> mục nhưng <strong>chưa có ID đối tượng cắt vải</strong> (catVaiId) để tạo mã vạch.<br/>Bạn vẫn muốn xuất file CSV không?`;
                 }
             }
             pendingExportAction = { ids };
@@ -5319,7 +5319,7 @@
             }
         }
 
-        // Xuất file Excel
+        // Xuất file CSV nhập kho
         async function exportFile() {
             const btn = document.getElementById('exportBtn');
             if (btn.disabled) return;
@@ -5375,7 +5375,7 @@
             }, 100);
         }
 
-        // Thực thi export (Excel + optional PDF barcodes)
+        // Thực thi export (CSV + optional PDF barcodes)
         async function exportFileInternal({ includeBarcodePdf, barcodeIds } = {}) {
             const btn = document.getElementById('exportBtn');
             if (btn.disabled) return;
@@ -5410,6 +5410,7 @@
                         szSku: szSku,
                         kichThuoc: item.kichThuoc,
                         soLuong: item.soLuong,
+                        slLoi: item.slLoi || 0,
                         dienTich: item.dienTich || 0
                     };
                 })
@@ -5426,12 +5427,14 @@
                 const key = `${item.maMau}_${item.szSku}`;
                 if (acc[key]) {
                     acc[key].soLuong += item.soLuong;
+                    acc[key].slLoi = (acc[key].slLoi || 0) + (Number(item.slLoi) || 0);
                     // Cập nhật diện tích cắt tổng (nếu cần)
                     acc[key].dienTichCat += (item.soLuong * (item.dienTich || 0));
                 } else {
                     acc[key] = {
                         sku: item.szSku, // Tạm thời dùng szSku, sẽ được thay bằng SKU từ MasterDataVai
                         soLuong: item.soLuong,
+                        slLoi: Number(item.slLoi) || 0,
                         kichThuoc: item.kichThuoc || '', // Lưu thêm thông tin kích thước
                         szSku: item.szSku, // Thêm szSku để tìm kích thước nếu cần
                         maMau: item.maMau, // Thêm maMau để tìm SKU từ MasterDataVai
@@ -5448,7 +5451,7 @@
             btn.innerHTML = '🔄 Đang xử lý...';
 
             try {
-                // 1) Export Excel như cũ
+                // 1) Export CSV nhập kho (cột D–X)
                 const response = await fetch('/api/export-nhap-phoi', {
                     method: 'POST',
                     headers: {
@@ -5456,8 +5459,12 @@
                     },
                     credentials: 'include', // Thêm credentials để gửi session/cookie
                     body: JSON.stringify({ 
-                        items: dataToSend
-                        // Không cần gửi maMau riêng vì mỗi item đã có maMau
+                        items: dataToSend,
+                        cayVaiList: savedCayVaiList.map(cv => ({
+                            maMau: cv.maMau,
+                            vaiLoi: cv.vaiLoi,
+                            nhapLaiKho: cv.nhapLaiKho
+                        }))
                     })
                 });
 
@@ -5468,7 +5475,7 @@
 
                 // Lấy tên file từ header - sửa lỗi regex
                 const contentDisposition = response.headers.get('Content-Disposition');
-                let filename = 'nhap_phoi_export.xlsx'; // fallback
+                let filename = 'nhap_phoi_export.csv'; // fallback (server quyết định theo template active)
                 if (contentDisposition) {
                     const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
                     if (filenameMatch && filenameMatch[1]) {
@@ -5502,13 +5509,13 @@
                     try {
                         await downloadBarcodePdf(barcodeIds);
                     } catch (e) {
-                        // Excel đã xuất xong, nên chỉ báo lỗi PDF (không chặn)
+                        // CSV đã xuất xong, nên chỉ báo lỗi PDF (không chặn)
                         console.error('Barcode PDF download error:', e);
-                        showError('Đã xuất Excel nhưng lỗi tải PDF mã vạch: ' + (e?.message || String(e)));
+                        showError('Đã xuất CSV nhưng lỗi tải PDF mã vạch: ' + (e?.message || String(e)));
                     }
                 }
 
-                showSuccess(`Xuất file thành công! Đã xuất ${dataToSend.length} SKU với tổng ${allItemsWithMau.reduce((sum, item) => sum + item.soLuong, 0)} sản phẩm.${includeBarcodePdf ? ' (kèm PDF mã vạch nếu có)' : ''}`);
+                showSuccess(`Xuất file CSV thành công! ${dataToSend.length} dòng phôi (đã gộp SKU).${includeBarcodePdf ? ' (kèm PDF mã vạch nếu có)' : ''}`);
 
                 // Xóa danh sách bên trái sau khi xuất file thành công
                 savedCayVaiList = [];

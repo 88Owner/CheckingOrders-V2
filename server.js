@@ -1947,18 +1947,114 @@ const storage = multer.diskStorage({
 const upload = multer({ 
     storage: storage,
     fileFilter: function (req, file, cb) {
-        const allowedTypes = ['.xlsx', '.xls'];
+        const allowedTypes = ['.xlsx', '.xls', '.csv'];
         const ext = path.extname(file.originalname).toLowerCase();
         if (allowedTypes.includes(ext)) {
             cb(null, true);
         } else {
-            cb(new Error('Chỉ cho phép file Excel (.xlsx, .xls)'));
+            cb(new Error('Chỉ cho phép template (.xlsx, .xls, .csv)'));
         }
     },
     limits: {
         fileSize: 10 * 1024 * 1024 // Giới hạn 10MB
     }
 });
+
+function detectCsvDelimiter(line) {
+    if (!line || typeof line !== 'string') return ',';
+    const candidates = [',', ';', '\t'];
+
+    let best = ',';
+    let bestCount = -1;
+
+    for (const delim of candidates) {
+        let inQuotes = false;
+        let count = 0;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                const next = line[i + 1];
+                if (inQuotes && next === '"') {
+                    i++;
+                    continue;
+                }
+                inQuotes = !inQuotes;
+            } else if (ch === delim && !inQuotes) {
+                count++;
+            }
+        }
+
+        if (count > bestCount) {
+            bestCount = count;
+            best = delim;
+        }
+    }
+
+    return best;
+}
+
+function parseCsvLine(line, delimiter = ',') {
+    const cells = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            const next = line[i + 1];
+            if (inQuotes && next === '"') {
+                cur += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === delimiter && !inQuotes) {
+            cells.push(cur);
+            cur = '';
+        } else {
+            cur += ch;
+        }
+    }
+    cells.push(cur);
+    return cells.map(v => String(v || '').replace(/^\uFEFF/, '').trim());
+}
+
+function normalizeCsvHeaderTo24(headerCells) {
+    if (!Array.isArray(headerCells)) return [];
+
+    const h = headerCells.map(v => String(v || '').replace(/^\uFEFF/, '').trim());
+
+    // Xóa ô trống ở cuối (thường do export dư cột)
+    while (h.length > 0 && h[h.length - 1] === '') {
+        h.pop();
+    }
+
+    if (h.length < 24) return [];
+
+    // Trường hợp hay gặp: export CSV bị nhân header đôi -> 48 cột
+    if (h.length === 48) {
+        const a = h.slice(0, 24);
+        const b = h.slice(24, 48);
+        const isDup = a.every((v, i) => String(v || '').trim().toLowerCase() === String(b[i] || '').trim().toLowerCase());
+        if (isDup) return a;
+    }
+
+    // Nếu >24 cột nhưng không đúng pattern, cứ lấy 24 cột đầu để chạy theo format A–X
+    return h.slice(0, 24);
+}
+
+function maybeFixMojibakeUtf8FromLatin1(input) {
+    const s = String(input ?? '');
+    // Heuristic: các chuỗi bị lỗi UTF-8->latin1 thường có "Ã", "Â", "Ä", "Æ"
+    if (!/[ÃÂÄÆ]/.test(s)) return s;
+    try {
+        const fixed = Buffer.from(s, 'latin1').toString('utf8');
+        // Nếu sửa xong vẫn còn ký tự mojibake thì giữ nguyên
+        if (/[ÃÂÄÆ]/.test(fixed)) return s;
+        return fixed;
+    } catch {
+        return s;
+    }
+}
 
 function parseQAImportSheet(filePath) {
     const workbook = XLSX.readFile(filePath);
@@ -3214,6 +3310,9 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
             });
         }
 
+        const ext = path.extname(req.file.originalname).toLowerCase();
+        const isCsvTemplate = ext === '.csv';
+
         const templateDir = path.join(__dirname, 'uploads', 'template');
         
         // Tạo thư mục nếu chưa có
@@ -3224,12 +3323,128 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
         // Tạo tên file unique
         const timestamp = Date.now();
         const sanitizedName = name.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        const filename = `${sanitizedName}_${timestamp}.xlsx`;
+        const filename = `${sanitizedName}_${timestamp}${ext}`;
         const templatePath = path.join(templateDir, filename);
 
         // Copy file mới vào thư mục template
         fs.copyFileSync(req.file.path, templatePath);
         
+        // Parse header để đưa vào template.csvHeader (dùng cho export CSV)
+        let csvHeader = [];
+        if (isCsvTemplate) {
+            const raw = fs.readFileSync(req.file.path, 'utf8');
+            const lines = raw.split(/\r\n|\n|\r/);
+
+            // Một số file template có thể có đoạn mô tả ở đầu file,
+            // header thực tế nằm ở dòng sau (ví dụ dòng 2-3 hoặc dòng 8).
+            // Vì vậy quét qua N dòng đầu để chọn dòng header phù hợp nhất.
+            const maxScanLines = Math.min(lines.length, 200);
+            const keywords = [
+                /sku/i,
+                /kho/i,
+                /meter/i,
+                /unit/i,
+                /mã/i,
+                /số\s*lượng/i,
+                /so\s*luong/i
+            ];
+
+            let best = { idx: -1, line: '', delimiter: ',', cells: [] };
+            let bestScore = -1;
+
+            for (let i = 0; i < maxScanLines; i++) {
+                const lnRaw = lines[i];
+                if (!lnRaw || !String(lnRaw).trim()) continue;
+
+                const ln = String(lnRaw).replace(/\r$/, '');
+                const delimiter = detectCsvDelimiter(ln);
+                const cells = parseCsvLine(ln, delimiter);
+
+                // Score: ưu tiên dòng có nhiều cột hơn, và có từ khóa trong các ô
+                const hasKeyword = Array.isArray(cells) && cells.some(c => keywords.some(kw => kw.test(String(c || ''))));
+                const score = (cells.length || 0) + (hasKeyword ? 100 : 0);
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = { idx: i, line: ln, delimiter, cells };
+                }
+            }
+
+            csvHeader = best.idx >= 0 ? best.cells : [];
+
+            // Chuẩn hóa header về 24 cột (A–X). Một số file export bị đếm 48 cột do nhân header.
+            csvHeader = normalizeCsvHeaderTo24(csvHeader);
+
+            // Kỳ vọng tối thiểu A–X (24 cột)
+            if (csvHeader.length < 24) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Template CSV cần tối thiểu 24 cột header (A–X). Hiện tại sau chuẩn hóa còn ${csvHeader.length} cột.`
+                });
+            }
+        } else {
+            // Với template Excel: header thực tế có thể nằm gần startRow (ví dụ dòng 8),
+            // nên ưu tiên lấy quanh startRow, nếu không thì tự dò dòng phù hợp.
+            try {
+                const startRowReq = req.body.startRow ? parseInt(req.body.startRow) : 1; // UI dùng 1-index
+                const workbook = XLSX.readFile(templatePath);
+                const sheetName = workbook.SheetNames[0];
+                if (sheetName) {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                    if (Array.isArray(rows) && rows.length > 0) {
+                        const keywords = [
+                            /sku/i,
+                            /kho/i,
+                            /meter/i,
+                            /unit/i,
+                            /mã/i,
+                            /số\s*lượng/i,
+                            /so\s*luong/i
+                        ];
+                        const scoreRow = (r) => {
+                            const cells = (r || []).map((c) => String(c || '').trim());
+                            const nonEmpty = cells.filter((c) => c !== '').length;
+                            const hasKeyword = cells.some((c) => keywords.some((kw) => kw.test(c)));
+                            return nonEmpty + (hasKeyword ? 100 : 0);
+                        };
+
+                        // 1) Ưu tiên dòng startRow (vì nghiệp vụ hay đặt header ở đây)
+                        const idxStart = Math.max(0, (Number.isFinite(startRowReq) ? startRowReq : 1) - 1);
+                        const candidatesIdx = [idxStart, idxStart - 1, idxStart - 2, 0, 1, 2].filter(
+                            (i) => i >= 0 && i < rows.length
+                        );
+
+                        let bestIdx = -1;
+                        let bestScore = -1;
+                        for (const idx of candidatesIdx) {
+                            const sc = scoreRow(rows[idx]);
+                            if (sc > bestScore) {
+                                bestScore = sc;
+                                bestIdx = idx;
+                            }
+                        }
+
+                        // 2) Nếu vẫn không ổn, quét thêm 200 dòng đầu
+                        const maxScan = Math.min(rows.length, 200);
+                        for (let i = 0; i < maxScan; i++) {
+                            const sc = scoreRow(rows[i]);
+                            if (sc > bestScore) {
+                                bestScore = sc;
+                                bestIdx = i;
+                            }
+                        }
+
+                        csvHeader = bestIdx >= 0 ? normalizeCsvHeaderTo24(rows[bestIdx] || []) : [];
+                    }
+                }
+            } catch (e) {
+                // Không fatal: nếu không parse được header thì export sẽ fallback A..X
+                console.warn('Không parse được header từ template Excel:', e?.message || String(e));
+                csvHeader = [];
+            }
+        }
+
         // Xóa file tạm
         fs.unlinkSync(req.file.path);
 
@@ -3241,7 +3456,13 @@ app.post('/api/upload-template', requireLogin, requireWarehouseManager, upload.s
             skuColumn: req.body.skuColumn || 'C',
             slColumn: req.body.slColumn || 'D',
             startRow: req.body.startRow ? parseInt(req.body.startRow) : 1,
-            description: description || '',
+            description: maybeFixMojibakeUtf8FromLatin1(description || ''),
+            warehousePhoiName: maybeFixMojibakeUtf8FromLatin1((req.body.warehousePhoiName && String(req.body.warehousePhoiName).trim()) || 'Kho Phôi - Shi'),
+            warehouseNVLName: maybeFixMojibakeUtf8FromLatin1((req.body.warehouseNVLName && String(req.body.warehouseNVLName).trim()) || 'Kho NVL - Shi'),
+            warehousePhePhamName: maybeFixMojibakeUtf8FromLatin1((req.body.warehousePhePhamName && String(req.body.warehousePhePhamName).trim()) || 'Kho Phế phẩm - Shi'),
+            skuHangLoiSuffix: (req.body.skuHangLoiSuffix && String(req.body.skuHangLoiSuffix).trim()) || '00-404-230',
+            skuNhapKhoSuffix: (req.body.skuNhapKhoSuffix && String(req.body.skuNhapKhoSuffix).trim()) || '00-000-230',
+            csvHeader: (csvHeader || []).map(maybeFixMojibakeUtf8FromLatin1),
             createdBy: req.session.user?.username || null
         });
 
@@ -3356,7 +3577,18 @@ app.get('/api/template/:id', requireLogin, requireWarehouseManager, async (req, 
 // Route cập nhật mapping cột cho template
 app.put('/api/template/:id', requireLogin, requireWarehouseManager, async (req, res) => {
     try {
-        const { skuColumn, slColumn, startRow, description, name } = req.body;
+        const {
+            skuColumn,
+            slColumn,
+            startRow,
+            description,
+            name,
+            warehousePhoiName,
+            warehouseNVLName,
+            warehousePhePhamName,
+            skuHangLoiSuffix,
+            skuNhapKhoSuffix
+        } = req.body;
         const template = await Template.findById(req.params.id);
         
         if (!template) {
@@ -3371,6 +3603,11 @@ app.put('/api/template/:id', requireLogin, requireWarehouseManager, async (req, 
         if (slColumn) template.slColumn = slColumn.toUpperCase();
         if (startRow !== undefined) template.startRow = parseInt(startRow);
         if (description !== undefined) template.description = description;
+        if (warehousePhoiName !== undefined) template.warehousePhoiName = String(warehousePhoiName).trim();
+        if (warehouseNVLName !== undefined) template.warehouseNVLName = String(warehouseNVLName).trim();
+        if (warehousePhePhamName !== undefined) template.warehousePhePhamName = String(warehousePhePhamName).trim();
+        if (skuHangLoiSuffix !== undefined) template.skuHangLoiSuffix = String(skuHangLoiSuffix).trim();
+        if (skuNhapKhoSuffix !== undefined) template.skuNhapKhoSuffix = String(skuNhapKhoSuffix).trim();
         if (name && name.trim() && name.trim() !== template.name) {
             // Kiểm tra tên trùng
             const existingTemplate = await Template.findOne({ name: name.trim(), _id: { $ne: template._id } });
@@ -3885,135 +4122,6 @@ app.get('/api/report-cat-vai', requireLogin, requireWarehouseManager, async (req
     }
 });
 
-// Route xuất file nhập phôi
-app.get('/api/export-nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res) => {
-    try {
-        // Kiểm tra kết nối MongoDB
-        if (mongoose.connection.readyState !== 1) {
-            throw new Error('MongoDB chưa kết nối. Vui lòng thử lại sau.');
-        }
-
-        // Lấy dữ liệu từ các collection
-        const [mauVaiData, kichThuocData, ordersData] = await Promise.all([
-            MauVai.find({}).sort({ maMau: 1 }),
-            KichThuoc.find({}).sort({ szSku: 1 }),
-            Order.find({}).sort({ stt: 1 })
-        ]);
-
-        // Tạo workbook mới
-        const workbook = XLSX.utils.book_new();
-
-        // Sheet 1: Mẫu vải
-        if (mauVaiData.length > 0) {
-            const mauVaiSheet = XLSX.utils.json_to_sheet(mauVaiData.map(item => ({
-                'Mã mẫu': item.maMau,
-                'Tên mẫu': item.tenMau,
-                'Ngày import': new Date(item.importDate).toLocaleDateString('vi-VN'),
-                'Người tạo': item.createdBy || ''
-            })));
-            XLSX.utils.book_append_sheet(workbook, mauVaiSheet, 'Mẫu vải');
-        }
-
-        // Sheet 2: Kích thước
-        if (kichThuocData.length > 0) {
-            const kichThuocSheet = XLSX.utils.json_to_sheet(kichThuocData.map(item => ({
-                'Sz_SKU': item.szSku,
-                'Kích thước': item.kichThuoc,
-                'Diện tích': item.dienTich,
-                'Ngày import': new Date(item.importDate).toLocaleDateString('vi-VN'),
-                'Người tạo': item.createdBy || ''
-            })));
-            XLSX.utils.book_append_sheet(workbook, kichThuocSheet, 'Kích thước');
-        }
-
-        // Sheet 3: Đơn hàng
-        if (ordersData.length > 0) {
-            const ordersSheet = XLSX.utils.json_to_sheet(ordersData.map(item => ({
-                'STT': item.stt,
-                'Mã đóng gói': item.maDongGoi,
-                'Mã vận đơn': item.maVanDon,
-                'Mã đơn hàng': item.maDonHang,
-                'Mã hàng': item.maHang,
-                'Số lượng': item.soLuong,
-                'Trạng thái': item.verified ? 'Đã xác nhận' : 'Chưa xác nhận',
-                'Số lượng đã quét': item.scannedQuantity || 0,
-                'Người kiểm tra': item.checkingBy || '',
-                'Ngày xác nhận': item.verifiedAt ? new Date(item.verifiedAt).toLocaleDateString('vi-VN') : '',
-                'Ngày import': new Date(item.importDate).toLocaleDateString('vi-VN')
-            })));
-            XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Đơn hàng');
-        }
-
-        // Sheet 4: Tổng hợp
-        // Tính số MaVanDon duy nhất (Tổng số đơn hàng)
-        const uniqueMaVanDons = new Set(ordersData.map(o => o.maVanDon).filter(Boolean));
-        const totalUniqueVanDons = uniqueMaVanDons.size;
-        
-        // Tính số MaVanDon đã xác nhận (duy nhất)
-        const verifiedMaVanDons = new Set(ordersData.filter(o => o.verified).map(o => o.maVanDon).filter(Boolean));
-        const totalVerifiedVanDons = verifiedMaVanDons.size;
-        
-        // Tính số MaVanDon chưa xác nhận (duy nhất)
-        const pendingMaVanDons = new Set(ordersData.filter(o => !o.verified).map(o => o.maVanDon).filter(Boolean));
-        const totalPendingVanDons = pendingMaVanDons.size;
-        
-        const summaryData = [
-            {
-                'Loại dữ liệu': 'Mẫu vải',
-                'Số lượng': mauVaiData.length,
-                'Ghi chú': 'Dữ liệu mẫu vải đã import'
-            },
-            {
-                'Loại dữ liệu': 'Kích thước',
-                'Số lượng': kichThuocData.length,
-                'Ghi chú': 'Dữ liệu kích thước đã import'
-            },
-            {
-                'Loại dữ liệu': 'Đơn hàng',
-                'Số lượng': totalUniqueVanDons,
-                'Ghi chú': 'Tổng số đơn hàng (mã vận đơn) trong hệ thống'
-            },
-            {
-                'Loại dữ liệu': 'Đơn hàng đã xác nhận',
-                'Số lượng': totalVerifiedVanDons,
-                'Ghi chú': 'Số mã vận đơn đã được kiểm tra'
-            },
-            {
-                'Loại dữ liệu': 'Đơn hàng chưa xác nhận',
-                'Số lượng': totalPendingVanDons,
-                'Ghi chú': 'Số mã vận đơn chưa được kiểm tra'
-            },
-            {
-                'Loại dữ liệu': 'Chi tiết đơn hàng',
-                'Số lượng': ordersData.length,
-                'Ghi chú': 'Tổng số chi tiết đơn hàng (order items)'
-            }
-        ];
-
-        const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-        XLSX.utils.book_append_sheet(workbook, summarySheet, 'Tổng hợp');
-
-        // Tạo buffer từ workbook
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-        // Set headers để download file
-        const fileName = `NhapPhoi_${new Date().toISOString().split('T')[0]}.xlsx`;
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.setHeader('Content-Length', buffer.length);
-
-        // Gửi file
-        res.send(buffer);
-
-    } catch (error) {
-        console.error('❌ Lỗi xuất file nhập phôi:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi xuất file nhập phôi: ' + error.message
-        });
-    }
-});
-
 // API lấy danh sách mẫu vải
 app.get('/api/mau-vai', requireLogin, requireWarehouseAccess, async (req, res) => {
     try {
@@ -4342,10 +4450,19 @@ function calculateSoMDaCat(items, maMau, tenMau) {
 }
 
 /** Mỗi dòng items = một bản ghi NhapPhoi riêng (không upsert/gộp theo mẫu+kích thước). */
-async function insertNhapPhoiRecordsFromItems(items, username, catVaiId) {
+async function insertNhapPhoiRecordsFromItems(items, username, catVaiId, vaiLoiSnapshot = null) {
     if (!items || !Array.isArray(items)) return;
+    const soMLoiVal =
+        vaiLoiSnapshot && Number(vaiLoiSnapshot.soM) > 0 ? Number(vaiLoiSnapshot.soM) : null;
+    let skuHangLoiVal = null;
+    if (soMLoiVal != null && items[0] && items[0].maMau) {
+        let tpl = await Template.findOne({ isActive: true });
+        if (!tpl) tpl = await Template.findOne().sort({ createdAt: -1 });
+        const hangLoiSuffix = tpl?.skuHangLoiSuffix || '00-404-230';
+        skuHangLoiVal = `${String(items[0].maMau).trim()}-${hangLoiSuffix}`;
+    }
     for (const item of items) {
-        const { maMau, tenMau, kichThuoc, szSku, soLuong } = item;
+        const { maMau, tenMau, kichThuoc, szSku, soLuong, slLoi } = item;
         if (!maMau || !tenMau || !kichThuoc || !szSku || soLuong === undefined || soLuong < 0) {
             continue;
         }
@@ -4355,6 +4472,9 @@ async function insertNhapPhoiRecordsFromItems(items, username, catVaiId) {
             kichThuoc: String(kichThuoc).trim(),
             szSku: String(szSku).trim(),
             soLuong: Math.floor(Number(soLuong)),
+            slLoi: slLoi !== undefined && slLoi !== null ? Math.max(0, Math.floor(Number(slLoi))) : 0,
+            soMLoi: soMLoiVal,
+            skuHangLoi: skuHangLoiVal,
             createdBy: username,
             importDate: new Date(),
             catVaiId: catVaiId ? String(catVaiId).trim() : null
@@ -4555,7 +4675,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             await doiTuongCatVai.save();
         }
 
-        await insertNhapPhoiRecordsFromItems(items, username, doiTuongCatVai.catVaiId);
+        await insertNhapPhoiRecordsFromItems(items, username, doiTuongCatVai.catVaiId, vaiLoiData);
 
         // Xử lý linkedItems (Trời xanh 43) nếu có
         const linkedCayVaiList = [];
@@ -4669,7 +4789,7 @@ app.post('/api/nhap-phoi', requireLogin, requireWarehouseAccess, async (req, res
             
             await linkedDoiTuongCatVai.save();
 
-            await insertNhapPhoiRecordsFromItems(linkedItems, username, linkedDoiTuongCatVai.catVaiId);
+            await insertNhapPhoiRecordsFromItems(linkedItems, username, linkedDoiTuongCatVai.catVaiId, null);
             
             // Thêm vào danh sách để trả về
             linkedCayVaiList.push({

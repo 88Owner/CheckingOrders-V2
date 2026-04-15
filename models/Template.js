@@ -37,6 +37,38 @@ const templateSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    /** Tên kho hiển thị cột D khi xuất CSV nhập phôi */
+    warehousePhoiName: {
+        type: String,
+        default: 'Kho Phôi - Shi',
+        trim: true
+    },
+    warehouseNVLName: {
+        type: String,
+        default: 'Kho NVL - Shi',
+        trim: true
+    },
+    warehousePhePhamName: {
+        type: String,
+        default: 'Kho Phế phẩm - Shi',
+        trim: true
+    },
+    /** Hậu tố SKU: {maMau}-{suffix} */
+    skuHangLoiSuffix: {
+        type: String,
+        default: '00-404-230',
+        trim: true
+    },
+    skuNhapKhoSuffix: {
+        type: String,
+        default: '00-000-230',
+        trim: true
+    },
+    /** Header dòng 1 của template CSV (dạng mảng ô, kỳ vọng A–X ~ 24 cột) */
+    csvHeader: {
+        type: [String],
+        default: []
+    },
     createdBy: {
         type: String,
         default: null
