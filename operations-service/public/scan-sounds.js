@@ -18,7 +18,7 @@
   /** Thử phát file; nếu không có hoặc lỗi → false */
   var FILE_MAP = {
     order_ok: "/sounds/correct.mp3",
-    item_ok: "/sounds/correct.mp3",
+    item_ok: "/sounds/correct-pr.mp3",
     item_wrong: "/sounds/fail.mp3",
     order_cancel: "/sounds/fail.mp3",
     not_found: "/sounds/fail.mp3",
