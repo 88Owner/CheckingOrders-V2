@@ -432,6 +432,15 @@
                                 </button>
                                 <span id="comStatus" style="margin-left: 10px; font-weight: 600;"></span>
                             </div>
+                            <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <label for="videoChannelSelect" style="font-weight: 600; color: #495057;">Camera ghi hình:</label>
+                                <select id="videoChannelSelect" style="padding: 8px 10px; border-radius: 6px; border: 1px solid #ced4da; min-width: 140px;" disabled>
+                                    <option value="">Chọn camera</option>
+                                    <option value="1">Cam 1</option>
+                                    <option value="2">Cam 2</option>
+                                </select>
+                                <span id="videoChannelStatus" style="font-size: 13px; color: #666;">Kết nối COM để gán camera cho phiên quét.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2184,7 +2193,10 @@ let pageSize = 20;
                 // 1. Kiểm tra xem đơn mới có tồn tại không trước khi rollback đơn cũ
                 const response = await fetch(`/api/orders/by-van-don/${encodeURIComponent(newMaVanDon)}`, {
                     credentials: 'include',
-                    headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+                    headers: {
+                        'Authorization': 'Bearer ' + getAuthToken(),
+                        ...(selectedVideoChannel ? { 'X-Video-Channel': String(selectedVideoChannel) } : {})
+                    }
                 });
                 const result = await response.json();
                 
@@ -2265,7 +2277,10 @@ let pageSize = 20;
                     // Load đơn hàng từ server
                     const response = await fetch(`/api/orders/by-van-don/${encodeURIComponent(maVanDon)}`, {
                         credentials: 'include',
-                        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+                        headers: {
+                            'Authorization': 'Bearer ' + getAuthToken(),
+                            ...(selectedVideoChannel ? { 'X-Video-Channel': String(selectedVideoChannel) } : {})
+                        }
                     });
                     const result = await response.json();
                     
@@ -5380,7 +5395,10 @@ window.showOrderPager = function(show) {
             if (!currentMaVanDon) return;
             const res = await fetch(`/api/orders/by-van-don/${encodeURIComponent(currentMaVanDon)}`, {
                 credentials: 'include',
-                headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+                headers: {
+                    'Authorization': 'Bearer ' + getAuthToken(),
+                    ...(selectedVideoChannel ? { 'X-Video-Channel': String(selectedVideoChannel) } : {})
+                }
             });
             const data = await res.json();
             if (data.success) {
@@ -6238,6 +6256,7 @@ window.showOrderPager = function(show) {
 
                 if (result.success) {
                     // User info loaded successfully
+                    selectedVideoChannel = result.videoChannel ? String(result.videoChannel) : (sessionStorage.getItem('videoChannel') || null);
                     
                     // Tạo scannerPermissions giả để hiển thị button
                     result.scannerPermissions = {
@@ -6275,6 +6294,11 @@ window.showOrderPager = function(show) {
                     }];
                     
                     displayScannerPermissions(result, mockScanners);
+                    const selectEl = document.getElementById('videoChannelSelect');
+                    if (selectEl && selectedVideoChannel) {
+                        selectEl.value = selectedVideoChannel;
+                    }
+                    updateVideoChannelUi();
                 } else {
                 }
             } catch (error) {
@@ -6389,6 +6413,7 @@ window.showOrderPager = function(show) {
         let userAssignedPort = null; // Cổng COM được admin phân quyền
         let currentPort = null; // Port hiện tại đang kết nối
         let currentComPort = null; // Tên COM port hiện tại đang kết nối
+        let selectedVideoChannel = null; // Camera user chọn cho phiên quét
         let isListening = false; // Trạng thái đang lắng nghe
         let isConnecting = false; // Trạng thái đang kết nối (tránh claim port liên tục)
         
@@ -6481,6 +6506,89 @@ window.showOrderPager = function(show) {
             const connectBtn = document.getElementById('connectComBtn');
             if (connectBtn) {
                 connectBtn.addEventListener('click', handleComConnection);
+            }
+
+            initVideoChannelSelector();
+        }
+
+        function initVideoChannelSelector() {
+            const selectEl = document.getElementById('videoChannelSelect');
+            if (!selectEl || selectEl.dataset.initialized === 'true') return;
+
+            selectEl.dataset.initialized = 'true';
+
+            try {
+                const saved = sessionStorage.getItem('videoChannel');
+                if (saved) {
+                    selectedVideoChannel = saved;
+                    selectEl.value = saved;
+                }
+            } catch (error) {}
+
+            updateVideoChannelUi();
+
+            selectEl.addEventListener('change', async (e) => {
+                const value = String(e.target.value || '').trim();
+                selectedVideoChannel = value || null;
+                try {
+                    if (selectedVideoChannel) {
+                        sessionStorage.setItem('videoChannel', selectedVideoChannel);
+                    } else {
+                        sessionStorage.removeItem('videoChannel');
+                    }
+                } catch (error) {}
+
+                await saveVideoChannelPreference(selectedVideoChannel);
+                updateVideoChannelUi();
+            });
+        }
+
+        async function saveVideoChannelPreference(videoChannel) {
+            try {
+                const response = await fetch('/api/order-videos/channel', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getAuthToken()
+                    },
+                    body: JSON.stringify({ videoChannel: videoChannel || null })
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    showToast(result.message || 'Không lưu được camera', false);
+                    return false;
+                }
+                if (videoChannel) {
+                    showToast(`Đã gán Cam ${videoChannel} cho phiên quét hiện tại`, true);
+                }
+                return true;
+            } catch (error) {
+                showToast('Lỗi lưu camera ghi hình', false);
+                return false;
+            }
+        }
+
+        function updateVideoChannelUi() {
+            const selectEl = document.getElementById('videoChannelSelect');
+            const statusEl = document.getElementById('videoChannelStatus');
+            if (!selectEl || !statusEl) return;
+
+            selectEl.disabled = !isComConnected;
+
+            if (!isComConnected) {
+                statusEl.textContent = 'Kết nối COM để gán camera cho phiên quét.';
+                statusEl.style.color = '#666';
+                return;
+            }
+
+            if (selectedVideoChannel) {
+                statusEl.textContent = `Đang dùng Cam ${selectedVideoChannel} cho user này.`;
+                statusEl.style.color = '#28a745';
+            } else {
+                statusEl.textContent = 'Chưa chọn camera. Video sẽ fallback theo COM nếu có cấu hình.';
+                statusEl.style.color = '#ff9800';
             }
         }
 
@@ -6653,6 +6761,7 @@ window.showOrderPager = function(show) {
                 connectBtn.textContent = '🔌 Ngắt kết nối COM';
                 connectBtn.style.background = '#f44336';
                 connectBtn.disabled = false;
+                updateVideoChannelUi();
                 
                 // Start heartbeat để keep port alive
                 startHeartbeat();
@@ -6741,6 +6850,7 @@ window.showOrderPager = function(show) {
                 connectBtn.textContent = '🔌 Kết nối máy quét COM';
                 connectBtn.style.background = '#2196f3';
                 connectBtn.disabled = false;
+                updateVideoChannelUi();
             }
         }
         
@@ -6879,6 +6989,7 @@ window.showOrderPager = function(show) {
                 connectBtn.textContent = '🔌 Kết nối máy quét COM';
                 connectBtn.style.background = '#2196f3';
                 connectBtn.disabled = false;
+                updateVideoChannelUi();
 
                 
             } catch (error) {
@@ -6892,6 +7003,7 @@ window.showOrderPager = function(show) {
                 connectBtn.textContent = '🔌 Kết nối máy quét COM';
                 connectBtn.style.background = '#2196f3';
                 connectBtn.disabled = false;
+                updateVideoChannelUi();
             }
         }
 

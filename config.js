@@ -30,5 +30,9 @@ module.exports = {
     SAPO_LOCATION_ID: process.env.SAPO_LOCATION_ID || '',
     SAPO_SUPPLIER_ID: process.env.SAPO_SUPPLIER_ID || '',
     SAPO_ASSIGNEE_ID: process.env.SAPO_ASSIGNEE_ID || '',
-    SAPO_RECEIPT_STATUS: process.env.SAPO_RECEIPT_STATUS || 'pending'
+    SAPO_RECEIPT_STATUS: process.env.SAPO_RECEIPT_STATUS || 'pending',
+    // Video recording configuration
+    VIDEO_COM_CHANNEL_MAP: process.env.VIDEO_COM_CHANNEL_MAP || '',
+    CAM_RTSP_CHANNEL_1: process.env.CAM_RTSP_CHANNEL_1 || '',
+    CAM_RTSP_CHANNEL_2: process.env.CAM_RTSP_CHANNEL_2 || ''
 };

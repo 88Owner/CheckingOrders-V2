@@ -84,9 +84,14 @@ services:
       SAPO_SUPPLIER_ID: "121591"
       SAPO_ASSIGNEE_ID: "809229"
       SAPO_RECEIPT_STATUS: active
+      # Video recording configuration
+      VIDEO_COM_CHANNEL_MAP: ${VIDEO_COM_CHANNEL_MAP:-{"COM14":1,"COM8":2}}
+      CAM_RTSP_CHANNEL_1: ${CAM_RTSP_CHANNEL_1:-}
+      CAM_RTSP_CHANNEL_2: ${CAM_RTSP_CHANNEL_2:-}
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - ./.env:/app/.env:ro
     restart: unless-stopped
     depends_on:
       - mongodb

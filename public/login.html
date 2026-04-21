@@ -1802,6 +1802,7 @@
                     const role = result.role;
                     const assignedComPort = result.assignedComPort;
                     const allowedPorts = result.allowedPorts || [];
+                    const videoChannel = result.videoChannel || null;
                     
                     // Lưu token vào sessionStorage => phiên theo tab, không chia sẻ sang tab khác
                     if (result.token) {
@@ -1823,6 +1824,14 @@
                             console.error('Error saving COM port info:', e);
                         }
                     }
+
+                    try {
+                        if (videoChannel) {
+                            sessionStorage.setItem('videoChannel', String(videoChannel));
+                        } else {
+                            sessionStorage.removeItem('videoChannel');
+                        }
+                    } catch {}
                     
                     // Không hiển thị COM port section ở trang login nữa
                     // COM port sẽ được quản lý ở trang checker-home

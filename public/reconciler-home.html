@@ -256,6 +256,14 @@
             color: #6b7280;
         }
 
+        .video-player-wrap {
+            margin-top: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
+            background: #fafafa;
+        }
+
         @media (max-width: 768px) {
             .header {
                 padding: 16px 18px;
@@ -326,6 +334,10 @@
                     <div class="value-lg" id="summaryChecker"></div>
                 </div>
                 <div>
+                    <div class="label-sm">Cam phụ trách</div>
+                    <div class="value-lg" id="summaryCheckerCam"></div>
+                </div>
+                <div>
                     <div class="label-sm">Thời gian hoàn thành</div>
                     <div class="value-lg" id="summaryVerifiedAt"></div>
                 </div>
@@ -351,6 +363,26 @@
                     </thead>
                     <tbody id="detailBody"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <div id="videoCard" class="card" style="display:none;">
+            <div class="card-title">
+                <span>Video playback theo mốc cập nhật đơn</span>
+            </div>
+            <div class="grid">
+                <div>
+                    <div class="label-sm">Mốc thời gian đơn cập nhật gần nhất</div>
+                    <div class="value-lg" id="videoEventTime"></div>
+                </div>
+                <div>
+                    <div class="label-sm">Khoảng truy xuất</div>
+                    <div class="value-lg" id="videoWindow"></div>
+                </div>
+            </div>
+            <div id="videoLinks" style="margin-top: 12px;"></div>
+            <div class="video-player-wrap" id="videoPlayerWrap" style="display:none;">
+                <video id="videoPlayer" controls style="width:100%; max-height:420px; background:#000;"></video>
             </div>
         </div>
     </div>
@@ -387,12 +419,21 @@
             const detailBody = document.getElementById('detailBody');
             const summaryCard = document.getElementById('summaryCard');
             const detailCard = document.getElementById('detailCard');
+            const videoCard = document.getElementById('videoCard');
+            const videoLinks = document.getElementById('videoLinks');
+            const videoPlayerWrap = document.getElementById('videoPlayerWrap');
+            const videoPlayer = document.getElementById('videoPlayer');
 
             statusLine.textContent = '';
             statusLine.className = 'status-line';
             detailBody.innerHTML = '';
             summaryCard.style.display = 'none';
             detailCard.style.display = 'none';
+            videoCard.style.display = 'none';
+            videoLinks.innerHTML = '';
+            videoPlayerWrap.style.display = 'none';
+            videoPlayer.removeAttribute('src');
+            videoPlayer.load();
 
             if (!maVanDon) {
                 statusLine.textContent = 'Vui lòng nhập mã vận đơn.';
@@ -454,6 +495,7 @@
                 document.getElementById('summaryTotalRequired').textContent = totalRequired;
                 document.getElementById('summaryTotalScanned').textContent = totalScanned;
                 document.getElementById('summaryChecker').textContent = mainChecker || '—';
+                document.getElementById('summaryCheckerCam').textContent = '—';
                 document.getElementById('summaryVerifiedAt').textContent = completedAtText || 'Chưa hoàn thành';
 
                 const tag = document.getElementById('summaryStatusTag');
@@ -491,6 +533,37 @@
                 detailCard.style.display = 'block';
                 statusLine.textContent = 'Đã tải xong dữ liệu cho mã vận đơn ' + (first.maVanDon || maVanDon) + '.';
                 statusLine.classList.add('status-ok');
+
+                // Truy xuất link playback theo mốc cập nhật đơn gần nhất
+                try {
+                    const playbackRes = await fetch('/api/order-videos/playback/by-van-don/' + encodeURIComponent(maVanDon) + '?beforeSec=15&afterSec=30', {
+                        headers
+                    });
+                    const playbackJson = await playbackRes.json();
+                    if (playbackJson.success) {
+                        const p = playbackJson.data;
+                        const playbackTz = p.playbackTimeZone || 'Asia/Ho_Chi_Minh';
+                        const viTime = (iso) => new Date(iso).toLocaleString('vi-VN', { timeZone: playbackTz });
+                        const viTimeOnly = (iso) => new Date(iso).toLocaleTimeString('vi-VN', { timeZone: playbackTz });
+                        document.getElementById('videoEventTime').textContent = viTime(p.eventTime);
+                        document.getElementById('videoWindow').textContent =
+                            `${viTimeOnly(p.window.startTime)} - ${viTimeOnly(p.window.endTime)}`;
+                        if (p.checkerChannel) {
+                            document.getElementById('summaryCheckerCam').textContent = `Cam ${p.checkerChannel}`;
+                        }
+                        const linksHtml = (p.playbackUrls || []).map(item => (
+                            `<div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <a href="${item.url}" target="_blank" rel="noopener noreferrer">Mở playback RTSP Cam ${item.channel}</a>
+                                <button class="btn" style="padding:6px 12px; font-size:0.85rem;" data-channel="${item.channel}" data-mavandon="${maVanDon}" onclick="createAndPlayClip(this)">Xem clip Cam ${item.channel}</button>
+                                <a id="dl-${item.channel}" class="small" style="display:none;" target="_blank" rel="noopener noreferrer">Tải clip Cam ${item.channel}</a>
+                            </div>`
+                        )).join('');
+                        videoLinks.innerHTML = linksHtml || '<div class="small">Chưa cấu hình CAM_PLAYBACK_URL_TEMPLATE_CH1/CH2 trên server.</div>';
+                        videoCard.style.display = 'block';
+                    }
+                } catch (e) {
+                    // bỏ qua lỗi playback để không ảnh hưởng tra cứu đơn
+                }
             } catch (e) {
                 console.error(e);
                 statusLine.textContent = 'Lỗi hệ thống khi tra cứu. Vui lòng thử lại.';
@@ -520,6 +593,53 @@
                 window.location.href = '/login';
             });
         });
+
+        async function createAndPlayClip(btn) {
+            const token = getToken();
+            if (!token) return;
+            const maVanDon = btn.getAttribute('data-mavandon');
+            const channel = Number(btn.getAttribute('data-channel'));
+            if (!maVanDon || !channel) return;
+
+            const videoPlayerWrap = document.getElementById('videoPlayerWrap');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const dl = document.getElementById(`dl-${channel}`);
+            const oldText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Đang tạo clip...';
+            try {
+                const res = await fetch('/api/order-videos/playback/by-van-don/' + encodeURIComponent(maVanDon) + '/clip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ channel, beforeSec: 15, afterSec: 30 })
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.message || 'Không tạo được clip');
+                    return;
+                }
+                const streamUrl = json.data.streamUrl;
+                const downloadUrl = json.data.downloadUrl;
+                const streamWithToken = streamUrl + (streamUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                const downloadWithToken = downloadUrl + (downloadUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                videoPlayer.src = streamWithToken;
+                videoPlayerWrap.style.display = 'block';
+                videoPlayer.load();
+                videoPlayer.play().catch(() => {});
+                if (dl) {
+                    dl.href = downloadWithToken;
+                    dl.style.display = 'inline-flex';
+                }
+            } catch (e) {
+                alert('Lỗi tạo clip: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = oldText;
+            }
+        }
     </script>
 </body>
 </html>

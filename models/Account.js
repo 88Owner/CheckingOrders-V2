@@ -50,6 +50,10 @@ const accountSchema = new mongoose.Schema({
             type: String, // Cổng USB/COM được phân quyền
             default: null
         },
+        videoChannel: {
+            type: Number, // Camera channel được user chọn cho phiên quét
+            default: null
+        },
         allowedPorts: [{
             type: String // Danh sách cổng port được phép sử dụng
         }]

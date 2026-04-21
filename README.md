@@ -90,6 +90,12 @@ PORT=3000
 
 # Environment
 NODE_ENV=development
+
+# (Tuỳ chọn) Ghi hình đóng đơn bằng FFmpeg
+# Map COM port -> camera channel (mặc định nếu không set: {"COM14":1,"COM8":2})
+VIDEO_COM_CHANNEL_MAP={"COM14":1,"COM8":2}
+CAM_RTSP_CHANNEL_1=rtsp://user:pass@192.168.1.200:554/cam/realmonitor?channel=1&subtype=0
+CAM_RTSP_CHANNEL_2=rtsp://user:pass@192.168.1.200:554/cam/realmonitor?channel=2&subtype=0
 ```
 
 #### 6. Khởi tạo dữ liệu mẫu

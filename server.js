@@ -13,9 +13,18 @@ const cors = require('cors');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
+const crypto = require('crypto');
+const { spawn } = require('child_process');
 const { URL } = require('url');
 const bwipjs = require('bwip-js');
 const config = require('./config');
+let ffmpegStaticPath = null;
+try {
+    ffmpegStaticPath = require('ffmpeg-static');
+} catch {
+    ffmpegStaticPath = null;
+}
+const orderVideoService = require('./utils/orderVideoService');
 
 // Import models
 const Order = require('./models/Order');
@@ -36,8 +45,21 @@ const Template = require('./models/Template');
 const QAOrder = require('./models/QAOrder');
 const QAOrderProgress = require('./models/QAOrderProgress');
 const Counter = require('./models/Counter');
+const OrderVideo = require('./models/OrderVideo');
 
 const QA_ORDER_CODE_COUNTER_ID = 'qa_order_code';
+const ENABLE_ORDER_RECORDING = String(process.env.ENABLE_ORDER_RECORDING || 'false').toLowerCase() === 'true';
+const RECONCILER_CLIP_DIR = path.join(__dirname, 'order-videos', 'reconciler-clips');
+/**
+ * Múi giờ dùng cho placeholder playback (compact / nhất quán với giờ kho VN).
+ * Không phụ thuộc TZ của máy chủ Node. Có thể đặt PLAYBACK_TIMEZONE=UTC nếu đầu ghi yêu cầu UTC.
+ */
+const PLAYBACK_TIMEZONE = String(process.env.PLAYBACK_TIMEZONE || 'Asia/Ho_Chi_Minh').trim() || 'Asia/Ho_Chi_Minh';
+// Bù lệch thời gian khi sinh URL playback (phút). Ví dụ 69 = cộng thêm 1h09 vào query.
+const PLAYBACK_QUERY_SHIFT_MINUTES = Number(process.env.PLAYBACK_QUERY_SHIFT_MINUTES || 0);
+/** Quanh verifiedAt: từ (hoàn thành − 15s) đến (hoàn thành + 30s). */
+const PLAYBACK_VERIFIED_BEFORE_SEC = Number(process.env.PLAYBACK_VERIFIED_BEFORE_SEC || 15);
+const PLAYBACK_VERIFIED_AFTER_SEC = Number(process.env.PLAYBACK_VERIFIED_AFTER_SEC || 30);
 
 let qaOrderCodeCounterSeeded = false;
 
@@ -61,6 +83,151 @@ async function getNextQaOrderCode() {
     ).lean();
     const n = Number(doc.seq) || 1;
     return `PO${String(n).padStart(5, '0')}`;
+}
+
+function formatPlaybackCompact(dt) {
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return '';
+    try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: PLAYBACK_TIMEZONE,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23'
+        }).formatToParts(d);
+        const g = (t) => parts.find(p => p.type === t)?.value ?? '00';
+        return `${g('year')}_${g('month')}_${g('day')}_${g('hour')}_${g('minute')}_${g('second')}`;
+    } catch {
+        const yyyy = d.getUTCFullYear();
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const hh = String(d.getUTCHours()).padStart(2, '0');
+        const mi = String(d.getUTCMinutes()).padStart(2, '0');
+        const ss = String(d.getUTCSeconds()).padStart(2, '0');
+        return `${yyyy}_${mm}_${dd}_${hh}_${mi}_${ss}`;
+    }
+}
+
+function applyPlaybackQueryShift(dt) {
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return d;
+    if (!Number.isFinite(PLAYBACK_QUERY_SHIFT_MINUTES) || PLAYBACK_QUERY_SHIFT_MINUTES === 0) return d;
+    return new Date(d.getTime() + PLAYBACK_QUERY_SHIFT_MINUTES * 60 * 1000);
+}
+
+function buildPlaybackUrl(channel, startTime, endTime) {
+    const key = `CAM_PLAYBACK_URL_TEMPLATE_CH${channel}`;
+    const template = process.env[key] || '';
+    if (!template) return null;
+    const s = applyPlaybackQueryShift(startTime);
+    const e = applyPlaybackQueryShift(endTime);
+    const startIso = Number.isNaN(s.getTime()) ? '' : s.toISOString();
+    const endIso = Number.isNaN(e.getTime()) ? '' : e.toISOString();
+    const startCompact = formatPlaybackCompact(s);
+    const endCompact = formatPlaybackCompact(e);
+    return template
+        .replace(/\{channel\}/g, String(channel))
+        .replace(/\{start_iso\}/g, startIso)
+        .replace(/\{end_iso\}/g, endIso)
+        .replace(/\{start_compact\}/g, startCompact)
+        .replace(/\{end_compact\}/g, endCompact);
+}
+
+function resolveAuthUserFromRequest(req) {
+    const auth = req.headers.authorization || '';
+    const bearer = auth.startsWith('Bearer ') ? auth.substring(7) : null;
+    const queryToken = req.query?.token ? String(req.query.token) : null;
+    const token = bearer || queryToken;
+    if (!token) return null;
+    try {
+        return jwt.verify(token, config.SESSION_SECRET);
+    } catch {
+        return null;
+    }
+}
+
+async function ensureReconcilerClipDir() {
+    await fs.promises.mkdir(RECONCILER_CLIP_DIR, { recursive: true });
+}
+
+async function resolvePlaybackContextByVanDon(maVanDon, beforeSec = 5, afterSec = 5, channel = null) {
+    const [liveOrders, archivedOrders] = await Promise.all([
+        Order.find({ maVanDon }).select('verifiedAt updatedAt createdAt checkingBy').lean(),
+        DataOrder.find({ maVanDon }).select('verifiedAt updatedAt createdAt checkingBy').lean()
+    ]);
+    const all = [...liveOrders, ...archivedOrders];
+    if (!all.length) {
+        return { error: 'not_found' };
+    }
+
+    // Ưu tiên mốc verifiedAt để bám sát thời điểm đóng đơn thực tế.
+    // updatedAt/createdAt chỉ dùng fallback khi đơn chưa có verifiedAt.
+    const verifiedTimeline = [];
+    const fallbackTimeline = [];
+    for (const o of all) {
+        if (o.verifiedAt) verifiedTimeline.push(new Date(o.verifiedAt));
+        if (o.updatedAt) fallbackTimeline.push(new Date(o.updatedAt));
+        if (o.createdAt) fallbackTimeline.push(new Date(o.createdAt));
+    }
+    const timeline = verifiedTimeline.length > 0 ? verifiedTimeline : fallbackTimeline;
+    const valid = timeline.filter(t => !Number.isNaN(t.getTime()));
+    if (!valid.length) {
+        return { error: 'no_time' };
+    }
+
+    const eventTime = new Date(Math.max(...valid.map(t => t.getTime())));
+
+    // Xác định user phụ trách đơn (checkingBy) gần eventTime nhất
+    let responsibleChecker = null;
+    let checkerChannel = null;
+    const sortedByTime = [...all]
+        .filter(o => !!o.checkingBy)
+        .sort((a, b) => {
+            const ta = new Date(a.verifiedAt || a.updatedAt || a.createdAt || 0).getTime();
+            const tb = new Date(b.verifiedAt || b.updatedAt || b.createdAt || 0).getTime();
+            return tb - ta;
+        });
+    if (sortedByTime.length > 0) {
+        responsibleChecker = sortedByTime[0].checkingBy || null;
+    }
+    if (responsibleChecker) {
+        const account = await Account.findOne({ username: responsibleChecker }).select('scannerPermissions.videoChannel').lean();
+        const channelNum = Number(account?.scannerPermissions?.videoChannel);
+        if (Number.isFinite(channelNum) && channelNum > 0) {
+            checkerChannel = channelNum;
+        }
+    }
+
+    // ===== RULE TIME WINDOW =====
+    // Có verifiedAt: [event - 15s, event + 30s]. Không có: [event - beforeSec, event + afterSec].
+    const hasVerifiedAnchor = verifiedTimeline.length > 0;
+    const beforeWindowSec = hasVerifiedAnchor ? PLAYBACK_VERIFIED_BEFORE_SEC : Math.max(0, beforeSec);
+    const afterWindowSec = hasVerifiedAnchor ? PLAYBACK_VERIFIED_AFTER_SEC : Math.max(0, afterSec);
+    const startTime = new Date(eventTime.getTime() - beforeWindowSec * 1000);
+    const endTime = new Date(eventTime.getTime() + afterWindowSec * 1000);
+    const maxClipSec = Math.max(1, Math.round((endTime.getTime() - startTime.getTime()) / 1000));
+
+    const channels = channel ? [channel] : (checkerChannel ? [checkerChannel] : [1, 2]);
+    const playbackUrls = channels
+        .map(ch => ({ channel: ch, url: buildPlaybackUrl(ch, startTime, endTime) }))
+        .filter(x => !!x.url);
+
+    return {
+        eventTime,
+        startTime,
+        endTime,
+        playbackUrls,
+        beforeSec: beforeWindowSec,
+        afterSec: afterWindowSec,
+        responsibleChecker,
+        checkerChannel,
+        nextEventTime: null,
+        maxClipSec
+    };
 }
 
 /** Hàng đợi theo khóa công đoạn (currentStage trên QAOrder) */
@@ -419,6 +586,7 @@ app.post('/api/login', async (req, res) => {
         const scannerAssignment = await ScannerAssignment.findOne({ userId: account.username });
         const assignedComPort = scannerAssignment?.comPort || null;
         const allowedPorts = assignedComPort ? [assignedComPort] : [];
+        const videoChannel = account.scannerPermissions?.videoChannel || null;
         
         res.json({
             success: true,
@@ -428,6 +596,7 @@ app.post('/api/login', async (req, res) => {
             token: token,
             assignedComPort: assignedComPort,
             allowedPorts: allowedPorts,
+            videoChannel: videoChannel,
             erpnextEmployee: erpnextEmployeeInfo,
             employeeName: erpnextEmployeeInfo?.name || account.erpnextEmployeeName || account.username,
             redirect: account.role === 'admin' ? '/admin' : 
@@ -1685,6 +1854,7 @@ app.get('/api/me', async (req, res) => {
                 username: account.username, 
                 role: account.role,
                 scannerPermissions: account.scannerPermissions,
+                videoChannel: account.scannerPermissions?.videoChannel || null,
                 scannerConflict: scannerConflict,
                 erpnextEmployee: erpnextEmployeeInfo,
                 employeeName: erpnextEmployeeInfo?.name || account.erpnextEmployeeName || account.username,
@@ -5562,6 +5732,32 @@ app.get('/api/orders/by-van-don/:maVanDon', authFromToken, async (req, res) => {
         
         console.log(`✅ Successfully blocked ${lockResult.blockedCount} orders for user ${userId}`);
 
+        // === Order video recording (start when load maVanDon) ===
+        // Best-effort: nếu thiếu cấu hình RTSP thì bỏ qua, không ảnh hưởng luồng đóng đơn
+        if (ENABLE_ORDER_RECORDING) {
+        try {
+            const scannerAssignment = await ScannerAssignment.findOne({ userId }).lean();
+            const comPort = scannerAssignment?.comPort || null;
+            const account = await Account.findOne({ username: userId }, { scannerPermissions: 1 }).lean();
+            const headerCh = req.headers['x-video-channel'];
+            const videoChannelFromHeader = headerCh ? Number(headerCh) : null;
+            const videoChannel = (Number.isFinite(videoChannelFromHeader) && videoChannelFromHeader > 0)
+                ? videoChannelFromHeader
+                : (account?.scannerPermissions?.videoChannel || null);
+            const rec = await orderVideoService.startRecordingForVanDon({ maVanDon, userId, comPort, videoChannel });
+            if (rec?.started) {
+                console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Started recording maVanDon=${maVanDon} channel=${rec.channel} comPort=${rec.comPort}`);
+            } else {
+                console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Skip recording maVanDon=${maVanDon} reason=${rec?.reason || 'unknown'} channel=${rec?.channel || 'null'} comPort=${rec?.comPort || comPort || 'null'} videoChannel=${videoChannel || 'null'}`);
+                if (rec?.reason === 'missing_rtsp' && rec?.debug) {
+                    console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] missing_rtsp details: ${JSON.stringify(rec.debug)}`);
+                }
+            }
+        } catch (videoErr) {
+            console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Start recording error:`, videoErr?.message || videoErr);
+        }
+        }
+
 
         // Lưu user behaviour cho việc load order
         try {
@@ -5924,6 +6120,16 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
             const allOrders = await Order.find({ maVanDon });
             const verifiedOrders = await Order.find({ maVanDon, verified: true });
             const isCompleted = allOrders.length === verifiedOrders.length;
+            if (isCompleted && ENABLE_ORDER_RECORDING) {
+                try {
+                    const stopRes = await orderVideoService.stopAndSaveRecording(maVanDon, { reason: 'scan-already-completed', userId });
+                    if (stopRes?.stopped && stopRes?.saved) {
+                        console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Saved recording for maVanDon=${maVanDon} via scan-already-completed`);
+                    }
+                } catch (videoErr) {
+                    console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Stop+save on scan-already-completed error:`, videoErr?.message || videoErr);
+                }
+            }
             
             return res.json({
                 success: true,
@@ -6124,6 +6330,18 @@ app.post('/api/orders/scan', authFromToken, async (req, res) => {
                 } else {
                     finalVerified = updatedMainOrder.verified && refreshedDirectOrder.verified;
                 }
+            }
+        }
+
+        // Đơn đã quét đủ toàn bộ: tự động lưu video ngay trong luồng scan
+        if (isCompleted && ENABLE_ORDER_RECORDING) {
+            try {
+                const stopRes = await orderVideoService.stopAndSaveRecording(maVanDon, { reason: 'scan-completed', userId });
+                if (stopRes?.stopped && stopRes?.saved) {
+                    console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Saved recording for maVanDon=${maVanDon} via scan-completed`);
+                }
+            } catch (videoErr) {
+                console.log(`🎥 [VIDEO][${orderVideoService.VERSION}] Stop+save on scan-completed error:`, videoErr?.message || videoErr);
             }
         }
 
@@ -6351,6 +6569,18 @@ app.post('/api/orders/complete-van-don', authFromToken, async (req, res) => {
             console.log('Lỗi lưu user behaviour:', behaviourError.message);
         }
 
+        // === Order video recording (save only on success) ===
+        if (ENABLE_ORDER_RECORDING) {
+        try {
+            const stopRes = await orderVideoService.stopAndSaveRecording(maVanDon, { reason: 'complete-van-don', userId });
+            if (stopRes?.stopped && stopRes?.saved) {
+                console.log(`🎥 [VIDEO] Saved recording for maVanDon=${maVanDon}`);
+            }
+        } catch (videoErr) {
+            console.log('🎥 [VIDEO] Stop+save recording error:', videoErr?.message || videoErr);
+        }
+        }
+
         res.json({
             success: true,
             message: `Đã đánh dấu đơn vận đơn ${maVanDon} hoàn thành`,
@@ -6483,6 +6713,15 @@ app.post('/api/orders/unblock', async (req, res) => {
             order.verified = false;
             order.verifiedAt = null;
             await order.save();
+
+            // === Order video recording (discard on cancel/unblock) ===
+            if (ENABLE_ORDER_RECORDING) {
+            try {
+                await orderVideoService.stopAndDiscardRecording(maVanDon, { reason: 'unblock_single_item' });
+            } catch (videoErr) {
+                console.log('🎥 [VIDEO] Discard recording error:', videoErr?.message || videoErr);
+            }
+            }
             
             return res.json({
                 success: true,
@@ -6542,6 +6781,15 @@ app.post('/api/orders/unblock-van-don', authFromToken, async (req, res) => {
         
         console.log(`✅ Successfully unblocked ${unlockResult.unblockedCount} orders for user ${userId}`);
 
+        // === Order video recording (discard on unblock) ===
+        if (ENABLE_ORDER_RECORDING) {
+        try {
+            await orderVideoService.stopAndDiscardRecording(maVanDon, { reason: 'unblock-van-don' });
+        } catch (videoErr) {
+            console.log('🎥 [VIDEO] Discard recording error:', videoErr?.message || videoErr);
+        }
+        }
+
         
         return res.json({
             success: true,
@@ -6584,6 +6832,15 @@ app.post('/api/orders/reset-scan/:maVanDon', async (req, res) => {
 
         console.log(`Đã reset trạng thái quét cho đơn vận đơn ${maVanDon}: ${result.modifiedCount} đơn hàng`);
 
+        // === Order video recording (discard on reset) ===
+        if (ENABLE_ORDER_RECORDING) {
+        try {
+            await orderVideoService.stopAndDiscardRecording(maVanDon, { reason: 'reset-scan' });
+        } catch (videoErr) {
+            console.log('🎥 [VIDEO] Discard recording error:', videoErr?.message || videoErr);
+        }
+        }
+
         res.json({
             success: true,
             message: `Đã reset trạng thái quét cho ${result.modifiedCount} đơn hàng trong đơn vận đơn ${maVanDon}`,
@@ -6599,6 +6856,369 @@ app.post('/api/orders/reset-scan/:maVanDon', async (req, res) => {
             success: false,
             message: 'Lỗi reset trạng thái quét: ' + error.message
         });
+    }
+});
+
+// === Order video APIs (truy xuất theo maVanDon) ===
+app.get('/api/order-videos/by-van-don/:maVanDon', authFromToken, async (req, res) => {
+    try {
+        const maVanDon = String(req.params.maVanDon || '').trim();
+        if (!maVanDon) {
+            return res.status(400).json({ success: false, message: 'Thiếu mã vận đơn' });
+        }
+
+        const rows = await OrderVideo.find({ maVanDon })
+            .sort({ startedAt: -1 })
+            .limit(20)
+            .lean();
+
+        return res.json({
+            success: true,
+            data: {
+                maVanDon,
+                videos: rows.map(r => ({
+                    _id: r._id,
+                    status: r.status,
+                    channel: r.channel,
+                    comPort: r.comPort,
+                    startedAt: r.startedAt,
+                    endedAt: r.endedAt,
+                    durationMs: r.durationMs,
+                    fileSizeBytes: r.fileSizeBytes,
+                    relativePath: r.relativePath,
+                    stopReason: r.stopReason || null,
+                    error: r.error || null
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi lấy order videos:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi lấy video: ' + error.message });
+    }
+});
+
+app.get('/api/order-videos/by-van-don/:maVanDon/download', authFromToken, async (req, res) => {
+    try {
+        const maVanDon = String(req.params.maVanDon || '').trim();
+        if (!maVanDon) {
+            return res.status(400).json({ success: false, message: 'Thiếu mã vận đơn' });
+        }
+
+        const doc = await orderVideoService.findLatestSavedVideo(maVanDon);
+        if (!doc) {
+            return res.status(404).json({ success: false, message: 'Không có video đã lưu cho mã vận đơn này' });
+        }
+
+        const absPath = orderVideoService.resolveVideoAbsPathFromDoc(doc);
+        if (!absPath) {
+            return res.status(404).json({ success: false, message: 'File video không hợp lệ hoặc không tồn tại' });
+        }
+
+        try {
+            await fs.promises.access(absPath, fs.constants.R_OK);
+        } catch {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy file video trên server' });
+        }
+
+        const downloadName = `${maVanDon}.mp4`;
+        return res.download(absPath, downloadName);
+    } catch (error) {
+        console.error('❌ Lỗi download order video:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi tải video: ' + error.message });
+    }
+});
+
+// Truy xuất link playback camera theo mốc cập nhật gần nhất của đơn vận đơn
+app.get('/api/order-videos/playback/by-van-don/:maVanDon', authFromToken, async (req, res) => {
+    try {
+        if (!['reconciler', 'checker', 'admin'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        const maVanDon = String(req.params.maVanDon || '').trim();
+        if (!maVanDon) {
+            return res.status(400).json({ success: false, message: 'Thiếu mã vận đơn' });
+        }
+
+        const beforeSec = Math.max(0, Number(req.query.beforeSec) || 5);
+        const afterSec = Math.max(0, Number(req.query.afterSec) || 5);
+        const channel = Number(req.query.channel) || null;
+
+        const ctx = await resolvePlaybackContextByVanDon(maVanDon, beforeSec, afterSec, channel);
+        if (ctx.error === 'not_found') {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn vận đơn' });
+        }
+        if (ctx.error === 'no_time') {
+            return res.status(404).json({ success: false, message: 'Không có mốc thời gian hợp lệ để truy xuất video' });
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                maVanDon,
+                eventTime: ctx.eventTime.toISOString(),
+                playbackTimeZone: PLAYBACK_TIMEZONE,
+                window: {
+                    beforeSec: ctx.beforeSec,
+                    afterSec: ctx.afterSec,
+                    startTime: ctx.startTime.toISOString(),
+                    endTime: ctx.endTime.toISOString()
+                },
+                responsibleChecker: ctx.responsibleChecker || null,
+                checkerChannel: ctx.checkerChannel || null,
+                playbackUrls: ctx.playbackUrls
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi truy xuất playback: ' + error.message });
+    }
+});
+
+app.post('/api/order-videos/playback/by-van-don/:maVanDon/clip', authFromToken, async (req, res) => {
+    try {
+        if (!['reconciler', 'checker', 'admin'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        const maVanDon = String(req.params.maVanDon || '').trim();
+        if (!maVanDon) {
+            return res.status(400).json({ success: false, message: 'Thiếu mã vận đơn' });
+        }
+
+        const beforeSec = Math.max(0, Number(req.body?.beforeSec) || 5);
+        const afterSec = Math.max(0, Number(req.body?.afterSec) || 5);
+        const channel = Number(req.body?.channel) || 1;
+
+        const ctx = await resolvePlaybackContextByVanDon(maVanDon, beforeSec, afterSec, channel);
+        if (ctx.error === 'not_found') {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn vận đơn' });
+        }
+        if (ctx.error === 'no_time') {
+            return res.status(404).json({ success: false, message: 'Không có mốc thời gian hợp lệ để truy xuất video' });
+        }
+        const playback = (ctx.playbackUrls || []).find(x => x.channel === channel);
+        if (!playback || !playback.url) {
+            return res.status(400).json({ success: false, message: `Chưa cấu hình playback cho Cam ${channel}` });
+        }
+
+        await ensureReconcilerClipDir();
+        const clipKeyRaw = `${maVanDon}|${channel}|${ctx.startTime.toISOString()}|${ctx.endTime.toISOString()}`;
+        const clipId = crypto.createHash('sha1').update(clipKeyRaw).digest('hex').slice(0, 20);
+        const outName = `${maVanDon}__ch${channel}__${clipId}.mp4`;
+        const outPath = path.join(RECONCILER_CLIP_DIR, outName);
+
+        try {
+            await fs.promises.access(outPath, fs.constants.R_OK);
+        } catch {
+            const durationSec = Math.max(1, Math.round((ctx.endTime.getTime() - ctx.startTime.getTime()) / 1000));
+            const ffmpegBin = ffmpegStaticPath || 'ffmpeg';
+            await new Promise((resolve, reject) => {
+                const args = [
+                    '-hide_banner',
+                    '-loglevel',
+                    'error',
+                    '-rtsp_transport',
+                    'tcp',
+                    '-i',
+                    playback.url,
+                    '-t',
+                    String(durationSec),
+                    '-an',
+                    '-c:v',
+                    'copy',
+                    '-movflags',
+                    '+faststart',
+                    '-y',
+                    outPath
+                ];
+                const p = spawn(ffmpegBin, args, { windowsHide: true });
+                let stderr = '';
+                if (p.stderr) {
+                    p.stderr.on('data', (chunk) => { stderr += String(chunk || ''); });
+                }
+                p.on('error', reject);
+                p.on('close', (code) => {
+                    if (code === 0) return resolve();
+                    reject(new Error(`ffmpeg_exit_${code}: ${stderr.slice(0, 1200)}`));
+                });
+            });
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                clipId,
+                maVanDon,
+                channel,
+                eventTime: ctx.eventTime.toISOString(),
+                responsibleChecker: ctx.responsibleChecker || null,
+                checkerChannel: ctx.checkerChannel || null,
+                streamUrl: `/api/order-videos/playback/clip/${clipId}/stream`,
+                downloadUrl: `/api/order-videos/playback/clip/${clipId}/download`
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi tạo clip playback: ' + error.message });
+    }
+});
+
+app.get('/api/order-videos/playback/clip/:clipId/stream', async (req, res) => {
+    try {
+        const authUser = resolveAuthUserFromRequest(req);
+        if (!authUser || !['reconciler', 'checker', 'admin'].includes(authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        const clipId = String(req.params.clipId || '').trim();
+        if (!/^[a-f0-9]{20}$/i.test(clipId)) {
+            return res.status(400).json({ success: false, message: 'clipId không hợp lệ' });
+        }
+        const files = await fs.promises.readdir(RECONCILER_CLIP_DIR);
+        const fileName = files.find(f => f.includes(`__${clipId}.mp4`));
+        if (!fileName) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy clip' });
+        }
+        const abs = path.join(RECONCILER_CLIP_DIR, fileName);
+        return res.sendFile(abs);
+    } catch (error) {
+        console.error('❌ Lỗi stream clip:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi stream clip: ' + error.message });
+    }
+});
+
+app.get('/api/order-videos/playback/clip/:clipId/download', async (req, res) => {
+    try {
+        const authUser = resolveAuthUserFromRequest(req);
+        if (!authUser || !['reconciler', 'checker', 'admin'].includes(authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        const clipId = String(req.params.clipId || '').trim();
+        if (!/^[a-f0-9]{20}$/i.test(clipId)) {
+            return res.status(400).json({ success: false, message: 'clipId không hợp lệ' });
+        }
+        const files = await fs.promises.readdir(RECONCILER_CLIP_DIR);
+        const fileName = files.find(f => f.includes(`__${clipId}.mp4`));
+        if (!fileName) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy clip' });
+        }
+        const abs = path.join(RECONCILER_CLIP_DIR, fileName);
+        return res.download(abs, fileName);
+    } catch (error) {
+        console.error('❌ Lỗi tải clip:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi tải clip: ' + error.message });
+    }
+});
+
+// Debug nhanh cấu hình FFmpeg/RTSP (admin/checker)
+app.get('/api/order-videos/diag', authFromToken, async (req, res) => {
+    try {
+        if (!['admin', 'checker'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        return res.json({
+            success: true,
+            data: orderVideoService.getDebugInfo()
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi diag: ' + error.message });
+    }
+});
+
+app.get('/api/order-videos/diag/channel/:channel', authFromToken, async (req, res) => {
+    try {
+        if (!['admin', 'checker'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        const channel = Number(req.params.channel);
+        if (!Number.isFinite(channel) || channel <= 0) {
+            return res.status(400).json({ success: false, message: 'channel không hợp lệ' });
+        }
+        const rtsp = orderVideoService.getRtspUrlForChannel(channel);
+        const rtspDebug = orderVideoService.getRtspDebugForChannel(channel);
+        return res.json({
+            success: true,
+            data: {
+                version: orderVideoService.VERSION,
+                channel,
+                hasRtsp: !!rtsp,
+                preview: rtsp ? String(rtsp).slice(0, 35) + '...' : null,
+                debug: rtspDebug
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi diag channel: ' + error.message });
+    }
+});
+
+// Compatibility alias khi gọi tương đối từ /checker-home
+app.get('/checker-home/api/order-videos/diag', authFromToken, async (req, res) => {
+    try {
+        if (!['admin', 'checker'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        return res.json({
+            success: true,
+            data: orderVideoService.getDebugInfo()
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi diag: ' + error.message });
+    }
+});
+
+app.get('/checker-home/api/order-videos/diag/channel/:channel', authFromToken, async (req, res) => {
+    try {
+        if (!['admin', 'checker'].includes(req.authUser.role)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập' });
+        }
+        const channel = Number(req.params.channel);
+        if (!Number.isFinite(channel) || channel <= 0) {
+            return res.status(400).json({ success: false, message: 'channel không hợp lệ' });
+        }
+        const rtsp = orderVideoService.getRtspUrlForChannel(channel);
+        const rtspDebug = orderVideoService.getRtspDebugForChannel(channel);
+        return res.json({
+            success: true,
+            data: {
+                version: orderVideoService.VERSION,
+                channel,
+                hasRtsp: !!rtsp,
+                preview: rtsp ? String(rtsp).slice(0, 35) + '...' : null,
+                debug: rtspDebug
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi diag channel: ' + error.message });
+    }
+});
+
+app.post('/api/order-videos/channel', authFromToken, async (req, res) => {
+    try {
+        const userId = req.authUser.username;
+        const rawChannel = req.body?.videoChannel;
+        const videoChannel = rawChannel === null || rawChannel === '' ? null : Number(rawChannel);
+
+        if (videoChannel !== null && (!Number.isInteger(videoChannel) || videoChannel < 1 || videoChannel > 16)) {
+            return res.status(400).json({ success: false, message: 'videoChannel không hợp lệ' });
+        }
+
+        const account = await Account.findOne({ username: userId });
+        if (!account) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' });
+        }
+
+        if (!account.scannerPermissions) {
+            account.scannerPermissions = {};
+        }
+
+        account.scannerPermissions.videoChannel = videoChannel;
+        account.markModified('scannerPermissions');
+        await account.save();
+
+        return res.json({
+            success: true,
+            message: videoChannel ? `Đã gán Cam ${videoChannel} cho user ${userId}` : 'Đã xóa gán camera',
+            data: { videoChannel }
+        });
+    } catch (error) {
+        console.error('❌ Lỗi cập nhật video channel:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi cập nhật camera: ' + error.message });
     }
 });
 

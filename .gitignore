@@ -96,6 +96,10 @@ pids
 uploads/*
 !uploads/.gitkeep
 
+# Order packing videos (FFmpeg output)
+order-videos/*
+!order-videos/.gitkeep
+
 # SSL certificates
 ssl/*.pem
 ssl/*.key
