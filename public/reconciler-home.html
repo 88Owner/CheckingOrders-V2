@@ -536,7 +536,7 @@
 
                 // Truy xuất link playback theo mốc cập nhật đơn gần nhất
                 try {
-                    const playbackRes = await fetch('/api/order-videos/playback/by-van-don/' + encodeURIComponent(maVanDon) + '?beforeSec=15&afterSec=30', {
+                    const playbackRes = await fetch('/api/order-videos/playback/by-van-don/' + encodeURIComponent(maVanDon) + '?beforeSec=60&afterSec=60', {
                         headers
                     });
                     const playbackJson = await playbackRes.json();
@@ -614,7 +614,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + token
                     },
-                    body: JSON.stringify({ channel, beforeSec: 15, afterSec: 30 })
+                    body: JSON.stringify({ channel, beforeSec: 60, afterSec: 60 })
                 });
                 const json = await res.json();
                 if (!json.success) {
