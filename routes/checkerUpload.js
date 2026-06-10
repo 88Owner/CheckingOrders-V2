@@ -513,13 +513,21 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
         const ops = [];
         let lastMaDongGoi = '';
         let lastMaVanDon = '';
-        for (let i = 5; i < data.length; i++) {
+        // File nghiệp vụ: dữ liệu bắt đầu từ dòng 7, cột dùng từ B trở đi.
+        const DATA_START_ROW_INDEX = 6; // Excel row 7 (0-based index)
+        const COL_MA_VAN_DON = 1; // Cột B
+        const COL_MA_DONG_GOI = 2; // Cột C
+        const COL_MA_HANG = 3; // Cột D
+        const COL_SO_LUONG = 4; // Cột E
+        const MIN_REQUIRED_COLS = COL_SO_LUONG + 1;
+
+        for (let i = DATA_START_ROW_INDEX; i < data.length; i++) {
             const row = data[i];
-            if (!row || row.length < 38) continue;
-            const maVanDon = row[1]; // Cột B
-            const maDongGoi = row[2]; // Cột C
-            const maHang = row[34]; // Cột AI
-            const soLuong = row[37]; // Cột AL
+            if (!row || row.length < MIN_REQUIRED_COLS) continue;
+            const maVanDon = row[COL_MA_VAN_DON];
+            const maDongGoi = row[COL_MA_DONG_GOI];
+            const maHang = row[COL_MA_HANG];
+            const soLuong = row[COL_SO_LUONG];
 
             // Fill down: nếu trống thì dùng giá trị dòng trước
             const currentMaDongGoi = maDongGoi || lastMaDongGoi;
@@ -530,7 +538,7 @@ router.post('/api/checker/upload', requireChecker, upload.single('file'), async 
             if (!currentMaDongGoi || !currentMaVanDon || !maHang || !soLuong) continue;
 
             // Set các trường khác mặc định
-            const stt = i - 4; // Số thứ tự từ 1
+            const stt = i - DATA_START_ROW_INDEX + 1; // Số thứ tự từ 1
             const maDonHang = String(currentMaVanDon); // Giả sử mã đơn hàng là mã vận đơn
 
             // Giữ nguyên mã combo và số lượng từ file Excel
@@ -654,35 +662,48 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
             await Order.deleteMany({});
         }
 
-        // Gọi endpoint danh sách đơn hàng trên Sapo với phân trang
+        // Gọi endpoint danh sách đơn hàng trên Sapo bằng page ổn định + status=any.
+        // Không dùng "fields" để tránh trường hợp API cắt bớt fulfillments gây lọc sai.
         const ORDERS_LIMIT_PER_PAGE = 250;
+        const maxSafePage = Math.floor(30000 / ORDERS_LIMIT_PER_PAGE); // Tránh 422 của Sapo
         let sapoOrders = [];
-        let ordersPage = 1;
-        let ordersHasMore = true;
-        let endpoint = `/admin/orders.json?limit=${ORDERS_LIMIT_PER_PAGE}&page=1`; // Giữ giá trị cuối cùng cho debug
+        let endpoint = `/admin/orders.json?page=1&limit=${ORDERS_LIMIT_PER_PAGE}&status=any`;
+        let lastPayload = null;
+        const seenOrderIds = new Set();
 
-        while (ordersHasMore) {
-            endpoint = `/admin/orders.json?limit=${ORDERS_LIMIT_PER_PAGE}&page=${ordersPage}`;
+        const extractOrdersChunk = (payload) => {
+            if (payload && Array.isArray(payload.orders)) return payload.orders;
+            if (payload && payload.data && Array.isArray(payload.data.orders)) return payload.data.orders;
+            if (payload && Array.isArray(payload.data)) return payload.data;
+            if (Array.isArray(payload)) return payload;
+            return [];
+        };
+
+        for (let page = 1; page <= maxSafePage; page++) {
+            endpoint = `/admin/orders.json?page=${page}&limit=${ORDERS_LIMIT_PER_PAGE}&status=any`;
             const sapoRes = await sapoAPI('GET', endpoint);
             const payload = sapoRes ? sapoRes.data : null;
+            lastPayload = payload;
 
-            let ordersChunk = [];
-            if (payload && Array.isArray(payload.orders)) {
-                ordersChunk = payload.orders;
-            } else if (payload && payload.data && Array.isArray(payload.data.orders)) {
-                ordersChunk = payload.data.orders;
-            } else if (payload && Array.isArray(payload.data)) {
-                ordersChunk = payload.data;
-            } else if (Array.isArray(payload)) {
-                ordersChunk = payload;
+            const ordersChunk = extractOrdersChunk(payload);
+            if (!ordersChunk.length) {
+                break;
             }
 
-            if (!ordersChunk.length) {
-                ordersHasMore = false;
-            } else {
-                sapoOrders = sapoOrders.concat(ordersChunk);
-                ordersHasMore = ordersChunk.length >= ORDERS_LIMIT_PER_PAGE;
-                ordersPage += 1;
+            for (const order of ordersChunk) {
+                const oid = Number(order && order.id);
+                if (Number.isFinite(oid) && oid > 0) {
+                    if (!seenOrderIds.has(oid)) {
+                        seenOrderIds.add(oid);
+                        sapoOrders.push(order);
+                    }
+                } else {
+                    sapoOrders.push(order);
+                }
+            }
+
+            if (ordersChunk.length < ORDERS_LIMIT_PER_PAGE) {
+                break;
             }
         }
 
@@ -695,7 +716,7 @@ router.post('/api/checker/upload-from-sapo', requireChecker, async (req, res) =>
                     updated: 0,
                     unchanged: 0,
                     totalFromSapo: 0,
-                    debug: payload && typeof payload === 'object' ? { keys: Object.keys(payload).slice(0, 30) } : null
+                    debug: lastPayload && typeof lastPayload === 'object' ? { keys: Object.keys(lastPayload).slice(0, 30) } : null
                 }
             });
         }
@@ -1033,97 +1054,68 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
         const sheet = workbook.Sheets[sheetName];
         const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        // 1. Load ComboData cũ để so sánh
         const comboCache = require('../utils/comboCache');
-        const oldComboDataMap = await comboCache.getAllCombos();
-        // Flatten Map thành array
-        const oldComboData = [];
-        for (const combos of oldComboDataMap.values()) {
-            oldComboData.push(...combos);
-        }
-        const oldComboMap = new Map();
-        for (const c of oldComboData) {
-            if (c && c.comboCode && c.maHang) {
-                // Tạo key composite: comboCode + maHang
-                const key = `${c.comboCode}|${c.maHang}`;
-                oldComboMap.set(key, c);
-            }
-        }
 
-        let imported = 0, updated = 0, unchanged = 0;
+        // Thay thế toàn bộ ComboData: xóa cũ, import đúng theo file mới
+        const deleted = await ComboData.deleteMany({});
+        console.log(`🗑️ [upload-combodata] Đã xóa ${deleted.deletedCount} bản ghi ComboData cũ`);
+
+        let imported = 0;
+        let skipped = 0;
         const ops = [];
-        
-        // 2. Xử lý dữ liệu từ dòng 1 (có thể có header ở dòng 0)
+        const seenKeys = new Set();
+
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
             if (!row || row.length < 3) continue;
 
-            // Cấu trúc file: [Mã SKU Combo, SKU, Số lượng]
-            const comboCodeRaw = row[0]; // Mã SKU Combo (ví dụ: 24-6-200-110-RG3)
-            const maHangRaw = row[1];    // SKU base (ví dụ: 24-6-200-110)
-            const soLuongRaw = row[2];   // Số lượng (ví dụ: 3)
+            const comboCodeRaw = row[0];
+            const maHangRaw = row[1];
+            const soLuongRaw = row[2];
 
-            // Skip nếu là header (chứa text như "Mã SKU Combo", "SKU", "Số lượng")
-            if (typeof comboCodeRaw === 'string' && 
+            if (typeof comboCodeRaw === 'string' &&
                 (comboCodeRaw.includes('Mã') || comboCodeRaw.includes('SKU') || comboCodeRaw.includes('Combo'))) {
                 continue;
             }
 
-            if (!comboCodeRaw || !maHangRaw || !soLuongRaw) continue;
+            if (!comboCodeRaw || !maHangRaw || soLuongRaw === undefined || soLuongRaw === null || soLuongRaw === '') {
+                skipped++;
+                continue;
+            }
 
             const comboCode = String(comboCodeRaw).trim();
             const maHang = String(maHangRaw).trim();
-            const soLuong = Number(soLuongRaw) || 1;
-
-            // Tạo key composite để kiểm tra tồn tại
-            const key = `${comboCode}|${maHang}`;
-            const exist = oldComboMap.get(key);
-            
-            if (!exist) {
-                // Combo + SKU mới - insert
-                ops.push({
-                    insertOne: {
-                        document: {
-                            comboCode,
-                            maHang,
-                            soLuong,
-                            importDate: new Date(),
-                            createdBy: req.authUser.username
-                        }
-                    }
-                });
-                imported++;
-            } else {
-                // Combo + SKU đã tồn tại - kiểm tra có thay đổi không
-                let changed = false;
-                if (exist.soLuong !== soLuong) changed = true;
-                
-                if (changed) {
-                    ops.push({
-                        updateOne: {
-                            filter: { _id: exist._id },
-                            update: {
-                                $set: {
-                                    soLuong,
-                                    importDate: new Date(),
-                                    createdBy: req.authUser.username
-                                }
-                            }
-                        }
-                    });
-                    updated++;
-                } else {
-                    unchanged++;
-                }
+            const soLuong = Number(soLuongRaw);
+            if (!comboCode || !maHang || !Number.isFinite(soLuong) || soLuong <= 0) {
+                skipped++;
+                continue;
             }
+
+            const key = `${comboCode}|${maHang}`;
+            if (seenKeys.has(key)) {
+                skipped++;
+                continue;
+            }
+            seenKeys.add(key);
+
+            ops.push({
+                insertOne: {
+                    document: {
+                        comboCode,
+                        maHang,
+                        soLuong,
+                        importDate: new Date(),
+                        createdBy: req.authUser.username
+                    }
+                }
+            });
+            imported++;
         }
 
         if (ops.length > 0) {
             await ComboData.bulkWrite(ops);
-            // Invalidate cache sau khi có thay đổi dữ liệu
-            const comboCache = require('../utils/comboCache');
-            comboCache.invalidateCache();
         }
+        comboCache.invalidateCache();
         
         // Xóa file tạm
         if (req.file) {
@@ -1136,9 +1128,16 @@ router.post('/api/checker/upload-combodata', requireChecker, upload.single('file
             }
         }
 
-        res.json({ 
-            success: true, 
-            message: `Đã import ${imported} combo mới, cập nhật ${updated}, giữ nguyên ${unchanged}.` 
+        if (imported === 0) {
+            return res.json({
+                success: false,
+                message: `Đã xóa ${deleted.deletedCount} combo cũ nhưng file không có dòng hợp lệ để import. ComboData hiện trống.`
+            });
+        }
+
+        res.json({
+            success: true,
+            message: `Đã thay thế ComboData: xóa ${deleted.deletedCount} bản ghi cũ, import ${imported} dòng từ file mới${skipped ? ` (bỏ qua ${skipped} dòng)` : ''}.`
         });
         
     } catch (error) {
